@@ -1,0 +1,10 @@
+Motty
+Copyright 2026 Motty contributors
+
+This product includes software developed by the gopher-rdp contributors
+(internal/rdpcore), used under the MIT License. Its license and a list of
+changes are in internal/rdpcore/LICENSE and internal/rdpcore/NOTICE.md.
+
+Interface icons include works from Lucide, Simple Icons, SVG Logos, Skill Icons,
+Devicon, selfh.st/icons, Material Icon Theme and LobeHub Icons. Their licenses
+and trademark notes are in internal/workbench/icons/NOTICE.

@@ -1,0 +1,90 @@
+package term
+
+import (
+	"strings"
+	"testing"
+	"unicode/utf8"
+)
+
+func TestSelectedTextUsesCellsAndPreservesHardLineEndings(t *testing.T) {
+	tests := []struct {
+		name       string
+		cols, rows int
+		input      string
+		anchor     Position
+		focus      Position
+		want       string
+	}{
+		{"forward", 12, 3, "alpha beta\r\ngamma\r\n", Position{0, 2}, Position{1, 2}, "pha beta\ngam"},
+		{"backward", 12, 3, "alpha beta\r\ngamma\r\n", Position{1, 2}, Position{0, 2}, "pha beta\ngam"},
+		{"wide and combining", 12, 2, "A世éZ", Position{0, 1}, Position{0, 4}, "世éZ"},
+		{"soft wrap", 4, 3, "abcdefgh", Position{0, 1}, Position{1, 2}, "bcdefg"},
+		{"trailing blanks", 8, 2, "ab", Position{0, 0}, Position{0, 7}, "ab"},
+		{"clamped", 8, 2, "top\r\nbottom", Position{-9, -4}, Position{20, 20}, "top\nbottom"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			for _, chunk := range []int{len(test.input), 1} {
+				screen := New(test.cols, test.rows, 10)
+				for input := []byte(test.input); len(input) > 0; {
+					n := min(chunk, len(input))
+					screen.Write(input[:n])
+					input = input[n:]
+				}
+				if got := screen.SelectedText(test.anchor, test.focus); got != test.want {
+					t.Fatalf("chunk %d selected %q, want %q", chunk, got, test.want)
+				}
+			}
+		})
+	}
+}
+
+func TestWordBoundsRespectWideCharactersAndWordClasses(t *testing.T) {
+	screen := New(24, 2, 0)
+	screen.Write([]byte("go_name 世界 !!"))
+	for _, test := range []struct {
+		at         Position
+		start, end Position
+		want       string
+	}{
+		{Position{0, 2}, Position{0, 0}, Position{0, 6}, "go_name"},
+		{Position{0, 8}, Position{0, 8}, Position{0, 11}, "世界"},
+		{Position{0, 9}, Position{0, 8}, Position{0, 11}, "世界"},
+		{Position{0, 13}, Position{0, 13}, Position{0, 14}, "!!"},
+	} {
+		start, end := screen.WordBounds(test.at)
+		if start != test.start || end != test.end || screen.SelectedText(start, end) != test.want {
+			t.Errorf("at %+v bounds %+v..%+v text %q, want %+v..%+v %q", test.at, start, end, screen.SelectedText(start, end), test.start, test.end, test.want)
+		}
+	}
+}
+
+func FuzzSelectedText(f *testing.F) {
+	f.Add([]byte("plain\r\n世界 e\xcc\x81"), uint8(0), uint8(0), uint8(2), uint8(7))
+	f.Add([]byte("\x1b[31mred\x1b[0m\r\nnext"), uint8(3), uint8(12), uint8(1), uint8(0))
+	f.Fuzz(func(t *testing.T, input []byte, rowA, colA, rowB, colB uint8) {
+		screen := New(24, 6, 12)
+		for _, value := range input {
+			screen.Write([]byte{value})
+		}
+		selected := screen.SelectedText(
+			Position{Row: int(rowA), Column: int(colA)},
+			Position{Row: int(rowB), Column: int(colB)},
+		)
+		if !utf8.ValidString(selected) {
+			t.Fatalf("selection is not UTF-8: %q", selected)
+		}
+	})
+}
+
+func BenchmarkSelectedText(b *testing.B) {
+	screen := New(120, 40, DefaultScrollback)
+	line := strings.Repeat("The quick brown fox 你好 ", 6) + "\r\n"
+	screen.Write([]byte(strings.Repeat(line, 40)))
+	b.ReportAllocs()
+	var selected string
+	for b.Loop() {
+		selected = screen.SelectedText(Position{0, 0}, Position{39, 119})
+	}
+	_ = selected
+}

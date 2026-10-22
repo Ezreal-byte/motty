@@ -1,0 +1,31 @@
+---
+title: Install
+description: Packages for macOS, Windows and Linux.
+---
+Download the package for your platform from the
+[releases page](https://github.com/t8y2/motty/releases).
+
+| Platform | Packages |
+| --- | --- |
+| macOS (arm64, amd64) | `.dmg`, `.zip` |
+| Windows (amd64, arm64) | installer, `.zip` |
+| Linux (amd64, arm64) | `.deb`, `.tar.gz` |
+
+Each release also carries a `SHA256SUMS` file.
+
+## Signing
+
+- macOS builds are signed and notarized when the release has the credentials.
+- Windows builds are signed when a certificate is configured.
+- Linux packages are not signed.
+
+Homebrew, AUR and `.AppImage` are not available yet.
+
+## Updates
+
+Motty has no analytics. The optional update check contacts GitHub Releases and is
+off by default.
+
+## Build from source
+
+See [Build from source](/en/docs/development/build-from-source).

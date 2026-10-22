@@ -1,0 +1,49 @@
+---
+title: MCP server
+description: Let external agents use your sessions through a local, token-protected server.
+---
+An optional MCP server exposes the same session tools to external agents such as
+Claude Code.
+
+It is **off by default**, listens on loopback only, and requires a bearer token.
+
+## Enable it
+
+In **Settings > AI assistant**, turn on **Allow external agents (MCP)**. The page
+then shows the endpoint and the access token, with a button to copy the client
+configuration. Resetting the token disconnects every client.
+
+### Access level
+
+| Level | What a client can do |
+| --- | --- |
+| Observe | Read only. |
+| Ask | Also run commands, each one approved in Motty first. |
+
+## Tools
+
+| Tool | Does |
+| --- | --- |
+| `list_sessions` | List open sessions. |
+| `terminal_read` | Read a terminal's content. |
+| `terminal_exec`, `terminal_exec_many` | Run commands in a terminal. |
+| `sftp_list`, `sftp_read` | List and read remote files. |
+| `sftp_write`, `sftp_remove` | Change remote files. |
+
+In Observe mode only the read tools are available.
+
+## Clients that only speak stdio
+
+`motty mcp-bridge` relays MCP over stdio to the running application:
+
+```sh
+MOTTY_MCP_TOKEN=<token> motty mcp-bridge --url http://127.0.0.1:<port>/mcp
+```
+
+The token goes in an environment variable because a flag would show in the process
+list.
+
+<Callout type="warn">
+  Anyone who has the token can use the access level you chose. Keep it out of
+  shared configuration.
+</Callout>

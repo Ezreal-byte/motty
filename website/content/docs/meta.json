@@ -1,0 +1,15 @@
+{
+  "pages": [
+    "index",
+    "guides",
+    "connections",
+    "terminal",
+    "files",
+    "network",
+    "remote-desktop",
+    "assistant",
+    "data",
+    "reference",
+    "development"
+  ]
+}

@@ -1,0 +1,123 @@
+package workbench
+
+import (
+	"github.com/vivaui/viva/flex"
+	"github.com/vivaui/viva/ui"
+)
+
+// newtabPageHits is the place of the controls this file paints.
+var newtabPageHits = tree.Feature("newtab-page")
+
+// The new-tab page lists where a tab can connect: this computer first, then the
+// saved hosts, then the full host list. Its hit identities are a block of their own.
+var (
+	hitNewTabLocal    = tree.ID(newtabPageHits, "new-tab-local")
+	hitNewTabHostList = tree.Sub(newtabPageHits, tree.Name("new-tab-host"))
+)
+
+const (
+	newTabMaxHosts = 8
+)
+
+const (
+	newTabCardWidth = float32(440)
+	newTabRowHeight = float32(48)
+	newTabTitle     = float32(44)
+	newTabFooter    = float32(56)
+)
+
+// paintNewTabPage fills an empty pane with the places a connection can go. It
+// shows as many hosts as the pane's height holds; the rest are one click away
+// under All hosts.
+func (state *State) paintNewTabPage(canvas *ui.Canvas, bounds ui.Rect) {
+	pal, m := state.pal, state.messages
+	width := min(newTabCardWidth, bounds.Width-48)
+	if width < 200 {
+		canvas.Fill(bounds, pal.workspace)
+		return
+	}
+	room := int((bounds.Height - newTabTitle - newTabFooter - 48) / newTabRowHeight)
+	rows := min(max(room, 1), newTabMaxHosts+1)
+	hosts := min(rows-1, len(state.hosts))
+	allHosts := toolbarButtonWidth(canvas, m.NewTabAllHosts, false)
+
+	local := localHost(m.LocalTerminalTitle)
+	chrome := &state.chrome
+	chrome.newTabBadges = chrome.newTabBadges[:0]
+	var all flex.Box
+	f := chrome.newTab.Begin(canvas, state.Theme(), bounds)
+	// The block sits a little above the middle, and never closer than 16 to the top.
+	f.Column().Fill().PadSides(16, 0, 0, 0).Items(flex.Center).Justify(flex.Center).Background(pal.workspace).Children(func() {
+		f.Column().Width(width).Shrink(0).MarginSides(0, 0, 48, 0).Children(func() {
+			f.Text(m.NewTabConnectTo).FontSize(16).Weight(ui.WeightSemibold).Color(pal.text).LineHeight(26).MarginSides(0, 0, newTabTitle-26, 0)
+			f.Stack().Children(func() {
+				f.Row().Fill().Radius(radius.popup).Border(1, pal.line).Background(pal.surface)
+				f.Column().Children(func() {
+					state.newTabRow(f, hitNewTabLocal, local, m.LocalTerminal, local.Address, hosts > 0, width)
+					for index := 0; index < hosts; index++ {
+						host := state.hosts[index]
+						state.newTabRow(f, hitNewTabHostList.At(index), host, host.Label, state.sessionAddress(host), index < hosts-1, width)
+					}
+				})
+			})
+			all = f.Slot().Size(allHosts, 32).Self(flex.Center).MarginSides(16, 0, newTabFooter-48, 0)
+		})
+	})
+	f.End()
+	for index, badge := range chrome.newTabBadges {
+		if index == 0 {
+			paintSystemBadge(canvas, local.System, badge.Rect(), pal)
+			continue
+		}
+		state.paintHostCatalogIcon(canvas, state.hosts[index-1], badge.Rect(), pal.workspace)
+	}
+	state.paintButton(canvas, hitPaneChooseHost, all.Rect(), m.NewTabAllHosts, 0, false, false, true)
+}
+
+// newTabRow declares one place a tab can connect to: its system, its name and,
+// at the far end, where it is. The system's badge is drawn into the slot kept for it.
+func (state *State) newTabRow(f *flex.Frame, id ui.ID, host Host, title, address string, separator bool, width float32) {
+	pal := state.pal
+	var wash ui.Color
+	if f.Canvas().Hovered() == id || f.Canvas().FocusVisible() == id {
+		wash = pal.surfaceSoft
+	}
+	f.Stack().Height(newTabRowHeight).HitWith(id, title, ui.HitOptions{Role: ui.RoleButton, Hint: address}).Children(func() {
+		f.Row().Fill().Margin(4).Radius(radius.control).Background(wash)
+		f.Row().Fill().PadX(16).Items(flex.Center).Children(func() {
+			state.chrome.newTabBadges = append(state.chrome.newTabBadges, f.Slot().Size(28, 28).MarginSides(0, 12, 0, 0))
+			f.Text(title).FontSize(metrics.FontSizeM).Weight(ui.WeightMedium).Color(pal.text).LineHeight(22).Ellipsis()
+			f.Spacer()
+			f.Text(address).FontSize(metrics.FontSizeS).Color(pal.muted).LineHeight(20).Ellipsis().Shrink(0).MaxWidth(width*0.4).MarginSides(0, 0, 0, 12)
+		})
+		if separator {
+			f.Column().Fill().Justify(flex.End).Children(func() {
+				f.Divider().Background(withAlpha(pal.line, 0.6)).MarginX(16)
+			})
+		}
+	})
+}
+
+// clickNewTabPage connects the choice in the empty pane the page is shown in.
+func (state *State) clickNewTabPage(id ui.ID) bool {
+	var host Host
+	switch {
+	case id == hitNewTabLocal:
+		state.pendingWorkspace = state.deck.ActiveWorkspace()
+		state.pendingPane = state.deck.ActivePane(state.pendingWorkspace)
+		state.openLocalTerminal()
+		return true
+	case id.Scope() == hitNewTabHostList:
+		index := item(id)
+		if index >= len(state.hosts) {
+			return true
+		}
+		host = state.hosts[index]
+	default:
+		return false
+	}
+	state.pendingWorkspace = state.deck.ActiveWorkspace()
+	state.pendingPane = state.deck.ActivePane(state.pendingWorkspace)
+	state.newHostSession(host)
+	return true
+}

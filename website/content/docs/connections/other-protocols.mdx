@@ -1,0 +1,26 @@
+---
+title: Serial, Telnet and local shell
+description: Other kinds of tab that behave like an SSH session.
+---
+A terminal tab does not have to be SSH. These sessions use the same terminal.
+
+## Serial
+
+A serial tab opens a port with the line settings you choose, and lists the ports
+the machine has. For devices that move files with XMODEM or YMODEM, see
+[ZMODEM, XMODEM and YMODEM](/en/docs/files/zmodem-xmodem).
+
+## Telnet
+
+For devices that offer nothing else. The client negotiates the options a terminal
+needs: remote echo, suppress go-ahead, terminal type, window size and binary.
+
+<Callout type="warn">
+  Telnet is not encrypted and has no authentication of its own. Everything you
+  type travels in the clear.
+</Callout>
+
+## Local shell
+
+Runs your login shell on a pseudo-terminal of this machine: a pty on macOS and
+Linux, ConPTY on Windows.

@@ -1,0 +1,44 @@
+# End to end: tearing a tab off into a window of its own, against the loopback SSH
+# fixture on port 2222 (see tray_e2e.txt). The pointer is released far outside the
+# window, which is how a drag looks when it leaves the window, and the tab comes
+# up in a second window with its connection still alive.
+#
+#   dir=$(mktemp -d)
+#   MOTTY_LANG=en MOTTY_DATA_DIR=$dir python3 tools/headless_drive.py "$(mktemp -d)" tools/e2e/tab_move_e2e.txt
+
+click "Search"
+type tester@127.0.0.1:2222
+click "Connect"
+waitfor "Trust" 3000
+click "Trust and Save"
+waitfor "Password" 3000
+type secret
+key enter
+waitfor "tester@e2e" 8000
+click "New tab"
+settle 300
+click "Local Terminal"
+settle 800
+windows
+
+# Pick up the first tab (the SSH one) and let go far to the right of the window.
+move 201 18
+down 201 18
+move 260 60
+move 900 200
+move 1700 300
+up 1700 300
+settle 1000
+windows
+
+# The new window (active now) holds the SSH session, still connected: typing
+# reaches the same shell on the server.
+shot /tmp/torn-off.png
+click "Terminal tester@127.0.0.1:2222"
+type echo moved-$((6*7))
+key enter
+waitfor "moved-42" 4000
+
+# The first window kept only the other tab.
+window 1
+waitfor "This Computer" 2000

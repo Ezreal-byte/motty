@@ -1,0 +1,69 @@
+# End to end: a user-defined autofill rule answers a custom prompt once and does
+# not answer the same prompt when it comes back. Against the loopback SSH fixture
+# on port 2233 (see tray_e2e.txt for starting it; any port works if the lines
+# below are changed to match):
+#
+#   go build -tags vivahead -o /tmp/motty-head ./cmd/motty
+#   cd tools/e2esshd && go build -o /tmp/e2esshd . && E2E_ALLOW_EXEC=1 /tmp/e2esshd 2233 &
+#   python3 tools/headless_drive.py "$(mktemp -d)" tools/e2e/autofill_e2e.txt
+#
+# The home must start with the English language saved (see tools_e2e.txt), as
+# the labels below are English. The rule sends a fixed text kept in the vault;
+# the shell loop asks for "Token:" twice with `read -s`, so the second ask is the
+# same prompt line coming back after an answer.
+
+click "Search"
+type tester@127.0.0.1:2233
+click "Connect"
+waitfor "Trust" 3000
+click "Trust and Save"
+waitfor "Password" 3000
+type secret
+key enter
+waitfor "tester@e2e" 8000
+
+click "Settings"
+click "Terminal"
+settle 300
+scroll 800 500 0 3000
+settle 300
+click "Add rule"
+settle 300
+type e2e token
+key tab
+type ^Token:
+click "fixed text"
+settle 200
+click "Fixed text (kept encrypted in the vault)"
+type s3cret-fixed
+shot /tmp/autofill-dialog.png
+click "Save rule"
+settle 300
+shot /tmp/autofill-list-off.png
+texts off
+click "Turn on"
+settle 300
+texts on
+
+# Back to the terminal tab. The loop prints what it received, so what the rule
+# sent shows up as [1:s3cret-fixed].
+click "127.0.0.1:2233"
+settle 300
+key ctrl+c
+type for i in 1 2; do read -s -p "Token: " x; echo " [$i:$x]"; done
+key enter
+# The headless clock only moves on request: take in the output, then let the
+# pause after the prompt pass.
+settle 600
+wait 400
+waitfor "Autofill rule wants to answer" 4000
+shot /tmp/autofill-confirm.png
+click "Send"
+waitfor "[1:s3cret-fixed]" 4000
+# The second Token: prompt is the same line again and must stay unanswered.
+settle 600
+wait 600
+settle 300
+shot /tmp/autofill-after.png
+texts Token
+texts "[2:"

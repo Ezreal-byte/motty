@@ -1,0 +1,28 @@
+# Used by `viva package` and `viva build` (see ../viva/docs/decisions/0017-build-and-package-commands.md).
+#   viva package --format app,dmg                     # macOS bundle and disk image
+#   viva package --target windows --arch amd64         # NSIS installer (not on Apple Silicon: see the ADR)
+#   viva package --target linux --arch amd64 --format tar.gz,deb
+[app]
+name = "Motty"
+id = "dev.motty.app"
+version = "0.1.0"
+executable = "motty"
+package = "./cmd/motty"
+icon = "assets/icon.png"
+# Links the system hands to the program (see docs/decisions/0028 in ../viva).
+url_schemes = ["ssh", "telnet"]
+
+[build]
+out = "build/dist"
+
+[mac]
+category = "public.app-category.developer-tools"
+copyright = "Motty"
+
+[windows]
+publisher = "Motty"
+
+[linux]
+category = "System"
+comment = "SSH client with terminal, SFTP, port forwarding and an AI assistant"
+keywords = ["ssh", "terminal", "sftp", "remote"]

@@ -1,0 +1,27 @@
+---
+title: SFTP and SCP
+description: Browse, transfer and edit remote files.
+---
+Open the file panel with **Command+Shift+S** (**Control+Shift+S** elsewhere).
+
+## Browsing and transfers
+
+- Multi-select, recursive upload and download.
+- A bounded transfer queue with resume, cancel and retry.
+- Rename, delete, permissions and bookmarks.
+
+## Safe replacement
+
+Replacing a file stages a partial copy, verifies resumed prefixes and renames it
+into place atomically, only after a complete synced copy exists. If anything
+fails, the previous file stays intact.
+
+## The editor
+
+A native editor opens UTF-8 files up to 1 MiB. It hashes the remote file before
+and after staging, so a file that changed on the server in the meantime is
+noticed, and it preserves permissions.
+
+## SCP fallback
+
+Servers without SFTP can use the built-in SCP fallback.

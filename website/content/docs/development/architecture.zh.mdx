@@ -1,0 +1,30 @@
+---
+title: 架构
+description: Motty 负责什么、Viva 负责什么，以及代码在哪里。
+---
+Motty 负责 SSH、认证、SFTP、终端模拟、转发、远程桌面协议、持久化和产品工作流。
+
+[Viva](https://github.com/vivaui/viva) 负责窗口、输入、文本与输入法、焦点、布局、组件和渲染。
+可复用的桌面能力放进 Viva，而不是在 Motty 里重复实现。
+
+| 路径 | 内容 |
+| --- | --- |
+| `cmd/motty` | 应用入口、无头模式和 MCP 桥接 |
+| `internal/sshconn` | SSH 拨号、主机密钥、认证、代理和跳板路由 |
+| `internal/term` | 终端模拟器和解析器 |
+| `internal/rfb`、`internal/desktop/vnc` | VNC 协议和桌面后端 |
+| `internal/rdpcore`、`internal/desktop/rdp` | RDP 协议（MIT 许可的分支）和后端 |
+| `internal/sftpclient`、`internal/scpclient` | SFTP 和 SCP 客户端 |
+| `internal/portforward` | 本地、远程、SOCKS5 和 HTTP CONNECT 转发 |
+| `internal/workbench` | 应用状态、界面、绘制和输入 |
+| `internal/ai` | 助手、工具、风险门和 MCP 服务器 |
+| `assets`、`docs`、`tools` | 品牌资源、技术笔记和开发工具 |
+
+## 参与贡献
+
+欢迎提交 issue 和 pull request。较大的改动请先开 issue 讨论。SSH、协议和产品逻辑放在本仓库；
+属于桌面框架的能力，请到 Viva 提议。
+
+## 许可证
+
+Apache License 2.0。Motty 的名称和标志不在该许可证授权范围内。

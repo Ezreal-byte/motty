@@ -1,0 +1,62 @@
+package sshconn
+
+import "testing"
+
+func TestRemoteSystemClassification(t *testing.T) {
+	for _, test := range []struct {
+		probe string
+		want  RemoteSystem
+	}{
+		{"kernel=Linux\nid=ubuntu\n", SystemUbuntu},
+		{"kernel=Linux\nid=debian\n", SystemDebian},
+		{"kernel=Linux\nid=raspbian\n", SystemRaspberryPi},
+		{"kernel=Linux\nid=opensuse-tumbleweed\n", SystemOpenSUSE},
+		{"kernel=Linux\nid=rhel\n", SystemRedHat},
+		{"kernel=Linux\nid=\"almalinux\"\n", SystemAlma},
+		{"kernel=Linux\nid=endeavouros\n", SystemLinux},
+		{"kernel=Linux\n", SystemLinux},
+		{"kernel=Darwin\n", SystemDarwin},
+		{"kernel=FreeBSD\n", SystemFreeBSD},
+		{"kernel=MINGW64_NT-10.0\n", SystemWindows},
+		{"", SystemUnknown},
+	} {
+		if got := classifyProbe(test.probe); got != test.want {
+			t.Errorf("classifyProbe(%q) = %v, want %v", test.probe, got, test.want)
+		}
+	}
+	for banner, want := range map[string]RemoteSystem{
+		"SSH-2.0-OpenSSH_9.6p1 Ubuntu-3ubuntu13":        SystemUbuntu,
+		"SSH-2.0-OpenSSH_9.2p1 Debian-2+deb12u3":        SystemDebian,
+		"SSH-2.0-OpenSSH_for_Windows_9.5 Win32-OpenSSH": SystemWindows,
+		"SSH-2.0-OpenSSH_9.7":                           SystemUnknown,
+	} {
+		if got := classifyBanner(banner); got != want {
+			t.Errorf("classifyBanner(%q) = %v, want %v", banner, got, want)
+		}
+	}
+}
+
+func TestRemoteSystemPersistenceNamesRoundTrip(t *testing.T) {
+	for system := SystemUnknown; system <= SystemManjaro; system++ {
+		if got := ParseRemoteSystem(system.String()); got != system {
+			t.Errorf("ParseRemoteSystem(%q) = %v, want %v", system.String(), got, system)
+		}
+	}
+	// Hosts saved before distributions had badges keep their family.
+	for _, saved := range []string{"linux", "ubuntu", "windows", "darwin", "macos"} {
+		if ParseRemoteSystem(saved) == SystemUnknown {
+			t.Errorf("a saved %q host lost its system", saved)
+		}
+	}
+}
+
+func TestOnlyDistributionsAndLinuxAreLinux(t *testing.T) {
+	for system, want := range map[RemoteSystem]bool{
+		SystemLinux: true, SystemDebian: true, SystemRaspberryPi: true,
+		SystemWindows: false, SystemDarwin: false, SystemFreeBSD: false, SystemUnknown: false,
+	} {
+		if system.IsLinux() != want {
+			t.Errorf("%v.IsLinux() = %v", system, !want)
+		}
+	}
+}

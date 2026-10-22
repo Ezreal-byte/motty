@@ -1,0 +1,20 @@
+---
+title: Keyboard shortcuts
+description: Default shortcuts. All of them are configurable.
+---
+The defaults use Command on macOS and Control on Windows and Linux. Every shortcut
+can be changed in settings.
+
+<ShortcutTable
+  labels={{ action: 'Action', mac: 'macOS', other: 'Windows / Linux', platform: 'Platform' }}
+  rows={[
+    { action: 'Command palette', mac: 'Command+Shift+P', other: 'Control+Shift+P' },
+    { action: 'Find in terminal', mac: 'Command+F', other: 'Control+F' },
+    { action: 'Command history', mac: 'Command+Shift+H', other: 'Control+Shift+H' },
+    { action: 'File panel', mac: 'Command+Shift+S', other: 'Control+Shift+S' },
+    { action: 'New window', mac: 'Command+Shift+N', other: 'Control+Shift+N' },
+  ]}
+/>
+
+Inside a remote-desktop tab Motty's shortcuts are suspended and keys go to the
+remote. **Ctrl+Alt+G** releases the keyboard.

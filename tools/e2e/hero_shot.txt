@@ -1,0 +1,97 @@
+# Screenshot of the site's home page (website/public/hero-dark.webp, assets/readme-hero.png):
+# the session the page describes -- deploy tree, shell and assistant -- filling the
+# window. Real commands against the loopback fixture; only the assistant's
+# conversation is authored, because a real one would need a model and a key.
+#
+#   (cd tools/e2esshd && go build -o /tmp/e2esshd .) && /tmp/e2esshd 2222 &
+#   export SFTP_ROOT=<the "sftp root" path e2esshd prints>
+#   python3 tools/e2e/hero_fixture.py "$SFTP_ROOT"    # the deploy tree, pinned dates
+#   data=$(mktemp -d)
+#   go run ./tools/e2e/heroseed "$data/ai.db" "$SFTP_ROOT/logs/app.log"
+#   go build -tags vivahead -o /tmp/motty-head ./cmd/motty
+#   envsubst < tools/e2e/hero_shot.txt > /tmp/hero.txt
+#   MOTTY_DATA_DIR=$data python3 tools/headless_drive.py "$(mktemp -d)" /tmp/hero.txt
+#
+# The shot is 1400x875 points (2x = 2800x1750), the 16:10 shape of a window someone
+# actually runs, big enough that the terminal has the room its lines need and the
+# page (which shows it at max-w-7xl) still gets a one-to-one picture on a retina
+# screen. Earlier versions shot 1200x520 and 1200x750: the first was a letterbox,
+# and at the second the terminal was 474 points wide and clipped every log line.
+#
+# The shell's colours come from the tree itself: scripts/logs.sh is a real
+# colouring viewer written by hero_fixture.py, and ls --color does the rest.
+#
+# The window has to look lived in, so the scene is sized to the frame: the deploy
+# tree is longer than the files panel can show, and the log tail reaches the last
+# row of the shell. hero_fixture.py writes both; keep them in step with the window
+# shape.
+#
+# The host is saved as staging-web instead of connected ad hoc, because the tab
+# title is the host's label; the files panel is opened with its toolbar button and
+# the assistant with its window-bar button. The host's icon is set to Ubuntu in the
+# dialog rather than left on "自动 (按系统)": the loopback fixture's banner names no
+# system, so auto would draw the generic server badge in the tab and the host card.
+#
+# The host dialog is filled by geometry because its fields have no distinct labels,
+# so those coordinates belong to the 1400x875 window and have to move with it. The
+# saved conversation is picked from 对话历史 by geometry as well, because those rows
+# are the conversation titles.
+#
+# `layout` reports the two panel dividers as crossings: they are the hit areas that
+# resize the panels, not text over text.
+#
+# For the light variant add `click "Switch to light theme"` after `appearance`
+# (appearance only changes the system setting, not Motty's theme), and shoot to
+# another path. Convert with: cwebp -q 88 -m 6 in.png -o out.webp
+resize 1400 875
+appearance dark
+click "新建主机"
+settle 700
+click 700 330
+type staging-web
+click 700 388
+type 127.0.0.1
+click 550 446
+type tester
+click 830 446
+key cmd+a
+type 2222
+click 590 562
+settle 500
+click "Ubuntu"
+settle 300
+click "添加主机"
+settle 900
+click "搜索"
+type staging-web
+settle 600
+click "连接"
+waitfor "仅本次连接" 5000
+click "仅本次连接"
+waitfor "需要密码" 5000
+type secret
+key enter
+settle 2500
+click "文件:通过 SFTP 浏览和传输"
+settle 2000
+click "AI 助手"
+settle 800
+click "对话历史"
+settle 600
+click 1200 115
+settle 1200
+click 1055 836
+settle 600
+click 700 400
+settle 400
+type cd "$SFTP_ROOT" && export PS1='\[\e[1;32m\]deploy@staging-web\[\e[0m\]:\[\e[1;34m\]~/app\[\e[0m\]$ ' && clear
+key enter
+settle 700
+type ls --color=always
+key enter
+settle 500
+type ./scripts/logs.sh 38
+key enter
+settle 800
+shot /tmp/hero-dark.png
+layout

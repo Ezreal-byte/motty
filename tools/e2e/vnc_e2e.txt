@@ -1,0 +1,58 @@
+# End to end: a VNC host reached through SSH, against the loopback SSH fixture
+# (port 2222, allowed to reach 127.0.0.1:5901) and a real VNC server there (see
+# tools/live/vnc_live.sh docker). The password of the fixture is "secret", the VNC
+# server's "motty-pw". The UI language of the machine decides the labels below;
+# these are the Chinese ones.
+#
+#   go build -tags vivahead -o /tmp/motty-head ./cmd/motty
+#   python3 tools/headless_drive.py "$(mktemp -d)" tools/e2e/vnc_e2e.txt
+#
+# The SSH host is saved first: the VNC host goes through the saved SSH host with
+# the same address and account, so its port 2222 applies (and its jump route and
+# algorithms would).
+
+click "新建主机"
+click 600 258
+type ssh-gateway
+click 600 316
+type 127.0.0.1
+click 600 374
+type tester
+click 800 374
+key cmd+a
+type 2222
+click "添加主机"
+
+click "新建主机"
+click "VNC"
+click 600 298
+type via-ssh
+click 600 356
+type 127.0.0.1
+click "通过 SSH 连接(从 SSH 服务器访问 VNC 端口)"
+click 600 414
+type tester
+click 800 414
+key cmd+a
+type 5901
+click "添加主机"
+texts "vnc"
+texts "via-ssh"
+dblclick 700 213
+waitfor "信任" 5000
+click "信任并保存"
+waitfor "密码" 5000
+type secret
+key enter
+waitfor "VNC 127.0.0.1:5901" 8000
+type motty-pw
+key enter
+waitfor "经 SSH" 8000
+settle 1000
+shot /tmp/vnc-e2e-tunnel.png
+click 300 200
+type echo through-ssh-tunnel
+key enter
+settle 800
+shot /tmp/vnc-e2e-tunnel-typed.png
+texts

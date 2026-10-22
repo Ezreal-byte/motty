@@ -1,0 +1,62 @@
+# End to end: the file panel of a server that has no SFTP subsystem. The fixture
+# is started without SFTP, so the panel falls back to SCP by itself.
+#
+#   cd tools/e2esshd && go build -o /tmp/e2esshd . && cd ../..
+#   E2E_NO_SFTP=1 /tmp/e2esshd 2234 &
+#   go build -tags vivahead -o /tmp/motty-head ./cmd/motty
+#   mkdir -p /tmp/scp-out /tmp/scp-updir/inner /tmp/scp-home
+#   echo uploaded > /tmp/scp-up; echo one > /tmp/scp-updir/one.txt; echo two > /tmp/scp-updir/inner/two.txt
+#   MOTTY_LANG=en python3 tools/headless_drive.py /tmp/scp-home tools/e2e/scp_e2e.txt
+#
+# (MOTTY_LANG only keeps the labels English.) Afterwards /tmp/scp-out holds alpha.txt and docs/guide.txt, and the
+# fixture's root (printed as "sftp root" at start) holds the uploaded file, the
+# uploaded folder with its nested file, and the renamed folder.
+
+click "Search"
+type tester@127.0.0.1:2234
+click "Connect"
+waitfor "Trust this host" 3000
+click "Connect Once"
+waitfor "Password" 3000
+type secret
+key enter
+settle 2500
+key cmd+shift+s
+# The panel says the listing came from ls.
+waitfor "approximate" 4000
+
+click "alpha.txt"
+savefile /tmp/scp-out/alpha.txt
+click "Download"
+waitfor "Complete" 4000
+
+click "docs"
+opendirectory /tmp/scp-out
+click "Download"
+settle 1500
+
+openfiles /tmp/scp-up
+click "Upload"
+settle 1500
+opendirectory /tmp/scp-updir
+click "Upload Folder"
+settle 2000
+
+click "New Folder"
+type made-by-scp
+click "Create"
+settle 1500
+click "made-by-scp"
+click "Rename / Move"
+settle 500
+key cmd+a
+type renamed-by-scp
+click "Rename / Move"
+settle 1500
+click "renamed-by-scp"
+click "Delete"
+waitfor "Delete Empty Folder" 2000
+click 920 545
+settle 1500
+texts
+shot /tmp/scp-panel.png

@@ -1,0 +1,123 @@
+package workbench
+
+import (
+	"errors"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+
+	"github.com/vivaui/viva/app"
+)
+
+func TestImportingMobaXtermSessionsAddsGroupedHostsOnceAndSaysWhatItLeftOut(t *testing.T) {
+	file := filepath.Join(t.TempDir(), "sessions.mxtsessions")
+	content := "[Bookmarks]\nSubRep=Clients\\Acme\nImgNum=42\n" +
+		"Web=#109#0%web.acme.test%2222%root%\n" +
+		"Same as saved=#109#0%prod.example.com%22%deploy%\n" +
+		"Desktop=#91#4%10.1.1.1%3389%Administrator%\n"
+	if err := os.WriteFile(file, []byte(content), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	options := freshOptions(t)
+	options.StatePath = filepath.Join(filepath.Dir(options.KnownHostsPath), "state.json")
+	options.Keystore = &memKeys{}
+	// A host already saved, which the second session repeats.
+	if err := saveState(options.StatePath, savedState{Hosts: sampleHosts}); err != nil {
+		t.Fatal(err)
+	}
+	var request app.OpenFileOptions
+	options.OpenFiles = func(asked app.OpenFileOptions) ([]string, error) {
+		request = asked
+		return []string{file}, nil
+	}
+	state := newTestState(t, options)
+
+	state.Click(hitImportMenu)
+	canvas, _ := paintedTexts(state)
+	if _, ok := hitByID(canvas, hitImportSessions); !ok {
+		t.Fatal("the hosts page has no button to import sessions")
+	}
+	state.Click(hitImportSessions)
+	if state.modal != modalImportSessions {
+		t.Fatalf("modal = %d", state.modal)
+	}
+	state.Click(hitImportMobaXterm)
+	if !request.AllowMultiple || !strings.Contains(request.Title, "MobaXterm") {
+		t.Fatalf("OpenFiles request = %+v", request)
+	}
+	if state.modal != modalHostImportResult || len(state.hosts) != len(sampleHosts)+1 {
+		t.Fatalf("modal %d, hosts %d", state.modal, len(state.hosts))
+	}
+	host := state.hosts[len(state.hosts)-1]
+	if host.Label != "Web" || host.Group != "Clients / Acme" || host.Address != "web.acme.test" || host.User != "root" || host.Port != 2222 {
+		t.Fatalf("host = %+v", host)
+	}
+	result := state.hostImportResult
+	if !strings.Contains(result.summary, "MobaXterm") || !strings.Contains(result.summary, "1 already saved") {
+		t.Fatalf("summary = %q", result.summary)
+	}
+	warnings := strings.Join(result.warnings[:result.visible], "\n")
+	if !strings.Contains(warnings, "not imported") || !strings.Contains(warnings, "Saved passwords are not imported") {
+		t.Fatalf("warnings = %q", warnings)
+	}
+
+	// It is kept.
+	if restarted := newTestState(t, options); len(restarted.hosts) != len(sampleHosts)+1 {
+		t.Fatalf("restored %d hosts", len(restarted.hosts))
+	}
+}
+
+func TestImportingSessionsToleratesCancelAndBadFiles(t *testing.T) {
+	options := freshOptions(t)
+	options.Keystore = &memKeys{}
+	var answer error
+	var paths []string
+	options.OpenFiles = func(app.OpenFileOptions) ([]string, error) { return paths, answer }
+	state := newTestState(t, options)
+
+	answer = app.ErrCanceled
+	state.Click(hitImportSessions)
+	state.Click(hitImportXshell)
+	if state.modal != modalNone || state.status != state.messages.Tools.ImportCanceled {
+		t.Fatalf("modal %d status %q", state.modal, state.status)
+	}
+
+	answer = errors.New("no picker")
+	state.Click(hitImportSessions)
+	state.Click(hitImportPuTTY)
+	if !strings.Contains(state.status, "no picker") {
+		t.Fatalf("status = %q", state.status)
+	}
+
+	answer = nil
+	paths = []string{filepath.Join(t.TempDir(), "nothing.xsh")}
+	state.Click(hitImportSessions)
+	state.Click(hitImportXshell)
+	if state.modal != modalNone || len(state.hosts) != 0 || !strings.HasPrefix(state.status, "Could not import") {
+		t.Fatalf("modal %d, hosts %d, status %q", state.modal, len(state.hosts), state.status)
+	}
+
+	state.Click(hitImportSessions)
+	state.Click(hitImportSessionsCancel)
+	if state.modal != modalNone {
+		t.Fatalf("modal = %d", state.modal)
+	}
+}
+
+func TestImportingWindTermSessionsAddsHostsWithTheirGroups(t *testing.T) {
+	file := filepath.Join(t.TempDir(), "user.sessions")
+	content := `[{"session.group":"Lab","session.label":"Pi","session.port":22,"session.protocol":"SSH","session.target":"pi.local"}]`
+	if err := os.WriteFile(file, []byte(content), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	options := freshOptions(t)
+	options.Keystore = &memKeys{}
+	options.OpenFiles = func(app.OpenFileOptions) ([]string, error) { return []string{file}, nil }
+	state := newTestState(t, options)
+	state.Click(hitImportSessions)
+	state.Click(hitImportWindTerm)
+	if len(state.hosts) != 1 || state.hosts[0].Label != "Pi" || state.hosts[0].Group != "Lab" || !strings.Contains(state.hostImportResult.summary, "WindTerm") {
+		t.Fatalf("hosts %+v, summary %q", state.hosts, state.hostImportResult.summary)
+	}
+}

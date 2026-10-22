@@ -1,0 +1,58 @@
+---
+title: RDP
+description: TLS and NLA, certificate pinning, accounts and limits.
+---
+## What it speaks
+
+TLS with NLA (CredSSP and NTLMv2) preferred, and TLS without NLA if the server
+allows it. Standard RDP Security (RC4 without TLS) is refused.
+
+Bitmap updates (RLE, Planar, NSCodec, drawing orders), the RDPGFX pipeline
+(ClearCodec, progressive RemoteFX), fast-path updates and 32-bit colour. H.264 is
+not offered.
+
+The desktop is **1600x900 and fixed**. Motty does not resize the remote desktop to
+the pane; the picture is scaled instead.
+
+## Certificates
+
+An RDP server's certificate is usually self-signed, so what can be checked is that
+it is the one you accepted. Before any credential is sent, an unpinned certificate
+opens the same kind of dialog as an unknown SSH host key, with a SHA-256
+fingerprint and the choices **Trust and save**, **This connection only** and
+**Reject**. A pinned certificate that changed opens the dialog again, with a louder
+warning and the old fingerprint. Rejecting ends the connection.
+
+Pins live in `rdp_certificates` next to `known_hosts`.
+
+## Accounts
+
+The host's user is the Windows account: `user`, `DOMAIN\user` or a principal name.
+The password is asked on the same connection after the certificate, so a server you
+did not trust never sees it. It can be filled from, and saved to, the vault.
+
+A wrong password is tried **once**. Windows counts every failed NLA logon towards
+account lockout, so Motty reports the refusal and asks again instead of retrying.
+
+## Connect through SSH
+
+Works as for [VNC](/en/docs/remote-desktop/vnc#connect-through-ssh).
+
+## Clipboard
+
+Text only, per host, off by default.
+
+## Not supported
+
+Audio, drive, printer, smartcard and USB redirection, multiple monitors, dynamic
+resolution change from the client, RD Gateway, Kerberos or certificate logon (NTLM
+only), file transfer, and clipboard formats other than text.
+
+Windows policy can disconnect a console session when the same user signs in
+remotely.
+
+## Where the code comes from
+
+The RDP core is a modified copy of [gopher-rdp](https://github.com/bouncyball-git/gopher-rdp)
+(MIT). The decoders are fuzzed, and the receive loop recovers from a decoder panic
+and ends only that connection.

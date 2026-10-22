@@ -1,0 +1,63 @@
+# End to end: cloud sync between two computers through an S3-compatible bucket,
+# driven through the real settings page. This is computer A: it sets up the
+# service and adds a host, and waits for the sync that follows a change without
+# asking for it. cloudsync_e2e_b.txt is computer B, which sets up the same service
+# and must find A's host, then adds one of its own.
+#
+# The bucket is tools/fakes3 on loopback (it checks that the request carries a SigV4
+# Authorization header for the access key and logs every request; the signature
+# itself is verified by the tests of internal/s3). The headless build keeps secrets
+# in memory, so the vault here is not the operating system's keychain.
+#
+#   go build -o /tmp/fakes3 ./tools/fakes3 && /tmp/fakes3 19000 &
+#   go build -tags vivahead -o /tmp/motty-head ./cmd/motty
+#   export MOTTY_LANG=en
+#   MOTTY_DATA_DIR=/tmp/cs-a python3 tools/headless_drive.py "$(mktemp -d)" tools/e2e/cloudsync_e2e.txt
+#   MOTTY_DATA_DIR=/tmp/cs-b python3 tools/headless_drive.py "$(mktemp -d)" tools/e2e/cloudsync_e2e_b.txt
+#
+# Each run ends with the host list, and the fake bucket's log shows the requests:
+# in A's run the PUT that follows the host being added comes by itself, a few
+# seconds later. (The headless build keeps the vault's key in memory, so a second
+# run on the same directory cannot read its saved logins: the sync at start is
+# covered by the tests of internal/workbench, not here.)
+
+click "Settings"
+click "Backup & sync"
+settle 300
+click "S3"
+settle 300
+type http://127.0.0.1:19000
+key tab
+key tab
+type e2e
+click "Save"
+settle 300
+# Step 2 of 2: the key. The secret and the backup password are masked fields.
+type AKIAE2E
+key tab
+type e2e-secret-key
+key tab
+type correct horse battery
+click "Save"
+# Setting the service up starts a first sync a few seconds later, by itself.
+settle 6500
+click "Hosts"
+click "New Host"
+settle 500
+type Alpha from A
+key tab
+type alpha-a.example.com
+key tab
+type root
+click "Add Host"
+settle 300
+# No "Sync now": the change starts a sync by itself after a few seconds.
+settle 7500
+click "Settings"
+click "Backup & sync"
+settle 300
+texts Last synced
+click "Hosts"
+settle 300
+texts Alpha
+shot /tmp/cloudsync-a.png

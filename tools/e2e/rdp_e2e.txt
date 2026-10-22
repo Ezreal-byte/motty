@@ -1,0 +1,35 @@
+# End to end: an RDP host against a real xrdp server (tools/live/rdp_live.sh docker
+# starts it: container motty-e2e-rdp, port 3389 on loopback, user motty, password
+# motty-pw). The UI language of the machine decides the labels below; these are
+# the Chinese ones. The certificate question is asked once, and the password after
+# it; the picture is the server's xterm, and what is typed shows up in it.
+#
+#   go build -tags vivahead -o /tmp/motty-head ./cmd/motty
+#   python3 tools/headless_drive.py "$(mktemp -d)" tools/e2e/rdp_e2e.txt
+
+click "新建主机"
+click "RDP"
+click 700 302
+type xrdp-test
+click 700 360
+type 127.0.0.1
+click 620 418
+type motty
+click "添加主机"
+texts "xrdp-test"
+dblclick 400 145
+waitfor "信任此主机" 30000
+shot /tmp/rdp-e2e-cert.png
+click "信任并保存"
+waitfor "密码" 8000
+type motty-pw
+key enter
+waitfor "TLS" 30000
+settle 2500
+shot /tmp/rdp-e2e-desktop.png
+click 300 200
+type echo typed-through-motty
+key enter
+settle 1500
+shot /tmp/rdp-e2e-typed.png
+texts

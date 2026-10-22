@@ -1,0 +1,53 @@
+---
+title: VNC
+description: What the VNC client speaks and what it does not.
+---
+A remote-desktop host opens as a tab that shows a picture instead of a terminal.
+
+## Supported
+
+- RFB 3.3, 3.7 and 3.8
+- Security types None and VNC Authentication
+- Encodings Raw, CopyRect, RRE, Hextile and ZRLE
+- Desktop resize
+- Pointer, keyboard and text clipboard
+
+## Connect through SSH
+
+<Callout type="warn">
+  VNC Authentication is weak: DES with at most eight password characters and a
+  challenge that crosses the network in the clear. The tab says "Not encrypted".
+</Callout>
+
+Use **Connect through SSH**. The host's address is then the SSH server. Motty uses
+the saved SSH host with the same address and account (its port, algorithms and jump
+route), or plain SSH on port 22, asks the SSH questions first, and opens
+`127.0.0.1:<port>` from the SSH server through a `direct-tcpip` channel.
+
+## In the tab
+
+- Fit-to-window or 100% scaling; at 100% a larger picture pans with the pointer.
+- While the picture has focus, Motty's shortcuts do not run and keys go to the
+  remote. **Ctrl+Alt+G** releases the keyboard and takes it again.
+- The status line shows the remote size, scale, "Through SSH" or "Not encrypted",
+  clipboard sharing and the escape chord.
+- A lost connection keeps the last picture, dimmed, with a Reconnect button.
+
+## Clipboard
+
+Per host, off by default, text only. RFB carries Latin-1, so other characters are
+sent as `?`.
+
+## Not supported
+
+VeNCrypt/TLS, Apple Remote Desktop authentication (macOS Screen Sharing needs
+"VNC viewers may control screen with password"), Tight/JPEG, extended clipboard,
+images in the clipboard, audio, file transfer, changing the remote resolution and
+multiple screens. KasmVNC cannot be driven because it reads pointer events in a
+non-standard format; TigerVNC and any server that follows RFC 6143 work.
+
+## What was verified
+
+KasmVNC `Xvnc` on a Linux machine and TigerVNC in Docker, including through an SSH
+tunnel. Not exercised: a real window, physical keyboards, input-method composition,
+hidden or covered windows, macOS Screen Sharing and a Windows VNC server.

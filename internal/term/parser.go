@@ -1,0 +1,475 @@
+package term
+
+import (
+	"bytes"
+	"strconv"
+)
+
+type parseState uint8
+
+const (
+	stGround parseState = iota
+	stEscape
+	stEscapeInter // ESC followed by intermediate bytes (charset designation, #)
+	stCSIEntry
+	stCSIParam
+	stCSIInter
+	stCSIIgnore
+	stOSC
+	stDCS
+	stAPC
+	stString // SOS and PM: skipped up to the string terminator
+)
+
+const maxParams = 32
+
+// parser is the escape-sequence state machine. It is a Paul Williams style
+// VT500 parser with UTF-8 decoding in the ground state; any sequence may be
+// split across Write calls at any byte.
+type parser struct {
+	state parseState
+
+	utf8r   rune // code point being assembled
+	utf8n   int  // continuation bytes still expected
+	utf8min rune // smallest value a sequence of this length may encode
+
+	params   [maxParams]int32 // -1 when the parameter was left empty
+	colon    [maxParams]bool  // parameter was introduced by ':' (subparameter)
+	np       int
+	cur      int32
+	hasCur   bool
+	curColon bool
+	priv     byte    // '<', '=', '>' or '?' leading the parameters
+	inter    [2]byte // intermediate bytes
+	ninter   int
+	escInter byte
+
+	osc         []byte
+	oscOverflow bool
+	dcs         []byte
+	dcsOverflow bool
+	apc         []byte
+	apcOverflow bool
+
+	scratch []byte // buffer answers are formatted in
+}
+
+// Write feeds output from the host into the terminal. It always consumes all
+// of p.
+func (t *Terminal) Write(p []byte) (int, error) {
+	if len(p) == 0 {
+		return 0, nil
+	}
+	for i := 0; i < len(p); {
+		if t.state == stGround && t.utf8n == 0 && t.charsets[t.gl] == charsetASCII {
+			j := i
+			for j < len(p) && p[j] >= 0x20 && p[j] < 0x7F {
+				j++
+			}
+			if j > i {
+				t.printASCII(p[i:j])
+				i = j
+				continue
+			}
+		}
+		t.feed(p[i])
+		i++
+	}
+	t.version++
+	return len(p), nil
+}
+
+func (t *Terminal) feed(b byte) {
+	if t.utf8n == 0 {
+		switch b {
+		case 0x90: // C1 DCS
+			t.state, t.dcs, t.dcsOverflow = stDCS, t.dcs[:0], false
+			return
+		case 0x9D: // C1 OSC
+			t.state, t.osc, t.oscOverflow = stOSC, t.osc[:0], false
+			return
+		case 0x9F: // C1 APC
+			t.state, t.apc, t.apcOverflow = stAPC, t.apc[:0], false
+			return
+		case 0x9C: // C1 ST
+			t.endString()
+			return
+		}
+	}
+	switch b {
+	case 0x18, 0x1A: // CAN, SUB cancel any sequence
+		if t.utf8n > 0 {
+			t.utf8n = 0
+		}
+		t.state = stGround
+		return
+	case 0x1B:
+		t.endString()
+		if t.utf8n > 0 {
+			t.utf8n = 0
+			t.print(0xFFFD)
+		}
+		t.state = stEscape
+		t.escInter = 0
+		return
+	}
+	switch t.state {
+	case stGround:
+		t.ground(b)
+	case stEscape:
+		t.escape(b)
+	case stEscapeInter:
+		t.escapeInter(b)
+	case stCSIEntry, stCSIParam, stCSIInter, stCSIIgnore:
+		t.csi(b)
+	case stOSC:
+		t.oscByte(b)
+	case stDCS:
+		t.dcsByte(b)
+	case stAPC:
+		t.apcByte(b)
+	case stString:
+		// Skipped; ESC (handled above) or CAN/SUB ends it.
+	}
+}
+
+// ground handles text and C0 controls, decoding UTF-8 as it goes.
+func (t *Terminal) ground(b byte) {
+	if t.utf8n > 0 {
+		if b&0xC0 == 0x80 {
+			t.utf8r = t.utf8r<<6 | rune(b&0x3F)
+			t.utf8n--
+			if t.utf8n == 0 {
+				r := t.utf8r
+				if r < t.utf8min || r > 0x10FFFF || (r >= 0xD800 && r <= 0xDFFF) {
+					r = 0xFFFD
+				}
+				t.print(r)
+			}
+			return
+		}
+		// A truncated sequence: report it, then handle b afresh.
+		t.utf8n = 0
+		t.print(0xFFFD)
+	}
+	switch {
+	case b < 0x20:
+		t.control(b)
+	case b < 0x7F:
+		t.print(rune(b))
+	case b == 0x7F:
+	case b >= 0xC2 && b <= 0xDF:
+		t.utf8r, t.utf8n, t.utf8min = rune(b&0x1F), 1, 0x80
+	case b >= 0xE0 && b <= 0xEF:
+		t.utf8r, t.utf8n, t.utf8min = rune(b&0x0F), 2, 0x800
+	case b >= 0xF0 && b <= 0xF4:
+		t.utf8r, t.utf8n, t.utf8min = rune(b&0x07), 3, 0x10000
+	default:
+		t.print(0xFFFD)
+	}
+}
+
+// control executes a C0 control character.
+func (t *Terminal) control(b byte) {
+	switch b {
+	case 0x08: // BS
+		t.pend = false
+		if t.cx > 0 {
+			t.cx--
+		}
+	case 0x09: // HT
+		t.tabForward(1)
+	case 0x0A, 0x0B, 0x0C: // LF, VT, FF
+		t.pend = false
+		t.index()
+		if t.modes.Newline {
+			t.cx = 0
+		}
+	case 0x0D: // CR
+		t.pend = false
+		t.cx = 0
+	case 0x0E: // SO
+		t.gl = 1
+	case 0x0F: // SI
+		t.gl = 0
+	}
+}
+
+func (t *Terminal) tabForward(n int) {
+	t.pend = false
+	for ; n > 0; n-- {
+		x := t.cx + 1
+		for x < t.cols-1 && !t.tabs[x] {
+			x++
+		}
+		t.cx = min(x, t.cols-1)
+	}
+}
+
+func (t *Terminal) tabBackward(n int) {
+	t.pend = false
+	for ; n > 0; n-- {
+		x := t.cx - 1
+		for x > 0 && !t.tabs[x] {
+			x--
+		}
+		t.cx = max(x, 0)
+	}
+}
+
+// escape handles the byte after ESC.
+func (t *Terminal) escape(b byte) {
+	switch {
+	case b < 0x20:
+		t.control(b)
+	case b <= 0x2F: // intermediate
+		t.escInter = b
+		t.state = stEscapeInter
+	case b == '[':
+		t.state = stCSIEntry
+		t.resetParams()
+	case b == ']':
+		t.state = stOSC
+		t.osc, t.oscOverflow = t.osc[:0], false
+	case b == 'P':
+		t.state, t.dcs, t.dcsOverflow = stDCS, t.dcs[:0], false
+	case b == '_':
+		t.state, t.apc, t.apcOverflow = stAPC, t.apc[:0], false
+	case b == 'X' || b == '^':
+		t.state = stString
+	case b >= 0x80:
+		t.state = stGround
+		t.ground(b)
+	default:
+		t.state = stGround
+		t.escDispatch(b)
+	}
+}
+
+func (t *Terminal) escapeInter(b byte) {
+	switch {
+	case b < 0x20:
+		t.control(b)
+	case b <= 0x2F:
+		t.escInter = b // later intermediates replace; only the last designates
+	case b >= 0x80:
+		t.state = stGround
+		t.ground(b)
+	default:
+		t.state = stGround
+		t.escDispatchInter(t.escInter, b)
+	}
+}
+
+func (t *Terminal) resetParams() {
+	t.np, t.cur, t.hasCur, t.curColon = 0, 0, false, false
+	t.priv, t.ninter = 0, 0
+}
+
+func (t *Terminal) pushParam() {
+	if t.np < maxParams {
+		value := int32(-1)
+		if t.hasCur {
+			value = t.cur
+		}
+		t.params[t.np] = value
+		t.colon[t.np] = t.curColon
+		t.np++
+	}
+	t.cur, t.hasCur = 0, false
+}
+
+// csi advances the CSI sub-machine by one byte.
+func (t *Terminal) csi(b byte) {
+	switch {
+	case b < 0x20:
+		t.control(b)
+	case b >= 0x80:
+		t.state = stGround
+		t.ground(b)
+	case b >= 0x40 && b <= 0x7E:
+		if t.state != stCSIIgnore {
+			if t.np > 0 || t.hasCur {
+				t.pushParam()
+			}
+			t.csiDispatch(b)
+		}
+		t.state = stGround
+	case b >= 0x30 && b <= 0x39:
+		if t.state == stCSIInter || t.state == stCSIIgnore {
+			t.state = stCSIIgnore
+			return
+		}
+		t.state = stCSIParam
+		t.cur = min(t.cur*10+int32(b-'0'), 65535)
+		t.hasCur = true
+	case b == ';' || b == ':':
+		if t.state == stCSIInter || t.state == stCSIIgnore {
+			t.state = stCSIIgnore
+			return
+		}
+		t.state = stCSIParam
+		t.pushParam()
+		t.curColon = b == ':'
+	case b >= 0x3C && b <= 0x3F: // private markers
+		if t.state == stCSIEntry {
+			t.priv = b
+			t.state = stCSIParam
+		} else {
+			t.state = stCSIIgnore
+		}
+	default: // 0x20-0x2F intermediates
+		if t.state == stCSIIgnore {
+			return
+		}
+		if t.ninter < len(t.inter) {
+			t.inter[t.ninter] = b
+		}
+		t.ninter++
+		t.state = stCSIInter
+	}
+}
+
+func (t *Terminal) oscByte(b byte) {
+	switch {
+	case b == 0x07:
+		t.endOSC()
+		t.state = stGround
+	case b < 0x20:
+	default:
+		limit := maxOSC
+		if bytes.HasPrefix(t.osc, []byte("1337;File=")) || len(t.osc) < len("1337;File=") && bytes.HasPrefix([]byte("1337;File="), t.osc) {
+			limit = maxImageSequence
+		}
+		if len(t.osc) < limit {
+			t.osc = append(t.osc, b)
+		} else {
+			t.oscOverflow = true
+		}
+	}
+}
+
+// endOSC runs a completed operating-system command.
+func (t *Terminal) endOSC() {
+	t.state = stGround
+	data := t.osc
+	t.osc = t.osc[:0]
+	if t.oscOverflow {
+		return
+	}
+	n, i := 0, 0
+	for i < len(data) && data[i] >= '0' && data[i] <= '9' && i < 6 {
+		n = n*10 + int(data[i]-'0')
+		i++
+	}
+	if i == 0 || (i < len(data) && data[i] != ';') {
+		return
+	}
+	text := data[min(i+1, len(data)):]
+	switch n {
+	case 0, 2:
+		t.setTitle(text)
+	case 7:
+		t.osc7(text)
+	case 8:
+		t.setHyperlink(text)
+	case 9:
+		t.osc9(text)
+	case 99:
+		t.osc99(text)
+	case 777:
+		t.osc777(text)
+	case 10, 11:
+		if len(text) == 1 && text[0] == '?' && t.haveDefaults {
+			color := t.defFG
+			if n == 11 {
+				color = t.defBG
+			}
+			t.answerColor(n, color)
+		}
+	case 52:
+		t.osc52(text)
+	case 1337:
+		t.itermImage(text)
+	}
+}
+
+func (t *Terminal) dcsByte(b byte) {
+	if b < 0x20 {
+		return
+	}
+	if len(t.dcs) < maxSixelSequence {
+		t.dcs = append(t.dcs, b)
+	} else {
+		t.dcsOverflow = true
+	}
+}
+
+func (t *Terminal) apcByte(b byte) {
+	if b < 0x20 {
+		return
+	}
+	if len(t.apc) < maxImageSequence {
+		t.apc = append(t.apc, b)
+	} else {
+		t.apcOverflow = true
+	}
+}
+
+func (t *Terminal) endString() {
+	switch t.state {
+	case stOSC:
+		t.endOSC()
+	case stDCS:
+		data, overflow := t.dcs, t.dcsOverflow
+		t.dcs, t.dcsOverflow, t.state = t.dcs[:0], false, stGround
+		if !overflow {
+			t.sixel(data)
+		}
+	case stAPC:
+		data, overflow := t.apc, t.apcOverflow
+		t.apc, t.apcOverflow, t.state = t.apc[:0], false, stGround
+		if !overflow {
+			t.kittyGraphics(data)
+		}
+	case stString:
+		t.state = stGround
+	}
+}
+
+func (t *Terminal) setTitle(text []byte) {
+	if len(text) > maxTitle {
+		text = text[:maxTitle]
+	}
+	out := make([]rune, 0, len(text))
+	for _, r := range string(text) {
+		if r >= 0x20 && r != 0x7F {
+			out = append(out, r)
+		}
+	}
+	t.title = string(out)
+}
+
+func (t *Terminal) answerColor(n int, c [3]uint8) {
+	b := append(t.scratch[:0], "\x1b]"...)
+	b = strconv.AppendInt(b, int64(n), 10)
+	b = append(b, ";rgb:"...)
+	for i, v := range c {
+		if i > 0 {
+			b = append(b, '/')
+		}
+		b = append(b, hexDigits[v>>4], hexDigits[v&15], hexDigits[v>>4], hexDigits[v&15])
+	}
+	b = append(b, "\x1b\\"...)
+	t.send(b)
+}
+
+const hexDigits = "0123456789abcdef"
+
+// send hands an answer to the owner.
+func (t *Terminal) send(b []byte) {
+	t.scratch = b[:0]
+	if t.replyFn != nil {
+		t.replyFn(b)
+	}
+}

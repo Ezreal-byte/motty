@@ -1,0 +1,45 @@
+# End to end: inline command suggestions against the loopback SSH fixture on port
+# 2222 (cd tools/e2esshd && go build -o /tmp/e2esshd . && /tmp/e2esshd 2222).
+# Chinese labels; coordinates are logical pixels of the 1400x900 window.
+#
+#   go build -tags vivahead -o /tmp/motty-head ./cmd/motty
+#   python3 tools/headless_drive.py "$(mktemp -d)" tools/e2e/ghost_e2e.txt
+#
+# Remember commands is turned on in Settings > Terminal (the toggle sits 19 px
+# below its label), a command is run once, and the start of it typed again must
+# show the rest dim after the cursor; Right takes it, so the second Enter prints
+# the same output twice.
+
+click "设置"
+click "终端"
+scroll 800 600 0 3000
+scroll 800 600 0 -700
+settle 300
+click 1259 492
+click "主机"
+click 462 68
+type tester@127.0.0.1:2222
+click "连接"
+waitfor "信任" 5000
+click "信任并保存"
+waitfor "密码" 5000
+type secret
+key enter
+waitfor "tester@e2e" 8000
+settle 800
+
+type echo ghost-line-one
+settle 600
+key enter
+waitfor "ghost-line-one" 4000
+settle 500
+type echo gh
+settle 600
+shot /tmp/ghost-offered.png
+key right
+settle 400
+shot /tmp/ghost-taken.png
+settle 300
+key enter
+settle 800
+texts "ghost-line-one"

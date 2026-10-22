@@ -1,0 +1,47 @@
+---
+title: 从源码构建
+description: 环境要求、无头构建和打包。
+---
+## 环境要求
+
+- Go 1.26 或更新版本。
+- Viva 框架需要检出在本仓库旁边，目录名为 `../viva`。Viva 是独立项目，有自己的许可证，
+  不随本仓库提供。
+- 带 Metal 和 Xcode 命令行工具的 macOS、Windows 10/11，或带 X11 的 Linux。
+
+## 运行
+
+```sh
+git clone https://github.com/t8y2/motty
+git clone https://github.com/vivaui/viva
+cd motty
+go run ./cmd/motty
+```
+
+## 测试
+
+```sh
+gofmt -l .
+go vet ./...
+go test ./...
+go test -race ./...
+```
+
+## 无头构建与端到端脚本
+
+```sh
+go build -tags vivahead -o /tmp/motty-head ./cmd/motty
+python3 tools/headless_drive.py /tmp/motty-home tools/e2e/host_menu_move_e2e.txt
+```
+
+`tools/README.md` 介绍了无头驱动、回环 SSH 夹具和端到端脚本。
+
+## 打包
+
+打包通过 Viva 完成：
+
+```sh
+cd ../viva
+go run ./cmd/viva package -C ../motty --format app,dmg
+go run ./cmd/viva package -C ../motty --target linux --arch amd64 --format tar.gz,deb
+```

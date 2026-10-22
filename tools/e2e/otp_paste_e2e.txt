@@ -1,0 +1,22 @@
+# End to end: "Paste image" in the host dialog reads a QR code from the clipboard.
+# Needs a headless Viva with the `clipimage` command. The picture is any PNG of an
+# otpauth:// QR code (the workbench tests make one with writeQRImage).
+#
+#   go build -tags vivahead -o /tmp/motty-head ./cmd/motty
+#   dir=$(mktemp -d)
+#   MOTTY_LANG=en MOTTY_DATA_DIR=$dir python3 tools/headless_drive.py "$(mktemp -d)" tools/e2e/otp_paste_e2e.txt
+#
+# Look at the two shots: the first shows the one-line "No image on the clipboard"
+# message, the second the secret field holding the otpauth:// address.
+
+click "New Host"
+settle 500
+click "Advanced"
+settle 300
+click "Paste image"
+settle 400
+shot /tmp/otp-paste-empty.png
+clipimage /tmp/otp-qr.png
+click "Paste image"
+settle 600
+shot /tmp/otp-paste-filled.png

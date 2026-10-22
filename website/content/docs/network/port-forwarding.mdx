@@ -1,0 +1,30 @@
+---
+title: Port forwarding
+description: Local, remote, SOCKS5 and HTTP CONNECT rules, jump routes, proxies and X11.
+---
+![New port forward dialog](/forward.png)
+
+## Rules
+
+Local, remote, SOCKS5 and HTTP CONNECT rules are:
+
+- **loopback-only**: they listen on the loopback interface,
+- **persisted** with the host,
+- **started explicitly**.
+
+A tunnel stops with the SSH tab that owns it.
+
+## Jump routes
+
+A jump route verifies and authenticates every hop independently, each against its
+own host key and credentials.
+
+## Outbound proxy
+
+An outbound SOCKS5 or HTTP proxy carries the initial connection.
+
+## X11 forwarding
+
+X11 forwarding validates a per-session fake cookie from the remote client before
+replacing it with the local Xauthority cookie, so the real cookie never reaches the
+server.

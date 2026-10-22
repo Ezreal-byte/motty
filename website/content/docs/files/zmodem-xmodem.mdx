@@ -1,0 +1,24 @@
+---
+title: ZMODEM, XMODEM and YMODEM
+description: File transfer inside the terminal stream, for serial lines and legacy gear.
+---
+Some devices only move files through the terminal itself.
+
+## ZMODEM
+
+A transfer starts when the remote `sz` or `rz` begins. Motty takes the stream from
+the screen, shows a progress dialog, and returns the terminal to normal when it
+ends.
+
+## XMODEM and YMODEM
+
+These protocols never announce themselves in the stream, so you start them from
+the terminal's menu, choose the protocol (XMODEM checksum, CRC or 1K, or YMODEM
+batch) and the direction, and start the program on the other side yourself. After
+that the transfer behaves like a ZMODEM one.
+
+## What a peer cannot do
+
+Everything from the other end is treated as hostile. A file name is reduced to a
+plain name, a size claim allocates nothing, and the peer cannot choose a path or
+make Motty run a command.

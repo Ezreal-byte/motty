@@ -1,0 +1,114 @@
+package workbench
+
+import (
+	"github.com/vivaui/viva/components"
+	"github.com/vivaui/viva/ui"
+)
+
+func (state *State) shortcutActionLabel(action shortcutAction) string {
+	messages := state.messages
+	switch action {
+	case shortcutCommandPalette:
+		return messages.ShortcutCommandPalette
+	case shortcutNewWindow:
+		return messages.NewWindow
+	case shortcutFind:
+		return messages.ShortcutFind
+	case shortcutCopy:
+		return messages.ShortcutCopy
+	case shortcutPaste:
+		return messages.ShortcutPaste
+	case shortcutNewTab:
+		return messages.ShortcutNewTab
+	case shortcutCloseTab:
+		return messages.ShortcutCloseTab
+	case shortcutPanePrevious:
+		return messages.PanePrevious
+	case shortcutPaneNext:
+		return messages.PaneNext
+	case shortcutPaneSplitHorizontal:
+		return messages.PaneSplitHorizontal
+	case shortcutPaneSplitVertical:
+		return messages.PaneSplitVertical
+	case shortcutPaneClose:
+		return messages.PaneClose
+	case shortcutSFTP:
+		return messages.SFTPFiles
+	case shortcutAssistant:
+		return messages.AIPanel.Toggle
+	case shortcutZoomIn:
+		return messages.Tools.ZoomIn
+	case shortcutZoomOut:
+		return messages.Tools.ZoomOut
+	case shortcutZoomReset:
+		return messages.Tools.ZoomReset
+	case shortcutHistory:
+		return messages.History.Title
+	default:
+		return ""
+	}
+}
+
+func (state *State) openShortcutCapture(action shortcutAction) {
+	if action <= shortcutNone || action >= shortcutActionCount {
+		return
+	}
+	state.shortcutCapture = action
+	state.shortcutError = ""
+	state.modal = modalShortcutCapture
+}
+
+func (state *State) clickShortcutCapture(id ui.ID) {
+	if id != hitShortcutCaptureDismiss && id != hitShortcutCaptureCancel {
+		return
+	}
+	state.modal = modalNone
+	state.shortcutCapture = shortcutNone
+	state.shortcutError = ""
+}
+
+// shortcutRowHeight is a little under a settings row: fourteen of them make the page.
+const shortcutRowHeight = float32(54)
+
+// paintShortcutSettings is the Keyboard shortcuts category: one row per action
+// with its chord on a button that opens the capture dialog, and a way back to
+// the defaults.
+func (state *State) paintShortcutSettings(page *settingsPage) {
+	messages := state.messages
+	page.rowHeight = shortcutRowHeight
+	page.groups(func() {
+		page.group("", func() {
+			for action := shortcutAction(1); action < shortcutActionCount; action++ {
+				page.actionRow(state.shortcutActionLabel(action), "", false,
+					components.ButtonAction{ID: hitShortcutRowList.At(int(action - 1)), Label: state.shortcuts.labels[action], Variant: components.ButtonOutline})
+			}
+			page.actionRow(messages.ShortcutsReset, "", false,
+				components.ButtonAction{ID: hitShortcutReset, Label: messages.ShortcutsReset, Variant: components.ButtonOutline})
+		})
+	})
+}
+
+func (state *State) paintShortcutCaptureDialog(canvas *ui.Canvas, viewport ui.Rect) {
+	messages := state.messages
+	// The name of the action, and under it the reason a key was refused.
+	body := float32(34)
+	if state.shortcutError != "" {
+		body = 88
+	}
+	dialog := components.BeginDialog(canvas, state.Theme(), viewport, components.DialogOptions{
+		Layer: dialogLayer, Scope: dialogScope,
+		DismissID: hitShortcutCaptureDismiss, CloseID: hitShortcutCaptureDismiss,
+		ContentSize: ui.Size{Width: 480}, FitBody: true, BodyHeight: body,
+	})
+	layout := dialog.Begin(messages.ShortcutsCaptureTitle, messages.ShortcutsCaptureDescription)
+	f := state.settingsRow.Begin(canvas, state.Theme(), layout.Body)
+	f.Column().Fill().PadX(4).Children(func() {
+		f.Text(state.shortcutActionLabel(state.shortcutCapture)).FontSize(metrics.FontSizeM).Bold().Color(state.pal.text).LineHeight(24).MarginSides(8, 0, 0, 0)
+		if state.shortcutError != "" {
+			f.Text(state.shortcutError).FontSize(metrics.FontSizeS).Weight(ui.WeightMedium).Color(state.pal.danger).LineHeight(40).MarginSides(14, 0, 0, 0)
+		}
+	})
+	f.End()
+	dialog.Actions(layout, components.ButtonAction{ID: hitShortcutCaptureCancel, Label: messages.Cancel, Variant: components.ButtonSecondary})
+	dialog.End()
+}

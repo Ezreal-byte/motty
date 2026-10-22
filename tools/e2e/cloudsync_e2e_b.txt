@@ -1,0 +1,51 @@
+# Computer B of tools/e2e/cloudsync_e2e.txt: sets up the same bucket, syncs, must see
+# the host computer A added, then adds one of its own and syncs again.
+
+click "Settings"
+click "Backup & sync"
+settle 300
+click "S3"
+settle 300
+type http://127.0.0.1:19000
+key tab
+key tab
+type e2e
+click "Save"
+settle 300
+# Step 2 of 2: the key. The secret and the backup password are masked fields.
+type AKIAE2E
+key tab
+type e2e-secret-key
+key tab
+type correct horse battery
+click "Save"
+settle 1500
+click "Settings"
+click "Backup & sync"
+settle 300
+click "Sync now"
+settle 1500
+texts Last synced
+click "Hosts"
+settle 300
+texts Alpha
+click "Hosts"
+click "New Host"
+settle 500
+type Beta from B
+key tab
+type beta-b.example.com
+key tab
+type root
+click "Add Host"
+settle 300
+click "Settings"
+click "Backup & sync"
+settle 300
+click "Sync now"
+settle 1500
+texts Last synced
+click "Hosts"
+settle 300
+texts from
+shot /tmp/cloudsync-b.png

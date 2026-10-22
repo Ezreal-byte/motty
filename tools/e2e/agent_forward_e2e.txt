@@ -1,0 +1,38 @@
+# End to end: a host with "Forward ssh-agent" on lets the remote side reach the
+# local ssh-agent. Needs the loopback fixture with agent forwarding on, and a
+# real ssh-agent holding one key whose socket the headless binary inherits:
+#
+#   go build -tags vivahead -o /tmp/motty-head ./cmd/motty
+#   go build -o /tmp/motty-e2esshd ./tools/e2esshd
+#   eval "$(ssh-agent -s)"; ssh-add /tmp/agent-forward-key
+#   E2E_AGENTFWD=1 SSH_AUTH_SOCK=$SSH_AUTH_SOCK MOTTY_LANG=en /tmp/motty-e2esshd 2244 &
+#   MOTTY_LANG=en python3 tools/headless_drive.py "$(mktemp -d)" tools/e2e/agent_forward_e2e.txt
+#
+# The shell prompt is followed by the AGENTFWD line the server printed after
+# querying the forwarded agent, naming the key's comment.
+
+click "New Host"
+settle 500
+type agent-fwd
+key tab
+type 127.0.0.1
+key tab
+type tester
+key tab
+key backspace
+key backspace
+type 2244
+click "Advanced"
+settle 400
+click "Forward ssh-agent"
+click "Add Host"
+settle 400
+dblclick 400 145
+waitfor "Trust" 3000
+click "Trust and Save"
+waitfor "Password" 5000
+type secret
+key enter
+waitfor "tester@e2e" 8000
+waitfor "AGENTFWD 1 keys: agent-forward-key" 8000
+texts

@@ -1,0 +1,50 @@
+---
+title: Ask and Agent
+description: The assistant, its two modes, the approval gate and how secrets are kept out.
+---
+## Providers
+
+Add a provider in **Settings > AI assistant**. OpenAI-compatible endpoints and
+Anthropic are supported. Provider keys are stored in the vault, never in the
+settings file.
+
+## Modes
+
+**Ask** answers questions with the visible terminal as context.
+
+**Agent** can also run commands in that terminal, and read and change files over
+SFTP.
+
+In Ask mode the assistant can request a switch to Agent when a request needs a
+tool. If you approve, the request is retried in Agent mode and the choice is
+remembered. If you decline, the assistant answers without the tool.
+
+## Risk and approval
+
+Every command is classified before it runs:
+
+| Level | Meaning |
+| --- | --- |
+| Low | Read-only inspection with no side effects. |
+| Medium | Changes files or configuration with a bounded effect. |
+| High | Deletes data, changes permissions or privileges, stops services, runs unseen code, or is otherwise hard to undo. |
+| Critical | Can destroy the machine, its data or the remote access to it. |
+
+Low-risk actions run; the rest ask for your approval first.
+
+<Callout type="warn">
+  The approval gate is a safety control, not a sandbox. Do not point an agent at a
+  host where a wrong command is unacceptable.
+</Callout>
+
+## What you see in the terminal
+
+A command the assistant runs is shown as the command itself, with an accent mark in
+the terminal's left margin. Motty hides its capture wrapper and marker from the
+screen and from its own command history. The remote shell's own history is outside
+Motty's control.
+
+## Secrets
+
+Secrets are redacted before terminal text reaches a model. Redaction is on by
+default.

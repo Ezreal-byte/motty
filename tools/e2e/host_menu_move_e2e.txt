@@ -1,0 +1,35 @@
+# End to end: with one host's right-click menu open, a right click on another host
+# moves the menu there in a single press, without a click to close the first.
+#
+#   go build -tags vivahead -o /tmp/motty-head ./cmd/motty
+#   dir=$(mktemp -d)
+#   MOTTY_LANG=en MOTTY_DATA_DIR=$dir python3 tools/headless_drive.py "$(mktemp -d)" tools/e2e/host_menu_move_e2e.txt
+#
+# The shots show the menu on "alpha", then on "beta" after the second right click;
+# the texts at the end list one menu only, at the second click.
+
+click "New Host"
+settle 400
+type alpha
+key tab
+type 10.0.0.1
+click "Add Host"
+settle 400
+click "New Host"
+settle 400
+type beta
+key tab
+type 10.0.0.2
+click "Add Host"
+settle 400
+
+rightclick 700 165
+settle 300
+waitfor "Delete" 2000
+shot /tmp/host-menu-alpha.png
+
+rightclick 700 230
+settle 300
+waitfor "Delete" 2000
+shot /tmp/host-menu-beta.png
+texts

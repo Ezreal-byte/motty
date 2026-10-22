@@ -1,0 +1,31 @@
+# End to end: the terminal's right-click menu offers what the text under the
+# pointer could be. Needs a headless Viva with `rightclick`, and only a local shell.
+#
+#   dir=$(mktemp -d)
+#   MOTTY_LANG=en MOTTY_DATA_DIR=$dir python3 tools/headless_drive.py "$(mktemp -d)" tools/e2e/terminal_menu_e2e.txt
+#
+# The echoed line sits on row 2 of the terminal; the x of each right click is
+# where the address, the path and the archive name are on it. Look at the shots.
+
+click "Local Terminal"
+settle 800
+type echo listening on 10.0.0.5:8080 and ls /var/log/syslog backup-2026-10-19-full.tar.gz
+key enter
+settle 600
+
+rightclick 162 98
+settle 300
+waitfor "Open 10.0.0.5:8080 in browser" 2000
+shot /tmp/menu-ip.png
+key esc
+
+rightclick 310 98
+settle 300
+waitfor "in Files" 2000
+shot /tmp/menu-path.png
+key esc
+
+rightclick 450 98
+settle 300
+waitfor "Unpack" 2000
+shot /tmp/menu-archive.png

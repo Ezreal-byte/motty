@@ -1,0 +1,25 @@
+---
+title: Security
+description: What Motty protects, what it does not, and how to report a problem.
+---
+## What Motty does
+
+- Host-key verification happens before any credential is sent.
+- Saved passwords and passphrases are stored in an AES-256-GCM vault. Its key is in
+  the system secret store, or wrapped by an Argon2id master password.
+- AI provider keys are in the vault. Terminal context is redacted by default, and
+  agent commands pass through the approval gate.
+- The MCP server is off by default, loopback-only and bearer-token protected.
+- RDP certificates are pinned only after an explicit trust decision.
+- Motty has no analytics. The optional update check contacts GitHub Releases and is
+  off by default.
+
+## What it does not do
+
+The approval gate is a safety control, not a sandbox. VNC Authentication and Telnet
+are not secure on their own; use SSH to carry them. Linux packages are not signed.
+
+## Reporting a vulnerability
+
+Use GitHub's private vulnerability reporting on the repository. Keep credentials,
+host names and terminal output out of public issues.

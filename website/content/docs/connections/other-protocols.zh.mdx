@@ -1,0 +1,23 @@
+---
+title: 串口、Telnet 与本地 Shell
+description: 行为和 SSH 会话一样的其他标签页类型。
+---
+终端标签页不一定是 SSH。这些会话使用同一个终端。
+
+## 串口
+
+串口标签页按你选择的线路参数打开端口，并列出本机已有的端口。设备如果用 XMODEM 或
+YMODEM 传文件，见 [ZMODEM、XMODEM 与 YMODEM](/zh/docs/files/zmodem-xmodem)。
+
+## Telnet
+
+用于只提供 Telnet 的设备。客户端会协商终端需要的选项：远端回显、抑制 go-ahead、终端
+类型、窗口大小和二进制。
+
+<Callout type="warn">
+  Telnet 不加密，自身也没有认证。你输入的所有内容都以明文传输。
+</Callout>
+
+## 本地 Shell
+
+在本机的伪终端上运行你的登录 shell：macOS 和 Linux 用 pty，Windows 用 ConPTY。

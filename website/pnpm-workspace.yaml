@@ -1,0 +1,9 @@
+allowBuilds:
+  esbuild: true
+
+# next-themes 0.4.6 renders its theme <script> on the client too, and React 19
+# logs "Encountered a script tag while rendering React component". The patch
+# renders it on the server only. Workaround for an upstream bug: drop it once
+# next-themes ships a fix.
+patchedDependencies:
+  next-themes@0.4.6: patches/next-themes@0.4.6.patch

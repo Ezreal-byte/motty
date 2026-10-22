@@ -1,0 +1,33 @@
+---
+title: Architecture
+description: What Motty owns, what Viva owns, and where the code lives.
+---
+Motty owns SSH, authentication, SFTP, terminal emulation, forwarding,
+remote-desktop protocols, persistence and product workflows.
+
+[Viva](https://github.com/vivaui/viva) owns windowing, input, text and IME, focus,
+layout, components and rendering. Reusable desktop capabilities go into Viva rather
+than being duplicated in Motty.
+
+| Path | Contents |
+| --- | --- |
+| `cmd/motty` | application entry point, headless mode and MCP bridge |
+| `internal/sshconn` | SSH dialling, host keys, authentication, proxies and jump routes |
+| `internal/term` | terminal emulator and parser |
+| `internal/rfb`, `internal/desktop/vnc` | VNC protocol and desktop backend |
+| `internal/rdpcore`, `internal/desktop/rdp` | RDP protocol (MIT-licensed fork) and backend |
+| `internal/sftpclient`, `internal/scpclient` | SFTP and SCP clients |
+| `internal/portforward` | local, remote, SOCKS5 and HTTP CONNECT forwarding |
+| `internal/workbench` | application state, screens, painting and input |
+| `internal/ai` | assistant, tools, risk gate and MCP server |
+| `assets`, `docs`, `tools` | branding, technical notes and development tooling |
+
+## Contributing
+
+Issues and pull requests are welcome. Start with an issue for a large change. Keep
+SSH, protocol and product logic in this repository; propose desktop-framework
+capabilities in Viva instead.
+
+## Licence
+
+Apache License 2.0. The Motty name and logo are not licensed under it.

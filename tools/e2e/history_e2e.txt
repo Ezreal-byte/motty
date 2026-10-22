@@ -1,0 +1,83 @@
+# End to end: command history. Remembers what is typed at a prompt, never a line
+# the screen did not echo (a `read -s` password), and the picker finds it by a
+# fuzzy query and inserts it without pressing Enter. Against the loopback SSH
+# fixture on port 2236:
+#
+#   go build -tags vivahead -o /tmp/motty-head-hist ./cmd/motty
+#   cd tools/e2esshd && go build -o /tmp/e2esshd-hist . && E2E_ALLOW_EXEC=1 /tmp/e2esshd-hist 2236 &
+#   MOTTY_HEAD=/tmp/motty-head-hist python3 tools/headless_drive.py "$(mktemp -d)" tools/e2e/history_e2e.txt
+#
+# Then check the history file: `strings <home>/**/history.db | grep s3cret-pw`
+# must find nothing. The headless clock only moves on request, so each step
+# lets output be taken in (settle) and the quiet before a key pass (wait).
+
+click "Search"
+type tester@127.0.0.1:2236
+click "Connect"
+waitfor "Trust" 3000
+click "Trust and Save"
+waitfor "Password" 3000
+type secret
+key enter
+waitfor "tester@e2e" 8000
+
+# History is off until switched on.
+click "Settings"
+click "Terminal"
+settle 300
+scroll 800 500 0 400
+settle 300
+shot /tmp/history-settings.png
+click "Remember commands"
+settle 300
+texts Remember
+click "127.0.0.1:2236"
+settle 600
+wait 400
+
+type echo hello-history
+settle 200
+key enter
+settle 600
+wait 400
+type ls -la /tmp
+settle 200
+key enter
+settle 600
+wait 400
+# A password read without echo: it is typed, and must not be kept.
+type read -s -p 'Password: ' x; echo; echo got-$x
+settle 200
+key enter
+settle 600
+wait 400
+type s3cret-pw
+settle 200
+key enter
+settle 600
+wait 400
+type docker compose up -d
+settle 200
+key enter
+settle 600
+wait 400
+
+# The picker, from the command palette.
+click "Command Palette"
+type command history
+settle 200
+key enter
+settle 300
+shot /tmp/history-picker-all.png
+type dcu
+settle 300
+shot /tmp/history-picker-query.png
+texts docker
+key enter
+settle 300
+wait 300
+shot /tmp/history-inserted.png
+texts docker
+# Inserted, not run: Enter has not been pressed, so there is no second output.
+key ctrl+c
+settle 300

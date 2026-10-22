@@ -1,0 +1,48 @@
+# End to end: terminal protocols over a real loopback SSH pty. Needs a
+# headless Viva build and the e2esshd fixture on port 2240:
+#
+#   go build -tags vivahead -o /tmp/motty-head-proto ./cmd/motty
+#   (cd tools/e2esshd && go build -o /tmp/e2esshd-proto .) && /tmp/e2esshd-proto 2240 &
+#   MOTTY_LANG=en MOTTY_HEAD=/tmp/motty-head-proto \
+#     python3 tools/headless_drive.py "$(mktemp -d)" tools/e2e/terminal_protocols_e2e.txt
+#
+# What to look for:
+# - /tmp/proto-ligatures.png shows "-> => != <= <->" as shaped ligatures
+#   (the chosen font must have them; Maple Mono was used for the reference).
+# - /tmp/proto-sync-held.png still shows the command line while the remote is
+#   between BSU and ESU; /tmp/proto-sync-done.png shows after-sync.
+# - The last texts line is "key 1b5b323775": the remote read CSI 27 u for Esc
+#   after asking for kitty flag 1, so Escape was unambiguous.
+
+click "Search"
+type tester@127.0.0.1:2240
+click "Connect"
+waitfor "Trust" 5000
+click "Trust and Save"
+waitfor "Password" 5000
+type secret
+key enter
+waitfor "tester@e2e" 8000
+settle 800
+
+type printf '%s\n' '-> => != <= <->'
+key enter
+settle 800
+shot /tmp/proto-ligatures.png
+
+type printf '\033[?2026h'; sleep 2; printf '\033[2J\033[Hafter-sync'; sleep 2; printf '\033[?2026l'; echo done
+key enter
+settle 700
+shot /tmp/proto-sync-held.png
+settle 4500
+texts after-sync
+shot /tmp/proto-sync-done.png
+
+type python3 -c 'import sys,os,tty,termios,select; old=termios.tcgetattr(0); tty.setraw(0); sys.stdout.write("\x1b[>1u"); sys.stdout.flush(); print("kitty-ready",flush=True); r,_,_=select.select([0],[],[],5); d=os.read(0,16) if r else b""; sys.stdout.write("\x1b[<u"); sys.stdout.flush(); termios.tcsetattr(0,termios.TCSADRAIN,old); print(); print("key",d.hex(),flush=True)'
+key enter
+waitfor "kitty-ready" 5000
+settle 500
+key esc
+settle 800
+texts "key"
+shot /tmp/proto-kitty.png

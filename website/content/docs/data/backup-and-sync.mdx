@@ -1,0 +1,23 @@
+---
+title: Backup and sync
+description: Encrypted export and record-level sync through WebDAV, S3 or a GitHub Gist.
+---
+## Backup
+
+Export your state to one encrypted `.mottybak` file.
+
+## Sync
+
+Record-level sync works through:
+
+- WebDAV
+- S3-compatible storage
+- a GitHub Gist
+
+Records carry hybrid logical clocks, and deletions are kept as 90-day tombstones, so
+several computers converge without one overwriting the other.
+
+## What stays local
+
+Tabs, window layout, shortcuts, fonts, key paths and cloud credentials are never
+synced.

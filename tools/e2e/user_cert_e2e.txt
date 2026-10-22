@@ -1,0 +1,31 @@
+# End to end: an identity file whose OpenSSH user certificate sits beside it
+# authenticates without a password. The fixture (E2E_USER_CERT=1) refuses the
+# password method and accepts only the certificate it signed for its own key;
+# the identity and certificate are copied beside each other to the fixed path
+# below, imported through the keychain, and one connection answers.
+#
+#   E2E_USER_CERT=1 /tmp/motty-e2esshd 2245   # prints "identity" and "user-cert"
+#   cp <identity> /tmp/motty-e2e-identity; cp <cert> /tmp/motty-e2e-identity-cert.pub
+#   MOTTY_LANG=en python3 tools/headless_drive.py "$(mktemp -d)" tools/e2e/user_cert_e2e.txt
+#
+# The account password is never asked: unlocking the encrypted identity and
+# then the shell prompt proves the certificate was the credential.
+
+click "Keychain"
+settle 400
+openfiles /tmp/motty-e2e-identity
+click "Import Key"
+settle 400
+texts "e2e"
+click "Hosts"
+settle 300
+click "Search"
+type tester@127.0.0.1:2245
+click "Connect"
+waitfor "Trust" 3000
+click "Trust and Save"
+waitfor "passphrase" 5000
+type key-secret
+key enter
+waitfor "tester@e2e" 8000
+texts

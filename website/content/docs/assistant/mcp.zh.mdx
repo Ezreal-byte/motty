@@ -1,0 +1,45 @@
+---
+title: MCP 服务器
+description: 通过本地、带令牌保护的服务器，让外部代理使用你的会话。
+---
+可选的 MCP 服务器会把同一组会话工具提供给 Claude Code 等外部代理。
+
+它**默认关闭**，只监听回环地址，并要求 bearer 令牌。
+
+## 启用
+
+在 **设置 > AI 助手** 里打开 **允许外部代理（MCP）**。页面随后会显示地址和访问令牌，并
+提供复制客户端配置的按钮。重置令牌会断开所有客户端。
+
+### 访问级别
+
+| 级别 | 客户端能做什么 |
+| --- | --- |
+| 观察 | 只读。 |
+| 询问 | 还可以执行命令，每条都要先在 Motty 里批准。 |
+
+## 工具
+
+| 工具 | 作用 |
+| --- | --- |
+| `list_sessions` | 列出已打开的会话。 |
+| `terminal_read` | 读取终端内容。 |
+| `terminal_exec`、`terminal_exec_many` | 在终端里执行命令。 |
+| `sftp_list`、`sftp_read` | 列出并读取远程文件。 |
+| `sftp_write`、`sftp_remove` | 修改远程文件。 |
+
+观察模式下只有读取类工具可用。
+
+## 只支持 stdio 的客户端
+
+`motty mcp-bridge` 把 MCP 通过 stdio 转发给正在运行的应用：
+
+```sh
+MOTTY_MCP_TOKEN=<令牌> motty mcp-bridge --url http://127.0.0.1:<端口>/mcp
+```
+
+令牌放在环境变量里，因为命令行参数会出现在进程列表中。
+
+<Callout type="warn">
+  拿到令牌的人就拥有你所选的访问级别。不要把它放进共享配置。
+</Callout>

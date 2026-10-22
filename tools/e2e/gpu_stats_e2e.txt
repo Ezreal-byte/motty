@@ -1,0 +1,25 @@
+# End to end: the resource monitor with GPUs against the loopback SSH fixture on
+# port 2235, started with E2E_ALLOW_EXEC=1 and a PATH whose first directory holds
+# a fake nvidia-smi that prints two GPUs (no real GPU is involved):
+#
+#   (cd tools/e2esshd && go build -o /tmp/e2esshd . && PATH=/tmp/fake-bin:$PATH E2E_ALLOW_EXEC=1 /tmp/e2esshd 2235) &
+#   go build -tags vivahead -o /tmp/motty-head ./cmd/motty
+#   dir=$(mktemp -d)
+#   MOTTY_LANG=en MOTTY_DATA_DIR=$dir python3 tools/headless_drive.py "$(mktemp -d)" tools/e2e/gpu_stats_e2e.txt
+
+click "Search"
+type tester@127.0.0.1:2235
+click "Connect"
+waitfor "Trust" 3000
+click "Trust and Save"
+waitfor "Password" 3000
+type secret
+key enter
+waitfor "tester@e2e" 8000
+settle 800
+
+click "Show the server's CPU, memory, network and GPU"
+waitfor "GPU0" 8000
+settle 500
+texts
+shot /tmp/gpu-stats.png

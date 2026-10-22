@@ -1,0 +1,385 @@
+package workbench
+
+import (
+	"strings"
+	"testing"
+
+	"github.com/vivaui/viva/text"
+	"github.com/vivaui/viva/ui"
+)
+
+func TestEditHostReusesDialogAndPersists(t *testing.T) {
+	options := testOptions(t)
+	state := newTestState(t, options)
+	clickHostAction(state, hitEditHost)
+	if state.modal != modalNewHost || state.hostDialogMode != hostDialogEdit || state.hostDialogID != state.hosts[0].ID {
+		t.Fatalf("edit dialog state = modal %d mode %d id %d", state.modal, state.hostDialogMode, state.hostDialogID)
+	}
+	_, texts := paintedTexts(state)
+	if !contains(texts, state.messages.EditHostTitle) {
+		t.Fatalf("edit dialog did not reuse the host form: %v", texts)
+	}
+	state.editor.label = text.Editor{}
+	state.editor.address = text.Editor{}
+	state.editor.group = text.Editor{}
+	typeInto(state, hitDialogLabel, "Primary")
+	typeInto(state, hitDialogAddress, "primary.example.com")
+	typeInto(state, hitDialogGroup, "Critical")
+	state.Click(hitDialogSubmit)
+
+	updated := state.hosts[0]
+	if updated.ID != 1 || updated.Label != "Primary" || updated.Address != "primary.example.com" || updated.Group != "Critical" {
+		t.Fatalf("updated host = %+v", updated)
+	}
+	if state.status != state.messages.HostUpdated+updated.Label {
+		t.Fatalf("status = %q", state.status)
+	}
+	typeSearch(state, "Critical")
+	if len(state.visible) != 1 || state.hosts[state.visible[0]].ID != updated.ID {
+		t.Fatalf("edited host was not searchable: visible=%v", state.visible)
+	}
+	restarted := newTestState(t, options)
+	if len(restarted.hosts) != 3 || restarted.hosts[0].Label != "Primary" || restarted.hosts[0].Address != "primary.example.com" || restarted.hosts[0].Group != "Critical" {
+		t.Fatalf("restored hosts = %+v", restarted.hosts)
+	}
+}
+
+func TestEditHostUpdatesSessionForwardAndProxyReferences(t *testing.T) {
+	state := newTestState(t, testOptions(t))
+	previous := state.hosts[0]
+	state.sessions = append(state.sessions, Session{ID: 1, HostID: previous.ID, Title: previous.Label, host: previous})
+	state.forwards = append(state.forwards, forwardRecord{
+		ID: 1, Label: "Web", HostLabel: previous.Label, HostAddress: previous.Address,
+		HostUser: previous.User, HostPort: previous.Port,
+	})
+	state.proxies = append(state.proxies, proxyRecord{ID: 1, TargetID: previous.ID, JumpID: state.hosts[1].ID})
+
+	clickHostAction(state, hitEditHost)
+	state.editor.label = text.Editor{}
+	state.editor.address = text.Editor{}
+	typeInto(state, hitDialogLabel, "Primary")
+	typeInto(state, hitDialogAddress, "primary.example.com")
+	state.Click(hitDialogSubmit)
+
+	updated := state.hosts[0]
+	if state.sessions[0].host != updated || state.sessions[0].Title != updated.Label || !strings.Contains(state.sessions[0].Address, updated.Address) {
+		t.Fatalf("session reference = %+v", state.sessions[0])
+	}
+	forward := state.forwards[0]
+	if forward.HostLabel != updated.Label || forward.HostAddress != updated.Address || forward.HostUser != updated.User || forward.HostPort != updated.Port {
+		t.Fatalf("forward reference = %+v", forward)
+	}
+	if state.proxies[0].TargetID != updated.ID {
+		t.Fatalf("proxy reference changed identity: %+v", state.proxies[0])
+	}
+}
+
+func TestCopyHostRequiresAnEditedUniqueDestination(t *testing.T) {
+	options := testOptions(t)
+	state := newTestState(t, options)
+	clickHostAction(state, hitCopyHost)
+	if state.modal != modalNewHost || state.hostDialogMode != hostDialogCopy || state.editor.value(fieldLabel) != "Production Copy" {
+		t.Fatalf("copy dialog mode=%d label=%q", state.hostDialogMode, state.editor.value(fieldLabel))
+	}
+	state.Click(hitDialogSubmit)
+	if state.modal != modalNewHost || state.dialogError != state.messages.ErrAddressTaken || len(state.hosts) != 3 {
+		t.Fatalf("unchanged copy silently saved: modal=%d error=%q hosts=%d", state.modal, state.dialogError, len(state.hosts))
+	}
+	state.editor.address = text.Editor{}
+	typeInto(state, hitDialogAddress, "prod-copy.example.com")
+	state.Click(hitDialogSubmit)
+	if len(state.hosts) != 4 || state.hosts[3].Label != "Production Copy" || state.hosts[3].Address != "prod-copy.example.com" {
+		t.Fatalf("copy = %+v", state.hosts)
+	}
+	if restarted := newTestState(t, options); len(restarted.hosts) != 4 || restarted.hosts[3].Address != "prod-copy.example.com" {
+		t.Fatalf("copy was not persisted: %+v", restarted.hosts)
+	}
+}
+
+func TestHostCheckboxMultiSelectAndBatchMoveGroup(t *testing.T) {
+	options := testOptions(t)
+	state := newTestState(t, options)
+	state.Click(hitHostCheckList.At(int(state.hosts[0].ID)))
+	result := state.Key(ui.KeyEvent{Target: hitHostList.At(int(state.hosts[1].ID)), Key: ui.KeySpace})
+	if !result.Handled || len(state.hostSelections) != 2 || state.hostSelectionText != "2 selected" {
+		t.Fatalf("selection = %v text=%q result=%+v", state.hostSelections, state.hostSelectionText, result)
+	}
+	canvas, _ := paintedTexts(state)
+	if edit, ok := hitByID(canvas, hitEditHost); !ok || !edit.Disabled {
+		t.Fatalf("edit with a multi-selection = %+v, found=%v", edit, ok)
+	}
+	clickHostAction(state, hitMoveHostGroup)
+	if !state.hostGroupMenu {
+		t.Fatal("group dropdown did not open")
+	}
+	state.Click(hitHostGroupNew)
+	if state.modal != modalMoveHostGroup || state.EditorFor(hitMoveGroupField) == nil {
+		t.Fatal("new group field did not open")
+	}
+	typeInto(state, hitMoveGroupField, "Critical")
+	result = state.Key(ui.KeyEvent{Target: hitMoveGroupField, Key: ui.KeyEnter})
+	if !result.Handled || state.modal != modalNone || state.hosts[0].Group != "Critical" || state.hosts[1].Group != "Critical" || state.hosts[2].Group != "Network" {
+		t.Fatalf("batch group result=%+v hosts=%+v", result, state.hosts)
+	}
+	restarted := newTestState(t, options)
+	if restarted.hosts[0].Group != "Critical" || restarted.hosts[1].Group != "Critical" || restarted.hosts[2].Group != "Network" {
+		t.Fatalf("groups after restart = %+v", restarted.hosts)
+	}
+}
+
+func TestHostGroupDropdownMovesToExistingOrNoGroup(t *testing.T) {
+	state := newTestState(t, testOptions(t))
+	state.Click(hitHostCheckList.At(int(state.hosts[0].ID)))
+	clickHostAction(state, hitMoveHostGroup)
+	index := -1
+	for at, group := range state.hostGroups {
+		if group.Name == "Network" {
+			index = at
+		}
+	}
+	if index < 0 {
+		t.Fatalf("groups = %v", state.hostGroups)
+	}
+	state.Click(hitHostGroupItemList.At(index))
+	if state.hosts[0].Group != "Network" {
+		t.Fatalf("existing group move = %q", state.hosts[0].Group)
+	}
+	clickHostAction(state, hitMoveHostGroup)
+	state.Click(hitHostGroupNone)
+	if state.hosts[0].Group != "" {
+		t.Fatalf("no-group move = %q", state.hosts[0].Group)
+	}
+}
+
+func TestDeleteHostsConfirmsAndPersists(t *testing.T) {
+	options := testOptions(t)
+	state := newTestState(t, options)
+	state.Click(hitHostCheckList.At(int(state.hosts[1].ID)))
+	state.Click(hitHostCheckList.At(int(state.hosts[2].ID)))
+	result := state.Key(ui.KeyEvent{Target: hitHostList.At(int(state.hosts[2].ID)), Key: ui.KeyDelete})
+	if !result.Handled {
+		t.Fatal("Delete did not open confirmation from the keyboard")
+	}
+	if state.modal != modalDeleteHost || len(state.hosts) != 3 {
+		t.Fatalf("delete did not wait for confirmation: modal=%d hosts=%d", state.modal, len(state.hosts))
+	}
+	var canvas ui.Canvas
+	state.Paint(&canvas, ui.Size{Width: 1400, Height: 900})
+	if canvas.InitialFocus() != hitHostDeleteCancel {
+		t.Fatalf("delete initial focus = %d", canvas.InitialFocus())
+	}
+	result = state.Key(ui.KeyEvent{Target: hitHostDeleteConfirm, Key: ui.KeyEnter})
+	if !result.Handled || len(state.hosts) != 1 || state.hosts[0].Label != "Production" || state.modal != modalNone {
+		t.Fatalf("delete result=%+v hosts=%+v modal=%d", result, state.hosts, state.modal)
+	}
+	if restarted := newTestState(t, options); len(restarted.hosts) != 1 || restarted.hosts[0].Label != "Production" {
+		t.Fatalf("delete was not persisted: %+v", restarted.hosts)
+	}
+}
+
+func TestDeleteHostRejectsEveryReferenceKind(t *testing.T) {
+	tests := []struct {
+		name  string
+		setup func(*State, Host)
+		want  func(*State) string
+	}{
+		{
+			name: "proxy",
+			setup: func(state *State, host Host) {
+				state.proxies = append(state.proxies, proxyRecord{ID: 1, TargetID: host.ID, JumpID: state.hosts[1].ID})
+			},
+			want: func(state *State) string { return state.messages.HostDeleteBlockedProxyFmt },
+		},
+		{
+			name: "forward",
+			setup: func(state *State, host Host) {
+				state.forwards = append(state.forwards, forwardRecord{HostAddress: host.Address, HostUser: host.User, HostPort: host.Port})
+			},
+			want: func(state *State) string { return state.messages.HostDeleteBlockedForwardFmt },
+		},
+		{
+			name: "session",
+			setup: func(state *State, host Host) {
+				state.sessions = append(state.sessions, Session{ID: 1, HostID: host.ID, host: host, restored: true})
+			},
+			want: func(state *State) string { return state.messages.HostDeleteBlockedSessionFmt },
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			state := newTestState(t, testOptions(t))
+			host := state.hosts[0]
+			test.setup(state, host)
+			clickHostAction(state, hitDeleteHost)
+			if state.modal != modalNone || len(state.hosts) != 3 || !strings.Contains(state.status, host.Label) {
+				t.Fatalf("blocked delete modal=%d hosts=%d status=%q", state.modal, len(state.hosts), state.status)
+			}
+			prefix := strings.Split(test.want(state), "%s")[0]
+			if !strings.HasPrefix(state.status, prefix) {
+				t.Fatalf("status %q does not use %q", state.status, test.want(state))
+			}
+		})
+	}
+}
+
+func TestHostManagementHitsAndSteadyPaintAreAllocationFree(t *testing.T) {
+	state := newTestState(t, testOptions(t))
+	state.Click(hitHostCheckList.At(int(state.hosts[0].ID)))
+	clickHostAction(state, hitMoveHostGroup)
+	var canvas ui.Canvas
+	size := ui.Size{Width: 1400, Height: 900}
+	state.Paint(&canvas, size)
+	for _, id := range []ui.ID{
+		hitEditHost, hitCopyHost, hitDeleteHost, hitMoveHostGroup,
+		hitHostCheckList.At(int(state.hosts[0].ID)), hitHostGroupNone, hitHostGroupNew,
+	} {
+		if _, ok := hitByID(&canvas, id); !ok {
+			t.Errorf("missing hit %d", id)
+		}
+	}
+	if allocations := testing.AllocsPerRun(100, func() {
+		canvas.Reset()
+		state.Paint(&canvas, size)
+	}); allocations != 0 {
+		t.Fatalf("steady host-management paint allocated %v times", allocations)
+	}
+}
+
+// Pressing empty space closes the group menu: the framework paints the menu
+// but leaves the backdrop that catches that press to the application.
+func TestHostGroupMenuHasABackdropThatClosesIt(t *testing.T) {
+	state := newTestState(t, testOptions(t))
+	state.Click(hitHostCheckList.At(int(state.hosts[0].ID)))
+	clickHostAction(state, hitMoveHostGroup)
+	canvas, _ := paintedTexts(state)
+	if hit, ok := hitByID(canvas, hitHostGroupDismiss); !ok || hit.Bounds.Width < 1000 {
+		t.Fatalf("the open group menu has no window-wide backdrop: %+v, %v", hit, ok)
+	}
+	state.Click(hitHostGroupDismiss)
+	if state.hostGroupMenu {
+		t.Fatal("pressing the backdrop left the group menu open")
+	}
+}
+
+func TestHostGroupDropdownHasNoBlankRowForTheUngroupedBucket(t *testing.T) {
+	state := newTestState(t, testOptions(t))
+	state.hosts[0].Group = "" // some hosts are ungrouped, so the list holds the unnamed bucket
+	state.hostDataChanged()
+	state.Click(hitHostCheckList.At(int(state.hosts[0].ID)))
+	clickHostAction(state, hitMoveHostGroup)
+	canvas, texts := paintedTexts(state)
+	named := 0
+	for _, group := range state.hostGroups {
+		if group.Name != "" {
+			named++
+		}
+	}
+	items := 0
+	for _, hit := range canvas.Hits() {
+		if hit.Role == ui.RoleMenuItem && hit.Label == "" {
+			t.Fatalf("a blank menu item: %+v", hit)
+		}
+		if hit.ID.Scope() == hitHostGroupItemList {
+			items++
+		}
+	}
+	if items != named || !contains(texts, state.messages.MoveGroupNone) || !contains(texts, state.messages.MoveGroupNew) {
+		t.Fatalf("menu items for groups = %d, named groups = %d, texts = %v", items, named, texts)
+	}
+}
+
+// clickHostAction presses one of the actions on the hosts page the way a user
+// does: on a host they picked first, as no host is picked until they do.
+func clickHostAction(state *State, id ui.ID) {
+	if state.selectedHostID == 0 && len(state.hostSelections) == 0 {
+		state.Click(hitHostList.At(int(state.hosts[0].ID)))
+	}
+	state.Click(id)
+}
+
+// The group menu opens under the Move group button, wherever the actions row
+// puts it.
+func TestTheGroupMenuOpensUnderItsButton(t *testing.T) {
+	state := newTestState(t, testOptions(t))
+	state.Click(hitHostCheckList.At(int(state.hosts[0].ID)))
+	state.Click(hitMoveHostGroup)
+	canvas, _ := paintedTexts(state)
+	button, ok := hitByID(canvas, hitMoveHostGroup)
+	if !ok {
+		t.Fatal("the Move group button is not painted")
+	}
+	none, ok := hitByID(canvas, hitHostGroupNone)
+	if !ok {
+		t.Fatal("the group menu is not painted")
+	}
+	if none.Bounds.X < button.Bounds.X-1 || none.Bounds.X > button.Bounds.X+button.Bounds.Width || none.Bounds.Y < button.Bounds.Y+button.Bounds.Height {
+		t.Fatalf("the menu starts at %+v but its button is at %+v", none.Bounds, button.Bounds)
+	}
+}
+
+// Group chips: once a group exists the list can be narrowed to one of them, the
+// headers are only there while every group is listed, and the narrowing lets go
+// of what it hides.
+func TestGroupChipsNarrowTheListToOneGroup(t *testing.T) {
+	state := newTestState(t, testOptions(t))
+	canvas, _ := paintedTexts(state)
+	if _, ok := hitByID(canvas, hitHostFilterAll); !ok {
+		t.Fatal("hosts in named groups have no chip row")
+	}
+	headers := func() int {
+		count := 0
+		for _, row := range state.hostTreeRows {
+			if row.Kind == hostTreeGroup {
+				count++
+			}
+		}
+		return count
+	}
+	if headers() != 2 || len(state.hostTreeRows) != 5 {
+		t.Fatalf("all groups: %d headers, %d rows", headers(), len(state.hostTreeRows))
+	}
+	state.Click(hitHostCheckList.At(int(state.hosts[0].ID)))
+	index := state.hostGroupIndex("Network")
+	state.Click(hitHostFilterList.At(index))
+	if headers() != 0 || len(state.hostTreeRows) != 1 || len(state.hostSelections) != 0 {
+		t.Fatalf("one group: %d headers, %d rows, %d checked", headers(), len(state.hostTreeRows), len(state.hostSelections))
+	}
+	state.Click(hitHostFilterAll)
+	if headers() != 2 || len(state.hostTreeRows) != 5 {
+		t.Fatalf("back to all: %d headers, %d rows", headers(), len(state.hostTreeRows))
+	}
+}
+
+func TestWithoutNamedGroupsThereAreNoChipsAndNoHeader(t *testing.T) {
+	state := newTestState(t, testOptions(t))
+	for index := range state.hosts {
+		state.hosts[index].Group = ""
+	}
+	state.hostDataChanged()
+	canvas, _ := paintedTexts(state)
+	if _, ok := hitByID(canvas, hitHostFilterAll); ok {
+		t.Fatal("a chip row is painted with nothing to choose")
+	}
+	for _, row := range state.hostTreeRows {
+		if row.Kind == hostTreeGroup {
+			t.Fatal("a header is listed over the only group")
+		}
+	}
+	if len(state.hostTreeRows) != len(state.hosts) {
+		t.Fatalf("%d rows for %d hosts", len(state.hostTreeRows), len(state.hosts))
+	}
+}
+
+func TestAHostMovedOutOfTheShownGroupDoesNotVanish(t *testing.T) {
+	state := newTestState(t, testOptions(t))
+	state.Click(hitHostFilterList.At(state.hostGroupIndex("Network")))
+	state.Click(hitHostCheckList.At(int(state.hosts[2].ID)))
+	state.Click(hitMoveHostGroup)
+	state.Click(hitHostGroupItemList.At(state.hostGroupIndex("Servers")))
+	if state.hostFilterOn {
+		t.Fatal("the list still shows only the group the host left")
+	}
+	if len(state.hostTreeRows) == 0 {
+		t.Fatal("nothing is listed")
+	}
+}

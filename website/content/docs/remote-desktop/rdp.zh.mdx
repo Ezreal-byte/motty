@@ -1,0 +1,51 @@
+---
+title: RDP
+description: TLS 与 NLA、证书固定、账户和限制。
+---
+## 支持什么
+
+优先使用带 NLA（CredSSP 和 NTLMv2）的 TLS；服务器允许时，也可以使用不带 NLA 的 TLS。
+标准 RDP Security（不带 TLS 的 RC4）会被拒绝。
+
+位图更新（RLE、Planar、NSCodec、绘制指令）、RDPGFX 管线（ClearCodec、渐进式
+RemoteFX）、fast-path 更新和 32 位色。不提供 H.264。
+
+桌面固定为 **1600x900**。Motty 不会按窗格大小调整远端桌面，而是缩放画面。
+
+## 证书
+
+RDP 服务器的证书通常是自签名的，所以能检查的只是它是不是你接受过的那一张。在发送任何
+凭据之前，未固定的证书会弹出和未知 SSH 主机密钥类似的对话框，显示 SHA-256 指纹，并给出
+**信任并保存**、**仅本次连接**和**拒绝**三个选项。已固定的证书发生变化时会再次弹出，
+措辞更严厉，并显示旧指纹。拒绝会结束连接。
+
+固定记录保存在 `known_hosts` 旁边的 `rdp_certificates` 里。
+
+## 账户
+
+主机的用户就是 Windows 账户：`user`、`DOMAIN\user` 或主体名称。密码在证书确认之后、在
+同一条连接上询问，所以你没有信任的服务器永远看不到它。密码可以从保险库填入，也可以
+保存到保险库。
+
+密码错误只会尝试 **一次**。Windows 会把每次失败的 NLA 登录都计入账户锁定，所以 Motty
+会报告被拒绝并重新询问，而不是重试。
+
+## 通过 SSH 连接
+
+用法与 [VNC](/zh/docs/remote-desktop/vnc#通过-ssh-连接)相同。
+
+## 剪贴板
+
+仅限文本，按主机设置，默认关闭。
+
+## 不支持
+
+音频，驱动器、打印机、智能卡和 USB 重定向，多显示器，客户端发起的动态分辨率变化，
+RD Gateway，Kerberos 或证书登录（仅 NTLM），文件传输，以及文本以外的剪贴板格式。
+
+同一用户远程登录时，Windows 策略可能会断开控制台会话。
+
+## 代码来源
+
+RDP 核心是 [gopher-rdp](https://github.com/bouncyball-git/gopher-rdp)（MIT）的修改副本。
+解码器经过 fuzz 测试，接收循环会从解码器 panic 中恢复，只结束对应的那一条连接。

@@ -1,0 +1,112 @@
+package workbench
+
+import (
+	"testing"
+
+	"github.com/vivaui/viva/ui"
+)
+
+func zoomChord(key string, shift bool) ui.KeyEvent {
+	modifiers := defaultShortcutModifier()
+	if shift {
+		modifiers |= ui.ModifierShift
+	}
+	return ui.KeyEvent{Modifiers: modifiers, Text: key}
+}
+
+func TestZoomShortcutsStepTheFontSizeWithinItsRangeAndAreKept(t *testing.T) {
+	options := freshOptions(t)
+	options.Keystore = &memKeys{}
+	state := newTestState(t, options)
+	for _, test := range []struct {
+		event ui.KeyEvent
+		want  float32
+	}{
+		{zoomChord("=", false), 14},
+		{zoomChord("+", true), 15}, // Command+Shift+= types a plus
+		{zoomChord("-", false), 14},
+		{zoomChord("0", false), 13},
+	} {
+		if result := state.Shortcut(test.event); !result.Handled || state.terminalFontSize != test.want {
+			t.Fatalf("%q: handled %v, size %v, want %v", test.event.Text, result.Handled, state.terminalFontSize, test.want)
+		}
+	}
+	for range 40 {
+		state.Shortcut(zoomChord("=", false))
+	}
+	if state.terminalFontSize != terminalFontSizeMax {
+		t.Fatalf("zoomed in without end: %v", state.terminalFontSize)
+	}
+	for range 40 {
+		state.Shortcut(zoomChord("-", false))
+	}
+	if state.terminalFontSize != terminalFontSizeMin {
+		t.Fatalf("zoomed out without end: %v", state.terminalFontSize)
+	}
+	if state.status != "Terminal font size 9." {
+		t.Fatalf("status = %q", state.status)
+	}
+	if restored := newTestState(t, options); restored.terminalFontSize != terminalFontSizeMin {
+		t.Fatalf("restored size %v", restored.terminalFontSize)
+	}
+}
+
+func TestAZoomChangeRefitsTheTerminalToTheNewGrid(t *testing.T) {
+	state := newTestState(t, testOptions(t))
+	state.sessions = append(state.sessions, Session{ID: 1, term: newTerminal(80, 24)})
+	state.activeSessionID = 1
+	var canvas ui.Canvas
+	state.Paint(&canvas, ui.Size{Width: 1400, Height: 900})
+	state.fitTerminals()
+	before, _ := state.sessions[0].term.screen.Size()
+	state.Shortcut(zoomChord("=", false))
+	state.Shortcut(zoomChord("=", false))
+	after, _ := state.sessions[0].term.screen.Size()
+	if after >= before {
+		t.Fatalf("columns %d then %d: a larger font should fit fewer", before, after)
+	}
+}
+
+func TestFontSizeFromADamagedFileFallsBackAndWholePointsAreKept(t *testing.T) {
+	for value, want := range map[float32]float32{0: 13, 5: 13, 9: 9, 12.4: 12, 28: 28, 29: 13, 1e9: 13} {
+		if got := normalizeTerminalFontSize(value); got != want {
+			t.Errorf("normalize(%v) = %v, want %v", value, got, want)
+		}
+	}
+}
+
+func TestPaddingChangesHowManyCellsFitAndIsKept(t *testing.T) {
+	options := freshOptions(t)
+	options.Keystore = &memKeys{}
+	state := newTestState(t, options)
+	size := ui.Size{Width: 1000, Height: 700}
+	state.Click(hitSettings)
+	normal := terminalLayout(size, 8, 16, state.padding())
+	state.Click(hitSettingsPadCompact)
+	compact := terminalLayout(size, 8, 16, state.padding())
+	state.Click(hitSettingsPadRoomy)
+	roomy := terminalLayout(size, 8, 16, state.padding())
+	if !(compact.cols >= normal.cols && normal.cols > roomy.cols) || !(compact.left < normal.left && normal.left < roomy.left) {
+		t.Fatalf("compact %+v normal %+v roomy %+v", compact, normal, roomy)
+	}
+	if restored := newTestState(t, options); restored.terminalPad != padRoomy {
+		t.Fatalf("restored padding %v", restored.terminalPad)
+	}
+	if terminalPadFromString("nonsense") != padNormal {
+		t.Fatal("an unknown padding is not the normal one")
+	}
+}
+
+func TestZoomShortcutsAreCustomisableLikeTheOthers(t *testing.T) {
+	state := newTestState(t, testOptions(t))
+	custom := shortcutChord{Modifiers: defaultShortcutModifier() | ui.ModifierAlt, Key: '='}
+	if conflict, ok := state.shortcuts.bind(shortcutZoomIn, custom); !ok {
+		t.Fatalf("binding zoom in failed (conflict %d)", conflict)
+	}
+	if got := state.shortcuts.chords[shortcutZoomIn].label(); got == "—" {
+		t.Fatalf("label = %q", got)
+	}
+	if _, ok := state.shortcuts.bind(shortcutZoomOut, shortcutChord{Modifiers: defaultShortcutModifier(), Key: '='}); !ok {
+		t.Fatal("zoom out could not take the freed chord")
+	}
+}

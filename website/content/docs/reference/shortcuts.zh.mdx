@@ -1,0 +1,19 @@
+---
+title: 快捷键
+description: 默认快捷键，全部可以修改。
+---
+默认快捷键在 macOS 上使用 Command，在 Windows 和 Linux 上使用 Control。每个快捷键都可以在
+设置里修改。
+
+<ShortcutTable
+  labels={{ action: '操作', mac: 'macOS', other: 'Windows / Linux', platform: '平台' }}
+  rows={[
+    { action: '命令面板', mac: 'Command+Shift+P', other: 'Control+Shift+P' },
+    { action: '在终端中查找', mac: 'Command+F', other: 'Control+F' },
+    { action: '命令历史', mac: 'Command+Shift+H', other: 'Control+Shift+H' },
+    { action: '文件面板', mac: 'Command+Shift+S', other: 'Control+Shift+S' },
+    { action: '新建窗口', mac: 'Command+Shift+N', other: 'Control+Shift+N' },
+  ]}
+/>
+
+在远程桌面标签页里，Motty 的快捷键会暂停，按键都发给远端。**Ctrl+Alt+G** 释放键盘。

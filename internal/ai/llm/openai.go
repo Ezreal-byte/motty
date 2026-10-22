@@ -1,0 +1,365 @@
+package llm
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"net/http"
+	"sort"
+	"strconv"
+	"strings"
+)
+
+type openAI struct {
+	base
+	baseErr error
+}
+
+// NewOpenAI returns a Provider speaking OpenAI-compatible Chat Completions.
+// An empty BaseURL selects https://api.openai.com/v1.
+func NewOpenAI(cfg Config) Provider {
+	u, err := openAIBase(cfg.BaseURL)
+	return &openAI{base: newBase(cfg, u), baseErr: err}
+}
+
+// openAIBase normalizes a base URL: trailing slashes and a pasted
+// /chat/completions suffix are dropped, and a bare host gets /v1.
+func openAIBase(raw string) (string, error) {
+	if strings.TrimSpace(raw) == "" {
+		return "https://api.openai.com/v1", nil
+	}
+	u, err := normalizeBase(raw)
+	if err != nil {
+		return "", err
+	}
+	u.Path, _ = cutSuffixFold(u.Path, "/chat/completions")
+	u.Path = strings.TrimRight(u.Path, "/")
+	if u.Path == "" {
+		u.Path = "/v1"
+	}
+	return u.String(), nil
+}
+
+func (p *openAI) auth(r *http.Request) {
+	r.Header.Set("Accept", "text/event-stream")
+	if p.key != "" {
+		r.Header.Set("Authorization", "Bearer "+p.key)
+	}
+}
+
+type oaToolFunc struct {
+	Name        string          `json:"name"`
+	Description string          `json:"description,omitempty"`
+	Parameters  json.RawMessage `json:"parameters,omitempty"`
+	Arguments   *string         `json:"arguments,omitempty"`
+}
+
+type oaToolCall struct {
+	ID       string     `json:"id"`
+	Type     string     `json:"type"`
+	Function oaToolFunc `json:"function"`
+}
+
+type oaMessage struct {
+	Role       string       `json:"role"`
+	Content    *string      `json:"content"`
+	ToolCalls  []oaToolCall `json:"tool_calls,omitempty"`
+	ToolCallID string       `json:"tool_call_id,omitempty"`
+}
+
+type oaTool struct {
+	Type     string     `json:"type"`
+	Function oaToolFunc `json:"function"`
+}
+
+type oaRequest struct {
+	Model         string      `json:"model"`
+	Messages      []oaMessage `json:"messages"`
+	Stream        bool        `json:"stream"`
+	StreamOptions *struct {
+		IncludeUsage bool `json:"include_usage"`
+	} `json:"stream_options,omitempty"`
+	Tools       []oaTool `json:"tools,omitempty"`
+	MaxTokens   int      `json:"max_tokens,omitempty"`
+	Temperature *float64 `json:"temperature,omitempty"`
+}
+
+func (p *openAI) buildBody(req Request) ([]byte, error) {
+	if err := validateRequest(req); err != nil {
+		return nil, err
+	}
+	out := oaRequest{Model: req.Model, Stream: true, MaxTokens: req.MaxTokens, Temperature: req.Temperature}
+	out.StreamOptions = &struct {
+		IncludeUsage bool `json:"include_usage"`
+	}{true}
+	str := func(s string) *string { return &s }
+	if req.System != "" {
+		out.Messages = append(out.Messages, oaMessage{Role: "system", Content: str(req.System)})
+	}
+	for _, m := range req.Messages {
+		om := oaMessage{Role: string(m.Role)}
+		switch m.Role {
+		case RoleSystem, RoleUser:
+			om.Content = str(m.Text)
+		case RoleAssistant:
+			if m.Text != "" || len(m.ToolCalls) == 0 {
+				om.Content = str(m.Text)
+			}
+			for _, tc := range m.ToolCalls {
+				args, err := validateArgs(tc.Arguments)
+				if err != nil {
+					return nil, fmt.Errorf("tool call %q: %w", tc.Name, err)
+				}
+				om.ToolCalls = append(om.ToolCalls, oaToolCall{ID: tc.ID, Type: "function",
+					Function: oaToolFunc{Name: tc.Name, Arguments: &args}})
+			}
+		case RoleTool:
+			if m.ToolCallID == "" {
+				return nil, errors.New("llm: tool message without ToolCallID")
+			}
+			om.Content, om.ToolCallID = str(m.Text), m.ToolCallID
+		default:
+			return nil, fmt.Errorf("llm: unknown role %q", m.Role)
+		}
+		out.Messages = append(out.Messages, om)
+	}
+	for _, t := range req.Tools {
+		schema, err := validateSchema(t.Schema)
+		if err != nil {
+			return nil, fmt.Errorf("tool %q: %w", t.Name, err)
+		}
+		out.Tools = append(out.Tools, oaTool{Type: "function",
+			Function: oaToolFunc{Name: t.Name, Description: t.Description, Parameters: schema}})
+	}
+	return json.Marshal(out)
+}
+
+func (p *openAI) Stream(ctx context.Context, req Request) (<-chan Event, error) {
+	if p.baseErr != nil {
+		return nil, p.baseErr
+	}
+	body, err := p.buildBody(req)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := p.do(ctx, http.MethodPost, p.endpoint+"/chat/completions", body, func(r *http.Request) {
+		r.Header.Set("Content-Type", "application/json")
+		p.auth(r)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return p.pump(ctx, resp.Body, &oaHandler{}), nil
+}
+
+func (p *openAI) Models(ctx context.Context) ([]string, error) {
+	if p.baseErr != nil {
+		return nil, p.baseErr
+	}
+	resp, err := p.do(ctx, http.MethodGet, p.endpoint+"/models", nil, func(r *http.Request) {
+		r.Header.Set("Accept", "application/json")
+		if p.key != "" {
+			r.Header.Set("Authorization", "Bearer "+p.key)
+		}
+	})
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	var list struct {
+		Data []struct {
+			ID string `json:"id"`
+		} `json:"data"`
+	}
+	if err := decodeBounded(resp.Body, &list); err != nil {
+		return nil, p.scrubErr(err)
+	}
+	ids := make([]string, 0, len(list.Data))
+	for _, d := range list.Data {
+		ids = append(ids, d.ID)
+	}
+	return sortedUnique(ids), nil
+}
+
+type oaToolDelta struct {
+	Index    *int   `json:"index"`
+	ID       string `json:"id"`
+	Function struct {
+		Name      string `json:"name"`
+		Arguments string `json:"arguments"`
+	} `json:"function"`
+}
+
+type oaDelta struct {
+	Content          string        `json:"content"`
+	ReasoningContent string        `json:"reasoning_content"`
+	Reasoning        string        `json:"reasoning"`
+	ToolCalls        []oaToolDelta `json:"tool_calls"`
+}
+
+type oaChoice struct {
+	Delta        oaDelta `json:"delta"`
+	FinishReason *string `json:"finish_reason"`
+}
+
+type oaUsage struct {
+	PromptTokens     int `json:"prompt_tokens"`
+	CompletionTokens int `json:"completion_tokens"`
+}
+
+type oaChunk struct {
+	Choices []oaChoice      `json:"choices"`
+	Usage   *oaUsage        `json:"usage"`
+	Error   json.RawMessage `json:"error"`
+}
+
+type oaPartial struct {
+	id, name string
+	args     strings.Builder
+}
+
+type oaHandler struct {
+	calls    map[int]*oaPartial
+	last     int
+	finished bool
+	stop     string
+	usage    Usage
+	// chunk is reused between events. Strings and tool calls still allocate
+	// inside it; this only saves rebuilding the outer struct and the choices
+	// slice for every token.
+	chunk oaChunk
+}
+
+func (h *oaHandler) slot(d oaToolDelta) *oaPartial {
+	if h.calls == nil {
+		h.calls = map[int]*oaPartial{}
+	}
+	var idx int
+	switch {
+	case d.Index != nil:
+		idx = *d.Index
+	case d.ID != "" && len(h.calls) > 0:
+		idx = h.last + 1
+		for _, c := range h.calls {
+			if c.id == d.ID {
+				idx = h.last
+			}
+		}
+	case len(h.calls) > 0:
+		idx = h.last
+	}
+	h.last = idx
+	c := h.calls[idx]
+	if c == nil {
+		c = &oaPartial{}
+		h.calls[idx] = c
+	}
+	return c
+}
+
+func (h *oaHandler) flushTools(em *emitter) error {
+	idxs := make([]int, 0, len(h.calls))
+	for i := range h.calls {
+		idxs = append(idxs, i)
+	}
+	sort.Ints(idxs)
+	for _, i := range idxs {
+		c := h.calls[i]
+		args, err := validateArgs(c.args.String())
+		if err != nil {
+			return fmt.Errorf("tool call %q: %w", c.name, err)
+		}
+		if c.name == "" {
+			return errors.New("llm: tool call without a name")
+		}
+		id := c.id
+		if id == "" {
+			id = "call_" + strconv.Itoa(i)
+		}
+		tc := &ToolCall{ID: id, Name: c.name, Arguments: args}
+		if err := em.send(Event{Kind: EventToolCall, ToolCall: tc}); err != nil {
+			return err
+		}
+	}
+	h.calls = nil
+	return nil
+}
+
+func (h *oaHandler) finish(em *emitter) error {
+	if err := h.flushTools(em); err != nil {
+		return err
+	}
+	return em.send(Event{Kind: EventDone, Usage: h.usage, StopReason: h.stop})
+}
+
+func (h *oaHandler) event(ev sseEvent, em *emitter) (bool, error) {
+	if bytes.Equal(bytes.TrimSpace(ev.Data), []byte("[DONE]")) {
+		return true, h.finish(em)
+	}
+	// Clear the reused chunk while keeping the choices backing array. The JSON
+	// decoder overwrites fields that are present and leaves absent ones as
+	// they were, so every element up to capacity must be zeroed first.
+	if cap := cap(h.chunk.Choices); cap > 0 {
+		choices := h.chunk.Choices[:cap]
+		for index := range choices {
+			choices[index] = oaChoice{}
+		}
+		h.chunk.Choices = choices[:0]
+	} else {
+		h.chunk.Choices = nil
+	}
+	h.chunk.Usage, h.chunk.Error = nil, nil
+	if err := json.Unmarshal(ev.Data, &h.chunk); err != nil {
+		return false, fmt.Errorf("llm: malformed stream chunk: %w", err)
+	}
+	c := &h.chunk
+	if len(c.Error) > 0 && string(c.Error) != "null" {
+		return false, errors.New("llm: provider error: " + errorMessage(c.Error))
+	}
+	if c.Usage != nil {
+		h.usage = Usage{InputTokens: c.Usage.PromptTokens, OutputTokens: c.Usage.CompletionTokens}
+	}
+	if len(c.Choices) == 0 {
+		return false, nil
+	}
+	ch := c.Choices[0]
+	r := ch.Delta.ReasoningContent
+	if r == "" {
+		r = ch.Delta.Reasoning
+	}
+	if r != "" {
+		if err := em.send(Event{Kind: EventReasoning, Text: r}); err != nil {
+			return false, err
+		}
+	}
+	if ch.Delta.Content != "" {
+		if err := em.send(Event{Kind: EventText, Text: ch.Delta.Content}); err != nil {
+			return false, err
+		}
+	}
+	for _, d := range ch.Delta.ToolCalls {
+		s := h.slot(d)
+		if d.ID != "" && s.id == "" {
+			s.id = d.ID
+		}
+		if d.Function.Name != "" && s.name == "" {
+			s.name = d.Function.Name
+		}
+		s.args.WriteString(d.Function.Arguments)
+	}
+	if ch.FinishReason != nil && *ch.FinishReason != "" {
+		h.finished, h.stop = true, *ch.FinishReason
+		return false, h.flushTools(em)
+	}
+	return false, nil
+}
+
+// eof tolerates servers that omit [DONE] after a finish_reason.
+func (h *oaHandler) eof(em *emitter) error {
+	if !h.finished {
+		return errors.New("llm: stream ended before completion")
+	}
+	return h.finish(em)
+}

@@ -1,0 +1,67 @@
+---
+title: The terminal
+description: Emulation, tabs and splits, search, images, snippets and recording.
+---
+## Emulation
+
+Real PTY sessions with:
+
+- 256-colour and true-colour output,
+- the alternate screen,
+- 5,000 lines of scrollback,
+- wide and combining characters,
+- mouse reporting,
+- input methods,
+- window resizing that follows the pty,
+- synchronized updates (DECSET 2026) for atomic full-screen redraws,
+- the kitty keyboard protocol, including key releases and Escape/Alt disambiguation,
+- win32-input-mode in Windows local shells,
+- font ligatures, shaped inside the fixed-pitch grid.
+
+## Protocols
+
+Synchronized updates (DECSET 2026) hold the previous frame until the program
+ends the block, so a full-screen redraw appears at once; a block that never
+ends is released after one second. The kitty keyboard protocol supports
+disambiguation, event types, alternate shifted keys, all keys as escape codes
+and associated text, with independent stacks for the main and alternate
+screens. win32-input-mode is offered in Windows local shells. Ligatures depend
+on the chosen font and are fitted to their cell spans.
+
+## Tabs and splits
+
+Tabs can be reordered, split horizontally or vertically, moved between windows and
+restored without reconnecting. All of these are palette commands.
+
+## Search and links
+
+Search the retained history with **Command+F** (**Control+F** elsewhere). HTTP,
+HTTPS and OSC 8 links can be opened from the terminal.
+
+## Images
+
+Kitty, iTerm2 and SIXEL images are rendered inline.
+
+## Snippets and broadcast
+
+Send saved snippets to a session, or broadcast input across the panes of a split
+tab.
+
+## Command history
+
+**Command+Shift+H** (**Control+Shift+H** elsewhere) opens the commands you have
+typed into terminals. Optional inline command suggestions can be turned on.
+
+## Appearance
+
+Eleven colour schemes, keyword highlighting and configurable fonts. Fonts are
+stored per machine and are not synced.
+
+## Recording
+
+A session is recorded only when you start a recording explicitly.
+
+## Transfers inside the terminal
+
+ZMODEM transfers start when the remote `sz` or `rz` begins; XMODEM and YMODEM are
+started from the terminal's menu. See [ZMODEM, XMODEM and YMODEM](/en/docs/files/zmodem-xmodem).

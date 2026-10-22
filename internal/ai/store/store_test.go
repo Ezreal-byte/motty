@@ -1,0 +1,495 @@
+package store
+
+import (
+	"bytes"
+	"database/sql"
+	"errors"
+	"fmt"
+	"os"
+	"path/filepath"
+	"runtime"
+	"strings"
+	"sync"
+	"testing"
+	"time"
+)
+
+func openTemp(t testing.TB) (*Store, string) {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "sub", "ai.db")
+	s, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { s.Close() })
+	return s, path
+}
+
+func TestFileModes(t *testing.T) {
+	s, path := openTemp(t)
+	if runtime.GOOS == "windows" {
+		t.Skip("unix permission bits")
+	}
+	if _, err := s.CreateConversation("x", ""); err != nil {
+		t.Fatal(err)
+	}
+	fi, err := os.Stat(path)
+	if err != nil || fi.Mode().Perm() != 0o600 {
+		t.Fatalf("file mode %v err %v", fi.Mode(), err)
+	}
+	di, _ := os.Stat(filepath.Dir(path))
+	if di.Mode().Perm() != 0o700 {
+		t.Fatalf("dir mode %v", di.Mode())
+	}
+}
+
+func TestProvidersModelsSettings(t *testing.T) {
+	s, _ := openTemp(t)
+	p := Provider{ID: "p1", Name: "A", Kind: KindOpenAI, BaseURL: "https://x", HasKey: true, Enabled: true}
+	if err := s.SaveProvider(p); err != nil {
+		t.Fatal(err)
+	}
+	p.Name = "A2"
+	p.Enabled = false
+	if err := s.SaveProvider(p); err != nil {
+		t.Fatal(err)
+	}
+	got, err := s.Providers()
+	if err != nil || len(got) != 1 || got[0] != p {
+		t.Fatalf("%v %v", got, err)
+	}
+	if err := s.SaveProvider(Provider{ID: "bad", Kind: "nope"}); !errors.Is(err, ErrInvalid) {
+		t.Fatalf("kind: %v", err)
+	}
+	if err := s.SaveModels("p1", []Model{{"p1", "m1", true}, {"p1", "m2", false}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.SetModelEnabled("p1", "m2", true); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.SetModelEnabled("p1", "zz", true); !errors.Is(err, ErrNotFound) {
+		t.Fatal(err)
+	}
+	ms, _ := s.Models()
+	if len(ms) != 2 || !ms[1].Enabled {
+		t.Fatalf("%v", ms)
+	}
+	if err := s.SaveModels("p1", []Model{{"p1", "m3", true}}); err != nil {
+		t.Fatal(err)
+	}
+	if ms, _ = s.Models(); len(ms) != 1 || ms[0].Name != "m3" {
+		t.Fatalf("replace: %v", ms)
+	}
+	if err := s.SaveModels("ghost", nil); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("ghost: %v", err)
+	}
+	if _, _, ok, _ := s.DefaultModel(); ok {
+		t.Fatal("default should be unset")
+	}
+	if err := s.SetDefaultModel("p1", "m3"); err != nil {
+		t.Fatal(err)
+	}
+	if pid, n, ok, _ := s.DefaultModel(); !ok || pid != "p1" || n != "m3" {
+		t.Fatal(pid, n, ok)
+	}
+	if _, ok, _ := s.Setting("k"); ok {
+		t.Fatal("k set")
+	}
+	s.SetSetting("k", "v1")
+	s.SetSetting("k", "v2")
+	if v, ok, _ := s.Setting("k"); !ok || v != "v2" {
+		t.Fatal(v)
+	}
+	// cascade
+	if err := s.DeleteProvider("p1"); err != nil {
+		t.Fatal(err)
+	}
+	if ms, _ = s.Models(); len(ms) != 0 {
+		t.Fatalf("models survived provider delete: %v", ms)
+	}
+}
+
+func TestKeyRedaction(t *testing.T) {
+	const key = "sk-very-secret"
+	p := Provider{ID: "p", Kind: KindOpenAI, APIKey: key}
+	for _, out := range []string{
+		fmt.Sprint(p), fmt.Sprintf("%v", p), fmt.Sprintf("%+v", p), fmt.Sprintf("%#v", p), fmt.Sprintf("%s", p),
+		fmt.Sprintf("%v", &p), fmt.Sprintf("%v", []Provider{p}),
+	} {
+		if strings.Contains(out, key) {
+			t.Fatalf("key leaked: %s", out)
+		}
+	}
+	s, _ := openTemp(t)
+	// error paths with a key in the argument
+	err := s.SaveProvider(Provider{ID: "", Kind: "bad", APIKey: key})
+	if err == nil || strings.Contains(err.Error(), key) {
+		t.Fatalf("error %v", err)
+	}
+	s.Close()
+	err = s.SaveProvider(Provider{ID: "p", Kind: KindOpenAI, APIKey: key})
+	if err == nil || strings.Contains(err.Error(), key) {
+		t.Fatalf("closed error %v", err)
+	}
+}
+
+func TestConversationsRoundTrip(t *testing.T) {
+	s, _ := openTemp(t)
+	c1, _ := s.CreateConversation("first", "host-a")
+	time.Sleep(time.Millisecond)
+	c2, _ := s.CreateConversation("second", "")
+	list, _ := s.Conversations("", 0)
+	if len(list) != 2 || list[0].ID != c2.ID {
+		t.Fatalf("order %v", list)
+	}
+	tj := []byte(`[{"id":"1","name":"run","args":{"a":"\u0000"}}]`)
+	time.Sleep(time.Millisecond)
+	m, err := s.AppendMessage(c1.ID, StoredMessage{Role: "assistant", Text: "héllo", Reasoning: "think", ToolJSON: tj})
+	if err != nil || m.ID == 0 {
+		t.Fatal(m, err)
+	}
+	s.AppendMessage(c1.ID, StoredMessage{Role: "user", Text: "second msg"})
+	msgs, _ := s.Messages(c1.ID)
+	if len(msgs) != 2 || msgs[0].Text != "héllo" || msgs[0].Reasoning != "think" ||
+		!bytes.Equal(msgs[0].ToolJSON, tj) || msgs[1].ToolJSON != nil || !msgs[0].Created.Equal(m.Created) {
+		t.Fatalf("%+v", msgs)
+	}
+	list, _ = s.Conversations("", 0)
+	if list[0].ID != c1.ID || !list[0].Updated.After(c1.Updated) || list[0].SessionLabel != "host-a" {
+		t.Fatalf("bump failed: %+v", list)
+	}
+	if err := s.RenameConversation(c1.ID, "renamed"); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.RenameConversation(999, "x"); !errors.Is(err, ErrNotFound) {
+		t.Fatal(err)
+	}
+	if _, err := s.AppendMessage(999, StoredMessage{Role: "user"}); !errors.Is(err, ErrNotFound) {
+		t.Fatal(err)
+	}
+	if list, _ = s.Conversations("", 1); len(list) != 1 {
+		t.Fatal("limit")
+	}
+	if err := s.DeleteConversation(c1.ID); err != nil {
+		t.Fatal(err)
+	}
+	if msgs, _ = s.Messages(c1.ID); len(msgs) != 0 {
+		t.Fatal("messages survived")
+	}
+	s.AppendMessage(c2.ID, StoredMessage{Role: "user", Text: "x"})
+	if err := s.DeleteAllConversations(); err != nil {
+		t.Fatal(err)
+	}
+	if list, _ = s.Conversations("", 0); len(list) != 0 {
+		t.Fatal("not cleared")
+	}
+	var n int
+	s.db.QueryRow(`SELECT count(*) FROM messages`).Scan(&n)
+	if n != 0 {
+		t.Fatal("orphan messages")
+	}
+}
+
+func TestBounds(t *testing.T) {
+	s, _ := openTemp(t)
+	if _, err := s.CreateConversation(strings.Repeat("a", MaxTitleBytes+1), ""); !errors.Is(err, ErrTooLarge) {
+		t.Fatal(err)
+	}
+	c, _ := s.CreateConversation(strings.Repeat("a", MaxTitleBytes), "")
+	_, err := s.AppendMessage(c.ID, StoredMessage{Role: "user", Text: strings.Repeat("a", MaxTextBytes+1)})
+	var le *LimitError
+	if !errors.As(err, &le) || !errors.Is(err, ErrTooLarge) {
+		t.Fatal(err)
+	}
+	if _, err := s.AppendMessage(c.ID, StoredMessage{Role: "user", Text: strings.Repeat("a", MaxTextBytes)}); err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 3; i++ {
+		s.CreateConversation("t", "")
+	}
+	if l, _ := s.Conversations("", 1_000_000); len(l) != 4 {
+		t.Fatal(len(l))
+	}
+}
+
+func TestSearchEscaping(t *testing.T) {
+	s, _ := openTemp(t)
+	mk := func(title, text string) int64 {
+		c, _ := s.CreateConversation(title, "")
+		if text != "" {
+			s.AppendMessage(c.ID, StoredMessage{Role: "user", Text: text})
+		}
+		return c.ID
+	}
+	pct := mk("100% done", "")
+	under := mk("plain", "snake_case word")
+	back := mk("plain2", `path C:\temp`)
+	other := mk("abc", "a1b and 100 plus")
+	ci := mk("Hello", "")
+	_ = other
+	check := func(q string, want ...int64) {
+		t.Helper()
+		l, err := s.Conversations(q, 0)
+		if err != nil || len(l) != len(want) {
+			t.Fatalf("%q: %v %v", q, l, err)
+		}
+		got := map[int64]bool{}
+		for _, c := range l {
+			got[c.ID] = true
+		}
+		for _, w := range want {
+			if !got[w] {
+				t.Fatalf("%q missing %d", q, w)
+			}
+		}
+	}
+	check("100%", pct)
+	check("e_c", under)
+	check("a_b") // '_' must not be a wildcard (a1b present)
+	check("%", pct)
+	check(`\temp`, back)  // backslash literal
+	check("hello", ci)    // case-insensitive
+	check("SNAKE", under) // message text search
+	check("zzz-no-match")
+}
+
+func TestReopenPersists(t *testing.T) {
+	s, path := openTemp(t)
+	s.SaveProvider(Provider{ID: "p", Kind: KindAnthropic, HasKey: true, Enabled: true})
+	c, _ := s.CreateConversation("t", "l")
+	s.AppendMessage(c.ID, StoredMessage{Role: "user", Text: "hi"})
+	s.Close()
+	s2, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s2.Close()
+	if p, _ := s2.Providers(); len(p) != 1 || !p[0].HasKey {
+		t.Fatal(p)
+	}
+	if m, _ := s2.Messages(c.ID); len(m) != 1 || m[0].Text != "hi" {
+		t.Fatal(m)
+	}
+	var v int
+	s2.db.QueryRow(`PRAGMA user_version`).Scan(&v)
+	if v != schemaVersion {
+		t.Fatal(v)
+	}
+}
+
+func TestMigrateFromVersionZero(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "v0.db")
+	// A valid, empty sqlite database at version 0.
+	db, err := sql.Open("sqlite", path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`PRAGMA user_version = 0; CREATE TABLE t(x); DROP TABLE t;`); err != nil {
+		t.Fatal(err)
+	}
+	db.Close()
+	s, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	if _, err := s.CreateConversation("ok", ""); err != nil {
+		t.Fatal(err)
+	}
+	// Also a brand-new zero-byte file.
+	p2 := filepath.Join(t.TempDir(), "empty.db")
+	os.WriteFile(p2, nil, 0o600)
+	s3, err := Open(p2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s3.Close()
+}
+
+func TestTooNewUntouched(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "new.db")
+	db, _ := sql.Open("sqlite", path)
+	if _, err := db.Exec(fmt.Sprintf(`CREATE TABLE t(x); PRAGMA user_version = %d`, schemaVersion+5)); err != nil {
+		t.Fatal(err)
+	}
+	db.Close()
+	before, _ := os.ReadFile(path)
+	if _, err := Open(path); !errors.Is(err, ErrTooNew) {
+		t.Fatalf("got %v", err)
+	}
+	after, _ := os.ReadFile(path)
+	if !bytes.Equal(before, after) {
+		t.Fatal("file modified")
+	}
+	if _, err := os.Stat(path + "-journal"); err == nil {
+		t.Fatal("journal left behind")
+	}
+}
+
+func TestCorruptUntouched(t *testing.T) {
+	dir := t.TempDir()
+	cases := map[string][]byte{
+		"garbage":   bytes.Repeat([]byte("not a database "), 100),
+		"short":     []byte("hello"),
+		"truncated": append([]byte(sqliteMagic), make([]byte, 30)...),
+	}
+	for name, data := range cases {
+		path := filepath.Join(dir, name)
+		os.WriteFile(path, data, 0o600)
+		if _, err := Open(path); !errors.Is(err, ErrCorrupt) {
+			t.Fatalf("%s: %v", name, err)
+		}
+		after, _ := os.ReadFile(path)
+		if !bytes.Equal(data, after) {
+			t.Fatalf("%s modified", name)
+		}
+	}
+}
+
+func TestConcurrent(t *testing.T) {
+	s, _ := openTemp(t)
+	c, _ := s.CreateConversation("c", "")
+	var wg sync.WaitGroup
+	errc := make(chan error, 64)
+	for w := 0; w < 4; w++ {
+		wg.Add(1)
+		go func(w int) {
+			defer wg.Done()
+			for i := 0; i < 25; i++ {
+				if _, err := s.AppendMessage(c.ID, StoredMessage{Role: "user", Text: fmt.Sprintf("w%d-%d", w, i)}); err != nil {
+					errc <- err
+					return
+				}
+			}
+		}(w)
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for i := 0; i < 25; i++ {
+				if _, err := s.Conversations("w1", 10); err != nil {
+					errc <- err
+					return
+				}
+				if _, err := s.Messages(c.ID); err != nil {
+					errc <- err
+					return
+				}
+			}
+		}()
+	}
+	wg.Wait()
+	close(errc)
+	for err := range errc {
+		t.Fatal(err)
+	}
+	if m, _ := s.Messages(c.ID); len(m) != 100 {
+		t.Fatal(len(m))
+	}
+}
+
+func benchStore(b *testing.B) (*Store, int64) {
+	s, _ := openTemp(b)
+	var first int64
+	for i := 0; i < 200; i++ {
+		c, _ := s.CreateConversation(fmt.Sprintf("conversation %d", i), "")
+		if i == 0 {
+			first = c.ID
+		}
+		for j := 0; j < 10; j++ {
+			s.AppendMessage(c.ID, StoredMessage{Role: "user", Text: fmt.Sprintf("message %d of %d: lorem ipsum dolor sit amet", j, i)})
+		}
+	}
+	return s, first
+}
+
+func BenchmarkAppendMessage(b *testing.B) {
+	s, id := benchStore(b)
+	m := StoredMessage{Role: "assistant", Text: strings.Repeat("x", 512)}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		if _, err := s.AppendMessage(id, m); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkConversationsSearch(b *testing.B) {
+	s, _ := benchStore(b)
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		if _, err := s.Conversations("of 199", 50); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+// A provider's key is never written to the file by SaveProvider, only the fact
+// that one exists.
+func TestSaveProviderNeverWritesKey(t *testing.T) {
+	const key = "sk-plaintext-must-not-land-on-disk"
+	s, path := openTemp(t)
+	if err := s.SaveProvider(Provider{ID: "p", Kind: KindOpenAI, APIKey: key, HasKey: true}); err != nil {
+		t.Fatal(err)
+	}
+	got, err := s.Providers()
+	if err != nil || len(got) != 1 || !got[0].HasKey || got[0].APIKey != "" {
+		t.Fatalf("%v %v", got, err)
+	}
+	if legacy, err := s.LegacyKeys(); err != nil || len(legacy) != 0 {
+		t.Fatalf("legacy %v %v", legacy, err)
+	}
+	s.Close()
+	raw, err := os.ReadFile(path)
+	if err != nil || bytes.Contains(raw, []byte(key)) {
+		t.Fatalf("key reached the database file (read err %v)", err)
+	}
+}
+
+// A schema v1 database keeps its providers, learns which of them had a key, and
+// hands the plaintext keys out exactly once.
+func TestMigrateV1ProvidersToV2(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "ai.db")
+	db, err := sql.Open("sqlite", path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(migrations[0] + `;
+		INSERT INTO providers VALUES('a','A','openai','https://x','sk-old',1);
+		INSERT INTO providers VALUES('b','B','anthropic','','',0);
+		INSERT INTO models VALUES('a','m',1);
+		PRAGMA user_version = 1`); err != nil {
+		t.Fatal(err)
+	}
+	db.Close()
+
+	s, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	got, err := s.Providers()
+	if err != nil || len(got) != 2 {
+		t.Fatalf("%v %v", got, err)
+	}
+	if got[0].ID != "a" || !got[0].HasKey || !got[0].Enabled || got[1].ID != "b" || got[1].HasKey {
+		t.Fatalf("providers after migration: %v", got)
+	}
+	if ms, _ := s.Models(); len(ms) != 1 {
+		t.Fatalf("models lost: %v", ms)
+	}
+	legacy, err := s.LegacyKeys()
+	if err != nil || len(legacy) != 1 || legacy["a"] != "sk-old" {
+		t.Fatalf("legacy %v %v", legacy, err)
+	}
+	if err := s.ClearLegacyKey("a"); err != nil {
+		t.Fatal(err)
+	}
+	if legacy, _ := s.LegacyKeys(); len(legacy) != 0 {
+		t.Fatalf("legacy key survived clear: %v", legacy)
+	}
+	if got, _ := s.Providers(); !got[0].HasKey {
+		t.Fatal("clearing the legacy key must not clear has_key")
+	}
+}

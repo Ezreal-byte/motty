@@ -1,0 +1,21 @@
+# End to end: a server that presents a host certificate connects without the
+# unknown-key question when its CA is on file as @cert-authority. The fixture
+# (E2E_HOST_CERT=1) prints its CA's public key; the data directory of the run
+# is seeded with the matching line before the drive:
+#
+#   E2E_HOST_CERT=1 /tmp/motty-e2esshd 2246   # prints "host-ca <base64>"
+#   dir=$(mktemp -d)
+#   echo "@cert-authority [127.0.0.1]:2246 ssh-ed25519 <base64>" > $dir/known_hosts
+#   MOTTY_LANG=en MOTTY_DATA_DIR=$dir python3 tools/headless_drive.py "$(mktemp -d)" tools/e2e/host_cert_e2e.txt
+#
+# The password prompt arriving at once is the proof: no host-key dialog stood
+# in front of it.
+
+click "Search"
+type tester@127.0.0.1:2246
+click "Connect"
+waitfor "Password" 5000
+type secret
+key enter
+waitfor "tester@e2e" 8000
+texts

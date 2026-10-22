@@ -1,0 +1,132 @@
+package workbench
+
+import (
+	"fmt"
+	"github.com/vivaui/viva/ui"
+
+	layoutcore "motty/internal/workspace"
+)
+
+// Broadcast input: while a tab is broadcasting, what the user types into one of
+// its panes is typed into all of them. It is for running one command on several
+// servers, so it follows the user's hands only: output, mouse reports, and the
+// assistant's commands never leave the pane they belong to.
+
+// broadcastHits is the place of the controls this file paints.
+var broadcastHits = tree.Feature("broadcast")
+
+var hitBroadcast = tree.ID(broadcastHits, "broadcast") // broadcastPaneLimit bounds how many panes one broadcast reaches without
+// allocating; a tab holds no more than the restored-session limit.
+const broadcastPaneLimit = 16
+
+// typed sends what the user typed to a session's shell and, when its tab is
+// broadcasting, to the shells of the other panes of the tab.
+func (state *State) typed(session *Session, input []byte) bool {
+	accepted := session.term.send(input)
+	if accepted && state.broadcast != 0 {
+		state.broadcastInput(session.ID, input)
+	}
+	return accepted
+}
+
+func (state *State) broadcastInput(source uint32, input []byte) {
+	workspaceID, _, ok := state.deck.PaneForSession(layoutcore.SessionID(source))
+	if !ok || workspaceID != state.broadcast {
+		return
+	}
+	var scratch [broadcastPaneLimit]layoutcore.Pane
+	for _, pane := range state.deck.Panes(workspaceID, scratch[:0]) {
+		if uint32(pane.SessionID) == source {
+			continue
+		}
+		if peer, ok := state.sessionByIDPointer(uint32(pane.SessionID)); ok && peer.term != nil && peer.term.shell != nil {
+			peer.term.send(input)
+		}
+	}
+}
+
+// broadcasting reports whether the session's tab is the one that broadcasts.
+func (state *State) broadcasting(sessionID uint32) bool {
+	if state.broadcast == 0 {
+		return false
+	}
+	workspaceID, _, ok := state.deck.PaneForSession(layoutcore.SessionID(sessionID))
+	return ok && workspaceID == state.broadcast
+}
+
+// toggleBroadcast starts or stops broadcasting in the active tab. A tab with one
+// pane has nothing to broadcast to.
+func (state *State) toggleBroadcast() {
+	m := state.messages.Tools
+	workspaceID := state.deck.ActiveWorkspace()
+	if state.broadcast == workspaceID {
+		state.broadcast = 0
+		state.status = m.StatusBroadcastOff
+		return
+	}
+	panes := len(state.deck.Panes(workspaceID, nil))
+	if workspaceID == 0 || panes < 2 {
+		state.status = m.StatusBroadcastNeedsSplit
+		return
+	}
+	state.broadcast = workspaceID
+	state.status = fmt.Sprintf(m.StatusBroadcastOnFmt, panes)
+}
+
+// clickTerminalTools handles the controls of the terminal's tools: color
+// scheme cards, highlight rules, snippets and broadcast. It reports whether the
+// id was one of them.
+func (state *State) clickTerminalTools(id ui.ID) bool {
+	switch {
+	case id == hitBroadcast:
+		state.toggleBroadcast()
+	case id.Scope() == hitSettingsSchemeList:
+		index := item(id)
+		schemeID, _, _ := state.schemeAt(index)
+		if state.setTerminalScheme(schemeID) {
+			state.save()
+		}
+	case id == hitSettingsHighlightToggle:
+		if state.setBuiltinHighlight(state.highlighting.builtinOff) {
+			state.save()
+		}
+	case id == hitSettingsCursorToggle:
+		state.terminalCursorSteady = !state.terminalCursorSteady
+		state.save()
+	case id == hitSettingsNotifyToggle:
+		if state.setNotifications(state.notifyOff) {
+			state.save()
+		}
+	case id == hitSettingsProxyConfigure:
+		state.openOutboundProxyDialog()
+	case id == hitSettingsFontPick:
+		state.openFontPicker()
+	case id == hitImportSessions:
+		state.modal = modalImportSessions
+	case id == hitSettingsAutofillAdd:
+		state.openAutofillDialog(nil)
+	case id.Scope() == hitAutofillToggleList:
+		state.toggleAutofillRule(item(id))
+	case id.Scope() == hitAutofillEditList:
+		if index := item(id); index >= 0 && index < len(state.autofillRules.rules) {
+			state.openAutofillDialog(state.autofillRules.rules[index])
+		}
+	case id.Scope() == hitAutofillDeleteList:
+		state.deleteAutofillRule(item(id))
+	case id == hitSettingsHighlightAdd:
+		state.openHighlightDialog()
+	case id.Scope() == hitHighlightDeleteList:
+		state.deleteHighlightRule(item(id))
+	case id == hitSettingsSnippetAdd:
+		state.openSnippetDialog(-1)
+	case id.Scope() == hitSnippetEditList:
+		state.openSnippetDialog(item(id))
+	case id.Scope() == hitSnippetDeleteList:
+		state.deleteSnippet(item(id))
+	case id.Scope() == hitSnippetSendList:
+		state.sendSnippet(item(id))
+	default:
+		return false
+	}
+	return true
+}

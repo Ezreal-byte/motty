@@ -1,0 +1,11 @@
+---
+title: Server tools
+description: Processes, Docker containers and resource usage on the connected server.
+---
+Over an authenticated SSH connection Motty can list and act on a server's processes
+and Docker containers, and show its resource usage. Resource monitoring is opt-in:
+you start it from the terminal.
+
+Every command Motty runs for this is fixed text. What varies is a number or a
+validated container name, never free text, so nothing the server prints or you type
+can become shell syntax.

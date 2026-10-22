@@ -1,0 +1,23 @@
+# End to end: a PuTTY .ppk identity authenticates like an OpenSSH key file. The
+# fixture additionally accepts the public key of the generated PPK
+# (E2E_EXTRA_PUBKEY) and refuses the password method, so the shell prompt is
+# the PPK's doing.
+#
+#   E2E_EXTRA_PUBKEY=/tmp/motty-e2e.pub /tmp/motty-e2esshd 2247
+#   MOTTY_LANG=en python3 tools/headless_drive.py "$(mktemp -d)" tools/e2e/ppk_e2e.txt
+
+click "Keychain"
+settle 400
+openfiles /tmp/motty-e2e.ppk
+click "Import Key"
+settle 400
+texts "ppk"
+click "Hosts"
+settle 300
+click "Search"
+type tester@127.0.0.1:2247
+click "Connect"
+waitfor "Trust" 3000
+click "Trust and Save"
+waitfor "tester@e2e" 8000
+texts
