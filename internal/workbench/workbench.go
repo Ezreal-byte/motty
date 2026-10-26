@@ -672,6 +672,7 @@ func (state *State) Close() {
 		state.update.install.cancel()
 		state.update.install.cancel = nil
 	}
+	state.stopUpdateCheck()
 	if state.options.Group != nil {
 		state.options.Group.leave(state)
 	}
@@ -733,6 +734,7 @@ func New(options Options) *State {
 		terminalScheme:     defaultSchemeID,
 		syncDelay:          syncDelayDefault,
 		syncRetryBase:      syncRetryBaseDefault,
+		update:             updateState{firstDelay: updateFirstDelayDefault, every: updateIntervalDefault},
 		winChrome:          windowChrome{remember: options.RememberWindowFrame},
 	}
 	state.cellWidth, state.cellHeight = (&ui.Canvas{}).MonoCellSize(state.terminalFontSize, state.terminalFontFace)

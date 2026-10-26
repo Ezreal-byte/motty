@@ -207,15 +207,26 @@ func (state *State) clickUpdateDialog(id ui.ID) {
 // ---- the General settings: starting at login and updates ----
 
 // updateState is what the updates row shows.
+// The automatic check: a first look shortly after a window wakes, then one every
+// few hours for as long as the application runs. The delays are fields so a test
+// can shorten them without waiting.
+const (
+	updateFirstDelayDefault = 5 * time.Second
+	updateIntervalDefault   = 6 * time.Hour
+)
+
 type updateState struct {
-	checking  bool
-	release   update.Release
-	available bool
-	text      string // the outcome of the last check, in the language it was made in
-	offer     bool   // a dialog about release is waiting for its turn
-	skipped   string // the version the user asked not to be reminded of
-	install   updateInstall
-	notes     updateNotes
+	checking   bool
+	firstDelay time.Duration
+	every      time.Duration
+	timer      *time.Timer
+	release    update.Release
+	available  bool
+	text       string // the outcome of the last check, in the language it was made in
+	offer      bool   // a dialog about release is waiting for its turn
+	skipped    string // the version the user asked not to be reminded of
+	install    updateInstall
+	notes      updateNotes
 }
 
 func (state *State) settingsLoginEnabled() bool {
@@ -270,6 +281,11 @@ func (state *State) clickLaunchSettings(id ui.ID) bool {
 		}
 	case hitSettingsUpdateStartToggle:
 		state.updateAtStart = !state.updateAtStart
+		if state.updateAtStart {
+			state.scheduleUpdateCheck(state.update.firstDelay)
+		} else {
+			state.stopUpdateCheck()
+		}
 		state.save()
 	case hitSettingsUpdateCheck:
 		state.checkForUpdates(true)
@@ -291,6 +307,30 @@ func (state *State) clickLaunchSettings(id ui.ID) bool {
 
 // checkForUpdates asks the release feed on a goroutine and shows the answer when
 // it comes. A check the user did not ask for stays quiet unless there is news.
+// scheduleUpdateCheck asks the feed after delay and, once that check has run,
+// arranges the next one. It is the only thing that starts a check without the
+// user; every path stops the timer before arming another.
+func (state *State) scheduleUpdateCheck(delay time.Duration) {
+	state.stopUpdateCheck()
+	state.update.timer = time.AfterFunc(delay, func() {
+		state.aiPost(func(state *State) {
+			if state.closed || !state.updateAtStart {
+				return
+			}
+			state.checkForUpdates(false)
+			state.scheduleUpdateCheck(state.update.every)
+		})
+	})
+}
+
+// stopUpdateCheck cancels the next automatic check.
+func (state *State) stopUpdateCheck() {
+	if state.update.timer != nil {
+		state.update.timer.Stop()
+		state.update.timer = nil
+	}
+}
+
 func (state *State) checkForUpdates(asked bool) {
 	if state.update.checking {
 		return
@@ -373,5 +413,5 @@ func updateCheckString(on bool) string {
 	if on {
 		return "on"
 	}
-	return ""
+	return "off"
 }

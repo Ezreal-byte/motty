@@ -575,7 +575,7 @@ func (state *State) Wake() {
 	state.runLaunches()
 	if state.updateAtStart && !state.updateStarted {
 		state.updateStarted = true
-		state.checkForUpdates(false)
+		state.scheduleUpdateCheck(state.update.firstDelay)
 	}
 	state.showNextPrompt()
 	state.drainAI()

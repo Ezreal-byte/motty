@@ -2,6 +2,7 @@ package workbench
 
 import (
 	"testing"
+	"time"
 
 	"github.com/vivaui/viva/app"
 	"github.com/vivaui/viva/ui"
@@ -26,6 +27,9 @@ func newTestState(t testing.TB, options Options) *State {
 		options.WatchSystemAppearance = func(func()) func() { return func() {} }
 	}
 	state := New(options)
+	// A test never waits for the automatic check; the ones that exercise it set
+	// these back to something short.
+	state.update.firstDelay, state.update.every = time.Hour, time.Hour
 	t.Cleanup(state.Close)
 	return state
 }

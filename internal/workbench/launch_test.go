@@ -4,6 +4,7 @@ import (
 	"errors"
 	"reflect"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -215,13 +216,13 @@ func TestASkippedVersionStaysQuietAtStartupButNotWhenAsked(t *testing.T) {
 		return update.Release{Version: version, URL: "https://example.com/r"}, nil
 	}
 	state := New(options)
-	state.Click(hitSettingsUpdateStartToggle)
 	state.Click(hitSettingsUpdateCheck)
 	waitUpdate(t, state, func() bool { return state.modal == modalUpdate })
 	state.Click(hitUpdateSkip)
 	state.Close()
 
 	again := New(options)
+	again.update.firstDelay = time.Millisecond
 	waitUpdate(t, again, func() bool { return again.update.available })
 	if again.modal == modalUpdate || again.update.offer {
 		t.Fatal("a skipped version was offered again at startup")
@@ -232,6 +233,7 @@ func TestASkippedVersionStaysQuietAtStartupButNotWhenAsked(t *testing.T) {
 
 	version = "99.1.0"
 	newer := New(options)
+	newer.update.firstDelay = time.Millisecond
 	defer newer.Close()
 	waitUpdate(t, newer, func() bool { return newer.modal == modalUpdate })
 }
@@ -256,34 +258,48 @@ func TestCheckingForUpdatesSaysSoWhenCurrentOrFailed(t *testing.T) {
 	}
 }
 
-func TestTheStartupCheckIsOptInAndRemembered(t *testing.T) {
+func TestTheAutoCheckIsOnByDefaultRunsAndCanBeTurnedOff(t *testing.T) {
 	_, options := newWorld(t)
 	options.Invalidate = func() {}
-	calls := make(chan struct{}, 4)
 	options.CheckUpdate = func() (update.Release, error) {
-		calls <- struct{}{}
 		return update.Release{Version: "99.0.0", URL: "https://example.com/r"}, nil
 	}
 	state := New(options)
 	t.Cleanup(state.Close)
-	state.Wake()
-	select {
-	case <-calls:
-		t.Fatal("a check ran without being asked for")
-	case <-time.After(50 * time.Millisecond):
+	if !state.updateAtStart {
+		t.Fatal("the automatic check is not on by default")
 	}
+	state.update.firstDelay, state.update.every = time.Millisecond, time.Hour
+	waitUpdate(t, state, func() bool { return state.update.available })
+	if !strings.Contains(state.status, "99.0.0") {
+		t.Fatalf("status %q does not announce the version", state.status)
+	}
+	state.Click(hitUpdateLater)
 	state.Click(hitSettingsUpdateStartToggle)
+	if state.update.timer != nil {
+		t.Fatal("turning the check off left a timer armed")
+	}
 	state.Close()
 
 	again := New(options)
 	defer again.Close()
-	if !again.updateAtStart {
-		t.Fatal("the choice was not saved")
+	if again.updateAtStart {
+		t.Fatal("turning the check off was not saved")
 	}
-	waitUpdate(t, again, func() bool { return again.update.available })
-	if !strings.Contains(again.status, "99.0.0") {
-		t.Fatalf("status %q does not announce the version", again.status)
+}
+
+func TestTheAutoCheckAsksAgainAfterItsInterval(t *testing.T) {
+	_, options := newWorld(t)
+	options.Invalidate = func() {}
+	var calls atomic.Int32
+	options.CheckUpdate = func() (update.Release, error) {
+		calls.Add(1)
+		return update.Release{Version: update.Current, URL: "https://example.com/r"}, nil
 	}
+	state := New(options)
+	t.Cleanup(state.Close)
+	state.update.firstDelay, state.update.every = time.Millisecond, 5*time.Millisecond
+	waitUpdate(t, state, func() bool { return calls.Load() >= 2 })
 }
 
 func TestStartAtLoginFollowsTheSystemAndReportsFailure(t *testing.T) {
