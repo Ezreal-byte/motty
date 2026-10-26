@@ -280,6 +280,11 @@ still a placeholder.
 Issues and pull requests are welcome. Start with an issue for a large change so
 the approach can be discussed before the code is written.
 
+Comment `/claim` on an issue to take it: the bot assigns you and posts a
+confirmation. Comment `/unclaim` to release it, and `/close` once your linked
+pull request has merged. Why a command was refused, and how to run the bot as a
+GitHub App: [docs/issue-commands.md](docs/issue-commands.md).
+
 Before sending a pull request:
 
 ```sh
