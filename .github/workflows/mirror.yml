@@ -1,0 +1,38 @@
+# Mirrors a published release to Cloudflare R2, served from https://dl.motty.page.
+# Publishing the draft release is the trigger; the GitHub release stays the source
+# of record and this workflow only copies its assets. Layout and rerun notes:
+# docs/release.md.
+name: Mirror release
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to mirror, e.g. v0.1.0
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mirror-${{ github.event.release.tag_name || inputs.tag }}
+  cancel-in-progress: false
+
+jobs:
+  mirror:
+    name: Upload the packages to R2
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Mirror
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          TAG: ${{ github.event.release.tag_name || inputs.tag }}
+        run: tools/mirror-release.sh "$TAG"

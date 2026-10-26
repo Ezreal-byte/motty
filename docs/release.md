@@ -82,6 +82,38 @@ On a Mac that is signed in to a keychain with the certificate, `APPLE_SIGNING_ID
 and a profile made once with `xcrun notarytool store-credentials motty` are enough;
 no `.p12` is needed. See `viva help package` for every variable.
 
+## The Cloudflare mirror
+
+Publishing the draft (`gh release edit v0.1.2 --draft=false`) also triggers
+`.github/workflows/mirror.yml`, which copies every asset to the `motty` R2 bucket
+on Cloudflare. The bucket answers on `https://dl.motty.page`; the GitHub release
+stays the source of record and the copy is only a faster path to the same bytes.
+
+`tools/mirror-release.sh TAG` does the work and can be run locally:
+
+```sh
+tools/mirror-release.sh v0.1.2              # downloads the release with gh, then uploads
+tools/mirror-release.sh v0.1.2 --dir build/release-0.1.2   # upload what is already there
+```
+
+Object layout:
+
+| Key | Cache | What |
+| --- | --- | --- |
+| `releases/<tag>/<asset>` | a year, immutable | the exact release asset |
+| `latest/<stable>` | five minutes | the same bytes, version out of the name (`motty-0.1.2-darwin-arm64.dmg` → `motty-darwin-arm64.dmg`) |
+| `latest.json` | five minutes | version, tag, and every file's name, size and SHA-256 |
+
+The website's download page links at `/latest/<stable>`, so it needs no rebuild
+per version; `latest.json` is what a script should read. The uploader runs
+`sha256sum -c SHA256SUMS` first and refuses to mirror a release whose files do
+not match it.
+
+The workflow needs `CLOUDFLARE_API_TOKEN` with *Workers R2 Storage: Edit* (the
+Pages token from docs/website.md covers the site only) and `CLOUDFLARE_ACCOUNT_ID`
+(the same value the website workflow uses). Re-run a mirror from *Actions →
+Mirror release → Run workflow* with the tag.
+
 ## What has been checked
 
 The macOS signing, notarization and stapling were run for real, with a Developer ID

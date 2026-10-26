@@ -81,6 +81,11 @@ itself.
 | --- | --- | --- | --- |
 | `motty.page` | CNAME | `motty-page.pages.dev` | Proxied (flattened at the apex) |
 | `www.motty.page` | CNAME | `motty-page.pages.dev` | Proxied |
+| `dl.motty.page` | CNAME | `public.r2.dev` | Proxied, added by the R2 custom domain |
+
+`dl.motty.page` is the R2 bucket `motty` that mirrors the release packages
+(docs/release.md); the record and its certificate belong to the bucket's custom
+domain, not to a hand-made rule.
 
 The apex record is a `CNAME` at the root, which only works because Cloudflare
 flattens it. A registrar that is not Cloudflare cannot hold that record; this is
