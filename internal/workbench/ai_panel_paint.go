@@ -419,6 +419,7 @@ func (state *State) paintAIPanel(canvas *ui.Canvas, size ui.Size) {
 		canvas.Clip(bounds)
 		state.paintAIBody(canvas, bounds)
 		canvas.Unclip()
+		state.paintAIModelMenuOverlay(canvas)
 		return
 	}
 	if reserve := state.aiReserve(state.deck.ActiveWorkspace(), size); reserve > 0 {
@@ -441,6 +442,7 @@ func (state *State) paintAIPanel(canvas *ui.Canvas, size ui.Size) {
 		components.BeginResizable(canvas, state.Theme(), hitAIDivider, window, divider.Rect().X/max(window.Width-1, 1)).
 			Limits(0, 1).HandleSize(8).Paint(state.messages.AIPanel.ResizePanel)
 		state.paintAIBody(canvas, bounds.Rect())
+		state.paintAIModelMenuOverlay(canvas)
 		return
 	}
 	viewport := state.baseWorkspacePixelBounds(size)
@@ -452,6 +454,20 @@ func (state *State) paintAIPanel(canvas *ui.Canvas, size ui.Size) {
 	layout := drawer.Begin("", "")
 	state.paintAIBody(canvas, layout.Content)
 	drawer.End()
+	state.paintAIModelMenuOverlay(canvas)
+}
+
+// paintAIModelMenuOverlay paints the open model menu after the panel body. The
+// menu is a window-level popup: beside the home card it may open outside the
+// card, so the body's clip and layer must not cut it or its dismiss backdrop.
+func (state *State) paintAIModelMenuOverlay(canvas *ui.Canvas) {
+	if !state.ai.panel.modelMenu {
+		return
+	}
+	if _, hasModel := state.aiModelText(); !hasModel {
+		return
+	}
+	state.paintAIModelMenu(canvas)
 }
 
 func (state *State) paintAIBody(canvas *ui.Canvas, bounds ui.Rect) {

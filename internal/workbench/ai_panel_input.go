@@ -340,9 +340,6 @@ func (state *State) paintAIBottom(canvas *ui.Canvas, body *aiBody) {
 	if hasModel {
 		panel.chip = chip.Rect()
 	}
-	if panel.modelMenu && hasModel {
-		state.paintAIModelMenu(canvas)
-	}
 }
 
 // declareAIModePill declares the switch between Ask and Agent in the message box:
