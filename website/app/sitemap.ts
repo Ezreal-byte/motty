@@ -36,6 +36,13 @@ export default function sitemap(): MetadataRoute.Sitemap {
       alternates: { languages: languages('/download') },
     });
 
+    entries.push({
+      url: absolute(localePath(lang, '/changelog')),
+      changeFrequency: 'weekly',
+      priority: 0.8,
+      alternates: { languages: languages('/changelog') },
+    });
+
     for (const page of source.getPages(lang)) {
       const path = docsPath(page.slugs);
       entries.push({

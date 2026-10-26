@@ -248,25 +248,35 @@ export function faqJsonLd(items: { q: string; a: string }[]): Record<string, unk
 }
 
 /**
- * The download page: a WebPage about the app, with the package URLs as its
- * significant links. The app itself is described once, on the home page, and is
- * referenced here by `@id` rather than repeated.
+ * A page that is not the app itself: it belongs to the site, and points at the
+ * app by `@id` instead of repeating its description.
  */
+export function webPageJsonLd(
+  lang: Locale,
+  path: string,
+  title: string,
+  description: string,
+  extra: Record<string, unknown> = {},
+): Record<string, unknown> {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'WebPage',
+    url: absolute(localePath(lang, path)),
+    name: title,
+    description,
+    inLanguage: hreflang[lang],
+    isPartOf: { '@id': `${site.url}/#website` },
+    mainEntity: { '@id': `${site.url}/#software` },
+    ...extra,
+  };
+}
+
+/** The download page lists the packages as its significant links. */
 export function downloadPageJsonLd(
   lang: Locale,
   title: string,
   description: string,
   files: string[],
 ): Record<string, unknown> {
-  return {
-    '@context': 'https://schema.org',
-    '@type': 'WebPage',
-    url: absolute(localePath(lang, '/download')),
-    name: title,
-    description,
-    inLanguage: hreflang[lang],
-    isPartOf: { '@id': `${site.url}/#website` },
-    mainEntity: { '@id': `${site.url}/#software` },
-    significantLink: files,
-  };
+  return webPageJsonLd(lang, '/download', title, description, { significantLink: files });
 }

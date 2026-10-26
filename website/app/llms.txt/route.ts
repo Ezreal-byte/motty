@@ -1,3 +1,4 @@
+import { changelog, versionLabel } from '@/lib/changelog';
 import { download } from '@/lib/download-content';
 import { landing } from '@/lib/landing-content';
 import { docsPath, source } from '@/lib/source';
@@ -42,6 +43,12 @@ export function GET() {
     ]),
     `- Every file, with its size and SHA-256: ${site.download}/latest.json`,
     `- Source of record: ${site.releases}`,
+    '',
+    '## Changelog',
+    '',
+    `- Newest release: ${versionLabel(changelog[0].version)} (${changelog[0].date})`,
+    `- Every release, newest first: ${site.url}/en/changelog`,
+    `- Release notes: ${site.releases}`,
     '',
     '## Questions and answers',
     '',
