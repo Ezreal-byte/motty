@@ -72,6 +72,7 @@ var (
 	hitDialogLabel             = tree.ID(shellHits, "dialog-label")
 	hitDialogAddress           = tree.ID(shellHits, "dialog-address")
 	hitDialogUser              = tree.ID(shellHits, "dialog-user")
+	hitDialogPassword          = tree.ID(shellHits, "dialog-password")
 	hitDialogGroup             = tree.ID(shellHits, "dialog-group")
 	hitDialogPort              = tree.ID(shellHits, "dialog-port")
 	hitDialogTags              = tree.ID(shellHits, "dialog-tags")
@@ -1442,6 +1443,7 @@ func (state *State) reconnect(session *Session) {
 func (state *State) clickHostDialog(id ui.ID) {
 	switch id {
 	case hitDialogDismiss, hitDialogClose, hitDialogCancel:
+		state.editor.password = text.Editor{}
 		state.modal = modalNone
 		state.dialogError = ""
 		state.status = state.messages.StatusEditCanceled
@@ -1665,7 +1667,7 @@ func (state *State) pointer(event ui.PointerEvent) ui.EventResult {
 // isDialogField reports whether a hit is one of the New Host dialog's text fields.
 func isDialogField(id ui.ID) bool {
 	switch id {
-	case hitDialogLabel, hitDialogAddress, hitDialogUser, hitDialogGroup, hitDialogPort, hitDialogTags:
+	case hitDialogLabel, hitDialogAddress, hitDialogUser, hitDialogPassword, hitDialogGroup, hitDialogPort, hitDialogTags:
 		return true
 	}
 	return false
@@ -1680,6 +1682,8 @@ func fieldForDialogHit(id ui.ID) hostField {
 		return fieldAddress
 	case hitDialogUser:
 		return fieldUser
+	case hitDialogPassword:
+		return fieldPassword
 	case hitDialogGroup:
 		return fieldGroup
 	case hitDialogTags:

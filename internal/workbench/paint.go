@@ -1683,6 +1683,14 @@ func (state *State) paintHostIconChoice(canvas *ui.Canvas, bounds ui.Rect) {
 }
 
 func (state *State) paintDialogField(canvas *ui.Canvas, id ui.ID, field hostField, title, placeholder string, bounds ui.Rect) {
+	state.paintDialogFieldWithSecurity(canvas, id, field, title, placeholder, bounds, false)
+}
+
+func (state *State) paintSecureDialogField(canvas *ui.Canvas, id ui.ID, field hostField, title, placeholder string, bounds ui.Rect) {
+	state.paintDialogFieldWithSecurity(canvas, id, field, title, placeholder, bounds, true)
+}
+
+func (state *State) paintDialogFieldWithSecurity(canvas *ui.Canvas, id ui.ID, field hostField, title, placeholder string, bounds ui.Rect, secure bool) {
 	theme := state.Theme()
 	content := components.BeginField(canvas, theme, bounds).For(id).Paint(title, "", "")
 	value := state.editor.field(field).String()
@@ -1692,6 +1700,7 @@ func (state *State) paintDialogField(canvas *ui.Canvas, id ui.ID, field hostFiel
 		Label:           title,
 		Value:           value,
 		Placeholder:     placeholder,
+		Secure:          secure,
 		Focused:         focused,
 		PlatformEditing: focused && value != "",
 	})

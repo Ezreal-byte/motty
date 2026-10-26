@@ -251,6 +251,13 @@ type Messages struct {
 	FieldAddressPlaceholder     string
 	FieldUser                   string
 	FieldUserPlaceholder        string
+	FieldPassword               string
+	FieldPasswordHint           string
+	FieldPasswordKeepHint       string
+	FieldPasswordCopyHint       string
+	FieldVNCPassword            string
+	HostPasswordShared          string
+	HostPasswordNotCarried      string
 	FieldGroup                  string
 	FieldGroupPlaceholder       string
 	FieldPort                   string
@@ -898,6 +905,13 @@ var EnglishMessages = Messages{
 	FieldAddressPlaceholder:     "Hostname or IP",
 	FieldUser:                   "User",
 	FieldUserPlaceholder:        "Login account",
+	FieldPassword:               "Password",
+	FieldPasswordHint:           "Optional · encrypted",
+	FieldPasswordKeepHint:       "Leave empty to keep",
+	FieldPasswordCopyHint:       "Leave empty to copy",
+	FieldVNCPassword:            "VNC password",
+	HostPasswordShared:          "Another host uses this address, user and port, so they share one saved password and it differs from this one. Change the address, user or port, or leave the password empty.",
+	HostPasswordNotCarried:      "its saved password was not carried over because the password vault is not unlocked",
 	FieldGroup:                  "Group",
 	FieldGroupPlaceholder:       "Optional grouping",
 	FieldPort:                   "Port",
@@ -1519,6 +1533,13 @@ var ChineseMessages = Messages{
 	FieldAddressPlaceholder:     "主机名或 IP",
 	FieldUser:                   "用户",
 	FieldUserPlaceholder:        "登录账户",
+	FieldPassword:               "密码",
+	FieldPasswordHint:           "可选 · 加密保存",
+	FieldPasswordKeepHint:       "留空则保留",
+	FieldPasswordCopyHint:       "留空则复制",
+	FieldVNCPassword:            "VNC 密码",
+	HostPasswordShared:          "另一台主机使用相同的地址、用户和端口，它们共用一份已保存的密码，且与此处输入的不同。请修改地址、用户或端口，或将密码留空。",
+	HostPasswordNotCarried:      "密码库尚未解锁，未能带上已保存的密码",
 	FieldGroup:                  "分组",
 	FieldGroupPlaceholder:       "可选分组",
 	FieldPort:                   "端口",

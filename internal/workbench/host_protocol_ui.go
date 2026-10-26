@@ -62,11 +62,11 @@ func (state *State) paintHostProtocolSwitch(canvas *ui.Canvas, bounds ui.Rect) {
 }
 
 // paintHostEndpointRows draws the two rows that say where the host is: address
-// and then the account and port, or the device and its line.
+// and then its credentials and port, or the device and its line.
 func (state *State) paintHostEndpointRows(canvas *ui.Canvas, x, y, width, rowHeight float32) {
 	m, tools := state.messages, state.messages.Tools
 	editor := &state.editor
-	var address, picker, second, third flex.Box
+	var address, picker, second, password, third flex.Box
 	f := state.partLayout.Begin(canvas, state.Theme(), ui.Rect{X: x, Y: y, Width: width, Height: 2 * rowHeight})
 	f.Column().Fill().Children(func() {
 		switch editor.protocol {
@@ -85,19 +85,19 @@ func (state *State) paintHostEndpointRows(canvas *ui.Canvas, x, y, width, rowHei
 			second = f.Slot().Height(rowHeight).WidthPercent(34).Self(flex.Start)
 		case protocolVNC:
 			address = f.Slot().Height(rowHeight)
-			f.Row().Height(rowHeight).Children(func() {
+			f.Row().Height(rowHeight).Gap(8).Children(func() {
 				if editor.viaSSH {
-					second = f.Slot().WidthPercent(62)
-					f.Spacer()
+					second = f.Slot().Grow(1)
 				}
-				third = f.Slot().WidthPercent(34)
+				password = f.Slot().Grow(1)
+				third = f.Slot().Width(84).Shrink(0)
 			})
 		default:
 			address = f.Slot().Height(rowHeight)
-			f.Row().Height(rowHeight).Children(func() {
-				second = f.Slot().WidthPercent(62)
-				f.Spacer()
-				third = f.Slot().WidthPercent(34)
+			f.Row().Height(rowHeight).Gap(8).Children(func() {
+				second = f.Slot().Grow(1)
+				password = f.Slot().Grow(1)
+				third = f.Slot().Width(84).Shrink(0)
 			})
 		}
 	})
@@ -120,17 +120,31 @@ func (state *State) paintHostEndpointRows(canvas *ui.Canvas, x, y, width, rowHei
 	case protocolRDP:
 		state.paintDialogField(canvas, hitDialogAddress, fieldAddress, m.FieldAddress, m.FieldAddressPlaceholder, address.Rect())
 		state.paintDialogField(canvas, hitDialogUser, fieldUser, state.messages.Desktop.FieldRDPUser, state.messages.Desktop.RDPUserHint, second.Rect())
+		state.paintSecureDialogField(canvas, hitDialogPassword, fieldPassword, m.FieldPassword, state.hostPasswordHint(), password.Rect())
 		state.paintDialogField(canvas, hitDialogPort, fieldPort, m.FieldPort, "", third.Rect())
 	case protocolVNC:
 		state.paintDialogField(canvas, hitDialogAddress, fieldAddress, m.FieldAddress, m.FieldAddressPlaceholder, address.Rect())
 		if editor.viaSSH {
 			state.paintDialogField(canvas, hitDialogUser, fieldUser, state.messages.Desktop.FieldSSHUser, m.FieldUserPlaceholder, second.Rect())
 		}
+		state.paintSecureDialogField(canvas, hitDialogPassword, fieldPassword, m.FieldVNCPassword, state.hostPasswordHint(), password.Rect())
 		state.paintDialogField(canvas, hitDialogPort, fieldPort, m.FieldPort, "", third.Rect())
 	default:
 		state.paintDialogField(canvas, hitDialogAddress, fieldAddress, m.FieldAddress, m.FieldAddressPlaceholder, address.Rect())
 		state.paintDialogField(canvas, hitDialogUser, fieldUser, m.FieldUser, m.FieldUserPlaceholder, second.Rect())
+		state.paintSecureDialogField(canvas, hitDialogPassword, fieldPassword, m.FieldPassword, state.hostPasswordHint(), password.Rect())
 		state.paintDialogField(canvas, hitDialogPort, fieldPort, m.FieldPort, "", third.Rect())
+	}
+}
+
+func (state *State) hostPasswordHint() string {
+	switch state.hostDialogMode {
+	case hostDialogEdit:
+		return state.messages.FieldPasswordKeepHint
+	case hostDialogCopy:
+		return state.messages.FieldPasswordCopyHint
+	default:
+		return state.messages.FieldPasswordHint
 	}
 }
 

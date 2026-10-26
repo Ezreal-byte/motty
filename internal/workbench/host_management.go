@@ -6,6 +6,9 @@ import (
 
 	"github.com/vivaui/viva/text"
 	"github.com/vivaui/viva/ui"
+
+	"motty/internal/sshconn"
+	"motty/internal/vault"
 )
 
 type hostDialogMode uint8
@@ -199,7 +202,7 @@ func (state *State) openCopyHostID(id uint32) {
 	state.editor.label = text.Editor{}
 	state.editor.label.Insert(fmt.Sprintf(state.messages.HostCopyLabelFmt, host.Label))
 	state.hostDialogMode = hostDialogCopy
-	state.hostDialogID = 0
+	state.hostDialogID = host.ID
 	state.dialogError = ""
 	state.modal = modalNewHost
 }
@@ -240,6 +243,18 @@ func (state *State) submitHostDialog() {
 		return
 	}
 	host := state.editor.host(state.nextHostID)
+	var source *Host
+	if state.hostDialogMode == hostDialogCopy {
+		if index := state.hostIndex(state.hostDialogID); index >= 0 {
+			original := state.hosts[index]
+			source = &original
+		}
+	}
+	passwordNote, failure := state.saveHostDialogPassword(host, source)
+	if failure != "" {
+		state.dialogError = failure
+		return
+	}
 	state.nextHostID++
 	state.hosts = append(state.hosts, host)
 	state.selectedHostID = host.ID
@@ -253,6 +268,8 @@ func (state *State) submitHostDialog() {
 	if state.editor.value(fieldOTP) != "" {
 		state.commitOTP(host, nil) // after the host's own line, so the secret's is the one read
 	}
+	state.appendStatusNote(passwordNote)
+	state.editor.password = text.Editor{}
 	state.hostDataChanged()
 	state.save()
 	state.showNextPrompt()
@@ -266,6 +283,11 @@ func (state *State) updateHostFromEditor() {
 	}
 	previous := state.hosts[index]
 	updated := state.editor.host(previous.ID)
+	passwordNote, failure := state.saveHostDialogPassword(updated, &previous)
+	if failure != "" {
+		state.dialogError = failure
+		return
+	}
 	updated.CatalogID = previous.CatalogID
 	updated.System = previous.System
 	state.hosts[index] = updated
@@ -295,9 +317,122 @@ func (state *State) updateHostFromEditor() {
 	state.dialogError = ""
 	state.status = state.messages.HostUpdated + updated.Label
 	state.commitOTP(updated, &previous)
+	state.appendStatusNote(passwordNote)
+	state.editor.password = text.Editor{}
 	state.hostDataChanged()
 	state.save()
 	state.showNextPrompt()
+}
+
+// hostPasswordSecretName maps a host to the same vault key its connection uses.
+// Desktop accounts are namespaced so they cannot collide with SSH credentials.
+func (state *State) hostPasswordSecretName(host Host) (string, bool) {
+	endpoint := sshconn.Endpoint{Host: host.Address, Port: host.Port}
+	switch host.Protocol {
+	case protocolSSH:
+		endpoint.User = state.login(host)
+	case protocolVNC:
+		endpoint.User = vncAccount
+	case protocolRDP:
+		endpoint.User = rdpAccountPrefix + host.User
+	default:
+		return "", false
+	}
+	return passwordSecretName(endpoint), true
+}
+
+// hostPasswordInUse reports whether a host other than skip signs in with the
+// saved password called name. Hosts at one endpoint share a single password,
+// because the connection looks it up by endpoint.
+func (state *State) hostPasswordInUse(name string, skip *Host) bool {
+	for _, other := range state.hosts {
+		if skip != nil && other.ID == skip.ID {
+			continue
+		}
+		if other, ok := state.hostPasswordSecretName(other); ok && other == name {
+			return true
+		}
+	}
+	return false
+}
+
+// saveHostDialogPassword stores a typed password, or carries the saved one of
+// the host being copied or edited to the new endpoint. The secret never becomes
+// part of Host. It returns why the password could not be kept, and otherwise a
+// note for the status line when the vault was left alone.
+func (state *State) saveHostDialogPassword(host Host, source *Host) (note, failure string) {
+	destination, hasPassword := state.hostPasswordSecretName(host)
+	origin, hadPassword := "", false
+	if source != nil {
+		origin, hadPassword = state.hostPasswordSecretName(*source)
+	}
+	editing := state.hostDialogMode == hostDialogEdit && source != nil
+	var self *Host
+	if editing {
+		self = source
+	}
+	vaultFile := state.secrets.vault
+	fail := func(err error) (string, string) { return "", state.hostPasswordSaveError(err) }
+
+	if typed := state.editor.password.String(); typed != "" && hasPassword {
+		if vaultFile == nil {
+			return fail(vault.ErrUnavailable)
+		}
+		// Another host at this endpoint would silently get the new password.
+		if !(editing && destination == origin) && state.hostPasswordInUse(destination, self) {
+			existing, found, err := vaultFile.Get(destination)
+			if err != nil {
+				return fail(err)
+			}
+			if found && existing != typed {
+				return "", state.messages.HostPasswordShared
+			}
+		}
+		if err := vaultFile.Set(destination, typed); err != nil {
+			return fail(err)
+		}
+	} else if hasPassword && hadPassword && origin != destination && source.Protocol == host.Protocol &&
+		vaultFile != nil && vaultFile.Len() > 0 {
+		// Reading a vault that is not open could ask the system secret store
+		// for its key, which saving a host must not do.
+		if !vaultFile.Unlocked() {
+			return state.messages.HostPasswordNotCarried, ""
+		}
+		value, found, err := vaultFile.Get(origin)
+		if err != nil {
+			return fail(err)
+		}
+		if found {
+			// A password already saved for the destination belongs to its other host.
+			if _, taken, err := vaultFile.Get(destination); err != nil {
+				return fail(err)
+			} else if !taken {
+				if err := vaultFile.Set(destination, value); err != nil {
+					return fail(err)
+				}
+			}
+		}
+	}
+
+	// An edit that leaves its old endpoint, or leaves the protocols that have a
+	// password, must not leave the old secret behind unless another host uses it.
+	if editing && hadPassword && origin != destination && vaultFile != nil && vaultFile.Unlocked() &&
+		!state.hostPasswordInUse(origin, self) {
+		if err := vaultFile.Delete(origin); err != nil {
+			return fail(err)
+		}
+	}
+	return "", ""
+}
+
+func (state *State) appendStatusNote(note string) {
+	if note != "" {
+		state.status += " · " + note
+	}
+}
+
+func (state *State) hostPasswordSaveError(err error) string {
+	return fmt.Sprintf(state.messages.VaultSaveFailedFmt, state.vaultErrorText(err))
 }
 
 func (state *State) hostIndex(id uint32) int {

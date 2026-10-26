@@ -19,9 +19,12 @@ type hostEditor struct {
 	label   text.Editor
 	address text.Editor
 	user    text.Editor
-	group   text.Editor
-	tags    text.Editor
-	icon    hostIcon
+	// password is only the value typed in this dialog. It is never loaded from
+	// the vault or copied into Host; a successful submit stores it separately.
+	password text.Editor
+	group    text.Editor
+	tags     text.Editor
+	icon     hostIcon
 	// system is the system the host was last detected to run, whose badge the
 	// automatic icon shows.
 	system sshconn.RemoteSystem
@@ -68,6 +71,7 @@ const (
 	fieldLabel hostField = iota
 	fieldAddress
 	fieldUser
+	fieldPassword
 	fieldGroup
 	fieldPort
 	fieldTags
@@ -85,6 +89,8 @@ func (editor *hostEditor) field(field hostField) *text.Editor {
 		return &editor.address
 	case fieldUser:
 		return &editor.user
+	case fieldPassword:
+		return &editor.password
 	case fieldGroup:
 		return &editor.group
 	case fieldTags:
@@ -175,6 +181,7 @@ func (editor *hostEditor) load(host Host) {
 	editor.label = text.Editor{}
 	editor.address = text.Editor{}
 	editor.user = text.Editor{}
+	editor.password = text.Editor{}
 	editor.group = text.Editor{}
 	editor.tags = text.Editor{}
 	editor.icon, editor.iconOpen = hostIconAuto, false
@@ -249,6 +256,7 @@ func (editor *hostEditor) reset() {
 	editor.label = text.Editor{}
 	editor.address = text.Editor{}
 	editor.user = text.Editor{}
+	editor.password = text.Editor{}
 	editor.group = text.Editor{}
 	editor.tags = text.Editor{}
 	editor.icon, editor.system, editor.iconOpen = hostIconAuto, sshconn.SystemUnknown, false
@@ -278,6 +286,8 @@ func (editor *hostEditor) setProtocol(protocol hostProtocol) {
 	if protocol == editor.protocol {
 		return
 	}
+	// A password typed for one protocol's account is not another's.
+	editor.password = text.Editor{}
 	previous := defaultPortText(editor.protocol)
 	if value := editor.value(fieldPort); value == "" || value == previous {
 		editor.port = text.Editor{}

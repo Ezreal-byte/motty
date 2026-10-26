@@ -237,6 +237,8 @@ func (state *State) rememberSecret(session *Session) {
 // vaultErrorText says why the vault refused, in the current language.
 func (state *State) vaultErrorText(err error) string {
 	switch {
+	case errors.Is(err, vault.ErrLocked):
+		return state.messages.Autofill.ErrorVaultLocked
 	case errors.Is(err, vault.ErrKeyLost):
 		return state.messages.VaultKeyLost
 	case errors.Is(err, vault.ErrUnavailable):
