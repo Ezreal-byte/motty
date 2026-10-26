@@ -1,9 +1,11 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { Tag } from 'lucide-react';
+import { ChangelogShell } from '@/components/changelog-shell';
 import { JsonLd } from '@/components/json-ld';
-import { changelog, changelogPage, versionId, versionLabel } from '@/lib/changelog';
+import { changelog, changelogPage, releaseId, sectionId, versionLabel } from '@/lib/changelog';
 import { i18n, resolveLang } from '@/lib/i18n';
-import { alternates, openGraph, site, twitter, webPageJsonLd } from '@/lib/seo';
+import { alternates, openGraph, webPageJsonLd, twitter } from '@/lib/seo';
 
 export function generateStaticParams() {
   return i18n.languages.map((lang) => ({ lang }));
@@ -30,62 +32,65 @@ export default async function Page({ params }: PageProps<'/[lang]/changelog'>) {
     timeZone: 'UTC',
   });
 
+  const versions = changelog.map((entry) => ({
+    id: releaseId(entry.version),
+    label: versionLabel(entry.version),
+  }));
+  const toc = changelog.map((entry) => ({
+    id: releaseId(entry.version),
+    title: c.tocTitle(versionLabel(entry.version)),
+    entries: entry.sections.map((section, index) => ({
+      id: sectionId(entry.version, index),
+      label: section.title[lang],
+    })),
+  }));
+
   return (
-    <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-16">
+    <main className="mx-auto w-full max-w-[1400px] px-7 pt-10 pb-24 max-[760px]:px-[18px]">
       <JsonLd data={webPageJsonLd(lang, '/changelog', c.title, c.description)} />
+      {/* The DBX changelog has no visible page title either: the release list
+          identifies the page, and the h1 stays for landmarks and crawlers. */}
+      <h1 className="sr-only">{c.title}</h1>
 
-      <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">{c.title}</h1>
-      <p className="mt-4 leading-relaxed text-fd-muted-foreground">{c.intro}</p>
-
-      <ol className="mt-6 flex flex-wrap gap-2">
+      <ChangelogShell versions={versions} toc={toc} versionsLabel={c.versions} tocSubtitle={c.tocSubtitle}>
         {changelog.map((entry) => (
-          <li key={entry.version}>
-            <a
-              href={`#${versionId(entry.version)}`}
-              className="inline-block rounded-full border bg-fd-card px-3 py-1 font-mono text-xs text-fd-muted-foreground transition-colors hover:bg-fd-accent hover:text-fd-accent-foreground"
-            >
-              {versionLabel(entry.version)}
-            </a>
-          </li>
-        ))}
-      </ol>
-
-      <div className="mt-12 space-y-12">
-        {changelog.map((entry) => (
-          <article key={entry.version} id={versionId(entry.version)} className="scroll-mt-24">
-            <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-              <h2 className="text-xl font-semibold tracking-tight">{versionLabel(entry.version)}</h2>
-              <time dateTime={entry.date} className="text-sm text-fd-muted-foreground">
-                {dateFormat.format(new Date(`${entry.date}T00:00:00Z`))}
-              </time>
-            </div>
-            <p className="mt-1 flex flex-wrap gap-x-4 text-sm">
-              <Link href={`/${lang}/download`} className="underline-offset-4 hover:underline">
+          <section
+            key={entry.version}
+            id={releaseId(entry.version)}
+            data-changelog-release={releaseId(entry.version)}
+            aria-label={versionLabel(entry.version)}
+            className="changelog-release"
+          >
+            <div className="changelog-release-head">
+              <div className="changelog-release-meta">
+                <span className="changelog-version-pill">
+                  <Tag size={13} aria-hidden />
+                  {entry.version}
+                </span>
+                <span className="changelog-release-date">
+                  {c.publishedOn} {dateFormat.format(new Date(`${entry.date}T00:00:00Z`))}
+                </span>
+              </div>
+              <Link href={`/${lang}/download`} className="changelog-download">
                 {c.download}
               </Link>
-              <a
-                href={`${site.releases}/tag/v${entry.version}`}
-                target="_blank"
-                rel="noreferrer"
-                className="text-fd-muted-foreground underline-offset-4 hover:text-fd-foreground hover:underline"
-              >
-                {c.notes}
-              </a>
-            </p>
+            </div>
 
-            {entry.sections.map((section) => (
-              <section key={section.title.en} className="mt-5">
-                <h3 className="text-sm font-medium">{section.title[lang]}</h3>
-                <ul className="mt-2 list-disc space-y-1.5 pl-5 text-sm leading-relaxed text-fd-muted-foreground">
-                  {section.items.map((item) => (
-                    <li key={item.en}>{item[lang]}</li>
-                  ))}
-                </ul>
-              </section>
-            ))}
-          </article>
+            <div className="changelog-markdown">
+              {entry.sections.map((section, index) => (
+                <section key={section.title.en}>
+                  <h3 id={sectionId(entry.version, index)}>{section.title[lang]}</h3>
+                  <ul>
+                    {section.items.map((item) => (
+                      <li key={item.en}>{item[lang]}</li>
+                    ))}
+                  </ul>
+                </section>
+              ))}
+            </div>
+          </section>
         ))}
-      </div>
+      </ChangelogShell>
     </main>
   );
 }
