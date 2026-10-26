@@ -319,7 +319,8 @@ func (state *State) aiPanelReset() {
 }
 
 func (state *State) aiPanelClick(id ui.ID) bool {
-	if !inAIPanel(id) {
+	// Modal controls (including AI rename) are dispatched by State.Click.
+	if state.modal != modalNone || !inAIPanel(id) {
 		return false
 	}
 	ai := &state.ai
@@ -610,7 +611,7 @@ func (state *State) aiPanelScrollBy(step float32) ui.EventResult {
 }
 
 func (state *State) aiPanelKey(event ui.KeyEvent) (ui.EventResult, bool) {
-	if !inAIPanel(event.Target) || event.Target == hitAIToggle {
+	if state.modal != modalNone || !inAIPanel(event.Target) || event.Target == hitAIToggle {
 		return ui.EventResult{}, false
 	}
 	ai := &state.ai
