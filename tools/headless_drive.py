@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Drive a motty headless build from a script file, no window involved.
 
-    go build -tags vivahead -o /tmp/motty-head ./cmd/motty
+    go build -tags vivahead,dev -o /tmp/motty-head ./cmd/motty
     python3 tools/headless_drive.py /tmp/some-home commands.txt
     python3 tools/headless_drive.py --build /tmp/some-home commands.txt
     python3 tools/headless_drive.py --watch /tmp/some-home commands.txt
@@ -35,7 +35,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 def build() -> bool:
     started = time.time()
-    result = subprocess.run(["go", "build", "-tags", "vivahead", "-o", BINARY, "./cmd/motty"],
+    result = subprocess.run(["go", "build", "-tags", "vivahead,dev", "-o", BINARY, "./cmd/motty"],
                             cwd=ROOT, capture_output=True, text=True)
     if result.returncode != 0:
         print("build failed:\n" + result.stdout + result.stderr)

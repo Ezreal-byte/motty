@@ -89,7 +89,7 @@ func (state *State) rebuildCommandPalette() {
 	palette.add(messages.NavProxies, hitProxies)
 	palette.add(messages.NavKnownHosts, hitKnownHosts)
 	palette.add(messages.NavSettings, hitSettings)
-	palette.add(messages.NavDebug, hitDebug)
+	state.devAddPaletteCommands(palette)
 	if state.options.NewWindow != nil {
 		palette.add(messages.NewWindow, hitNewWindow)
 	}

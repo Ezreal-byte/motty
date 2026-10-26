@@ -7,8 +7,8 @@ in a package.
 
 | Path | What it does |
 | --- | --- |
-| `headless_drive.py` | Drives a `-tags vivahead` build through the headless line protocol: `click`, `type`, `key`, `waitfor`, `shot`, `texts`, `layout`. `--watch` replays a script while Go files change. |
-| `dev.sh` | Rebuilds and restarts a real window when Go files here or in `../viva` change. Needs `fswatch`. |
+| `headless_drive.py` | Drives a `-tags vivahead` build through the headless line protocol: `click`, `type`, `key`, `waitfor`, `shot`, `texts`, `layout`. `--build` and `--watch` add the `dev` tag, so the interface they iterate has the component gallery. |
+| `dev.sh` | Rebuilds and restarts a real window when Go files here or in `../viva` change. Needs `fswatch`. Builds with `-tags dev`, which is what adds the component gallery: the release build has no such page. |
 | `release.sh` | Builds the release packages, checksums, signing and optional upload. See `docs/release.md`. |
 | `competitor_issues.py` | Fetches closed issues (and pull requests, dropped) from the Netcatty and NyaTerm repositories into JSON for requirement mining. `--state`, `--label`, `--summary`. |
 

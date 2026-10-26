@@ -32,8 +32,12 @@ func TestChromeHasOnlyTheControlsThatDoSomething(t *testing.T) {
 	// for a feature.
 	wanted := map[ui.ID]bool{
 		hitHosts: true, hitKeychain: true, hitProxies: true, hitPortForwarding: true,
-		hitKnownHosts: true, hitSettings: true, hitDebug: true, hitWindowSettings: true, hitWindowLocalTerminal: true, hitSearch: true, hitConnect: true,
+		hitKnownHosts: true, hitSettings: true, hitWindowSettings: true, hitWindowLocalTerminal: true, hitSearch: true, hitConnect: true,
 		hitAddHost: true, hitHostFilterAll: true, hitImportMenu: true, hitLanguage: true, hitTheme: true, hitHome: true, hitNewTab: true,
+	}
+	// A development build also declares the component gallery.
+	for _, id := range devOnlyShellHits() {
+		wanted[id] = true
 	}
 	for _, hit := range canvas.Hits() {
 		// The window chrome is what the shell declares itself; everything else

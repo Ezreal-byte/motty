@@ -633,6 +633,9 @@ func (state *State) restoreShared(saved savedState) {
 }
 
 func (state *State) workspaceName() string {
+	if name, ok := state.devWorkspaceName(); ok {
+		return name
+	}
 	switch state.activeSection {
 	case sectionTerminal:
 		return "terminal"
@@ -647,8 +650,6 @@ func (state *State) workspaceName() string {
 			return "shortcuts"
 		}
 		return "settings"
-	case sectionDebug:
-		return "debug"
 	default:
 		return "hosts"
 	}
@@ -672,6 +673,9 @@ func restoreShortcuts(saved []savedShortcut) shortcutMap {
 }
 
 func (state *State) restoreWorkspace(workspace string) {
+	if state.devRestoreWorkspace(workspace) {
+		return
+	}
 	switch workspace {
 	case "terminal":
 		if state.activeSessionID != 0 {
@@ -688,8 +692,6 @@ func (state *State) restoreWorkspace(workspace string) {
 	case "shortcuts":
 		state.activeSection = sectionSettings
 		state.settingsCategory = settingsShortcuts
-	case "debug":
-		state.activeSection = sectionDebug
 	default:
 		state.activeSection = sectionHosts
 	}

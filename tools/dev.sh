@@ -56,7 +56,7 @@ stop() {
 start() {
 	say building "building motty-dev from $PWD"
 	SECONDS=0
-	if go build -o "$bin" ./cmd/motty; then
+	if go build -tags dev -o "$bin" ./cmd/motty; then
 		say ok "build finished in ${SECONDS}s"
 		if [ -n "$sign_identity" ]; then
 			if output=$(codesign --force --identifier dev.motty.app --timestamp=none --sign "$sign_identity" "$bin" 2>&1); then

@@ -28,7 +28,6 @@ var (
 	hitProxies                 = tree.ID(shellHits, "proxies")
 	hitPortForwarding          = tree.ID(shellHits, "port-forwarding")
 	hitKnownHosts              = tree.ID(shellHits, "known-hosts")
-	hitDebug                   = tree.ID(shellHits, "debug")
 	hitSettings                = tree.ID(shellHits, "settings")
 	hitWindowSettings          = tree.ID(shellHits, "window-settings")
 	hitWindowLocalTerminal     = tree.ID(shellHits, "window-local-terminal")
@@ -150,14 +149,6 @@ var (
 	hitKeysImport = tree.ID(keysHits, "keys-import")
 	hitKeysRemove = tree.ID(keysHits, "keys-remove")
 	hitKeyRowList = tree.Sub(keysHits, tree.Name("key-row"))
-)
-
-// Debug: the controls and options of the component previews.
-var (
-	hitDebugSelect         = tree.ID(debugHits, "select")
-	hitDebugSelectDismiss  = tree.ID(debugHits, "select-dismiss")
-	hitDebugActionList     = tree.Sub(debugHits, tree.Name("action"))
-	hitDebugSelectItemList = tree.Sub(debugHits, tree.Name("select-item"))
 )
 
 // Local forwarding: its page and dialog.
@@ -371,6 +362,9 @@ const (
 	sectionProxies
 	sectionSettings
 	sectionKnownHosts
+	// sectionDebug is the development-only component gallery: its page is built
+	// only with the dev tag (see debug.go), but the section keeps its place so
+	// the other sections do not renumber between builds.
 	sectionDebug
 )
 
@@ -618,15 +612,9 @@ type State struct {
 	hostToggleLayout      flex.View
 	hostGridLayout        flex.View
 	hostGridItems         []hostGridItem
-	// debugLayout lays out the component previews: debugAction is the button
-	// group action pressed last, debugSelect where the page reserved the select
-	// trigger (painted after the page so its popup is not clipped by the
-	// workspace), and debugSelectOpen/debugSelectOption its popup state.
-	debugLayout       flex.View
-	debugAction       int
-	debugSelect       ui.Rect
-	debugSelectOpen   bool
-	debugSelectOption int
+	// dev is the development-only component gallery's state; a release build
+	// keeps none of it (see debug.go and debug_release.go).
+	dev devState
 	// viewport and the terminal cell are the layout inputs of the last paint,
 	// kept so a resize can work out how many rows and columns fit.
 	viewport              ui.Size
@@ -1218,9 +1206,9 @@ func (state *State) Click(id ui.ID) {
 		state.save()
 	case id == hitKnownHosts:
 		state.openKnownHosts()
-	case id == hitDebug:
-		state.activeSection = sectionDebug
-		state.save()
+	case state.devClick(id):
+		// The development-only component gallery handled it; a release build has
+		// no such page, so this is never its click.
 	case id == hitSettings || id == hitWindowSettings:
 		state.openSettings()
 	case id == hitShortcutReset:
@@ -1293,8 +1281,6 @@ func (state *State) Click(id ui.ID) {
 		}
 	case tree.Within(id.Scope(), knownHostsHits):
 		state.clickKnownHosts(id)
-	case tree.Within(id.Scope(), debugHits):
-		state.clickDebug(id)
 	case id.Scope() == hitShortcutRowList:
 		state.openShortcutCapture(shortcutAction(uint32(item(id))) + 1)
 	case tree.Within(id.Scope(), proxiesHits):

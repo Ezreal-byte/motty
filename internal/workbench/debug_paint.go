@@ -1,3 +1,5 @@
+//go:build dev
+
 package workbench
 
 import (
@@ -21,9 +23,9 @@ const (
 func (state *State) paintDebugWorkspace(canvas *ui.Canvas, bounds ui.Rect) {
 	pal, messages, theme := state.pal, state.messages, state.Theme()
 	groupLabels := state.debugActionLabels()
-	groupChoice := groupLabels[min(max(state.debugAction, 0), len(groupLabels)-1)]
+	groupChoice := groupLabels[min(max(state.dev.action, 0), len(groupLabels)-1)]
 	selectLabels := state.debugSelectLabels()
-	selectChoice := selectLabels[min(max(state.debugSelectOption, 0), len(selectLabels)-1)]
+	selectChoice := selectLabels[min(max(state.dev.selectOption, 0), len(selectLabels)-1)]
 	// The page pads 18px on each side and the gallery column 4px more. The card
 	// gives 18px each side to its content, where the controls live.
 	cardWidth := min(max(bounds.Width-36-8, 1), debugCardMaxWidth)
@@ -32,7 +34,7 @@ func (state *State) paintDebugWorkspace(canvas *ui.Canvas, bounds ui.Rect) {
 	selectWidth := min(debugSelectWidth, contentWidth)
 
 	var group, selectTrigger flex.Box
-	f := state.debugLayout.Begin(canvas, theme, bounds)
+	f := state.dev.layout.Begin(canvas, theme, bounds)
 	f.Column().Fill().PadSides(12, 18, 0, 18).Children(func() {
 		f.Column().MarginSides(4, 0, 13, 0).Gap(3).Children(func() {
 			f.Text(messages.DebugTitle).FontSize(18).Weight(ui.WeightSemibold).Color(pal.text)
@@ -69,7 +71,7 @@ func (state *State) paintDebugWorkspace(canvas *ui.Canvas, bounds ui.Rect) {
 		})
 	})
 	f.End()
-	state.debugSelect = selectTrigger.Rect()
+	state.dev.selectRect = selectTrigger.Rect()
 
 	options := state.debugButtonOptions()
 	components.BeginButtonGroup(canvas, theme, group.Rect(), options[:]).Paint()
@@ -79,13 +81,13 @@ func (state *State) paintDebugWorkspace(canvas *ui.Canvas, bounds ui.Rect) {
 // page reserved. Viva owns the trigger, the popup and its keyboard and pointer
 // behavior; the page owns the chosen value and whether the list is open.
 func (state *State) paintDebugSelect(canvas *ui.Canvas) {
-	bounds := state.debugSelect
+	bounds := state.dev.selectRect
 	if bounds.Width <= 0 {
 		return
 	}
 	messages, theme := state.messages, state.Theme()
 	labels := state.debugSelectLabels()
-	selected := min(max(state.debugSelectOption, 0), len(labels)-1)
+	selected := min(max(state.dev.selectOption, 0), len(labels)-1)
 	content := ui.Rect{
 		X: bounds.X, Y: bounds.Y + bounds.Height + 4, Width: bounds.Width,
 		Height: float32(8 + len(labels)*32),
@@ -96,12 +98,12 @@ func (state *State) paintDebugSelect(canvas *ui.Canvas) {
 	}
 	control := components.BeginSelect(canvas, theme, bounds, components.SelectOptions{
 		TriggerID: hitDebugSelect, Label: messages.DebugSelectTitle, Value: labels[selected],
-		Open: state.debugSelectOpen, Content: content, Layer: popupLayer,
+		Open: state.dev.selectOpen, Content: content, Layer: popupLayer,
 		DismissID: hitDebugSelectDismiss, Viewport: state.windowRect(),
-		Scroll: state.selectScroll(state.debugSelectOpen, hitDebugSelectDismiss),
+		Scroll: state.selectScroll(state.dev.selectOpen, hitDebugSelectDismiss),
 	})
 	defer control.End()
-	if state.debugSelectOpen {
+	if state.dev.selectOpen {
 		state.menuPlaced(control.ContentBounds())
 	}
 	for index, label := range labels {

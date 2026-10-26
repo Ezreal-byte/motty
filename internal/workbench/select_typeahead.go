@@ -47,6 +47,9 @@ func (state *State) selectTypeaheadKey(event ui.KeyEvent) (ui.EventResult, bool)
 // that commits one. It reports false when the target is not a select trigger
 // currently showing its value rather than its list.
 func (state *State) selectTypeaheadOptions(target ui.ID) ([]components.MenuTypeaheadItem, func(ui.ID) bool, bool) {
+	if items, commit, ok := state.devSelectTypeahead(target); ok {
+		return items, commit, ok
+	}
 	switch {
 	case state.aiSettingsVisible() && state.settingsCategory == settingsMCP && target == hitAISetMCPSelect && !state.ai.cfg.mcpSelectOpen:
 		options := aiMCPClientOptions()
@@ -139,21 +142,6 @@ func (state *State) selectTypeaheadOptions(target ui.ID) ([]components.MenuTypea
 			}
 			state.editor.address = text.Editor{}
 			state.editor.address.Insert(state.editor.ports[index].Device)
-			return true
-		}, true
-
-	case state.modal == modalNone && state.activeSection == sectionDebug && target == hitDebugSelect && !state.debugSelectOpen:
-		labels := state.debugSelectLabels()
-		items := make([]components.MenuTypeaheadItem, 0, len(labels))
-		for index, label := range labels {
-			items = append(items, components.MenuTypeaheadItem{ID: hitDebugSelectItemList.At(index), Label: label})
-		}
-		return items, func(id ui.ID) bool {
-			index, ok := id.In(hitDebugSelectItemList)
-			if !ok || index < 0 || index >= len(labels) {
-				return false
-			}
-			state.debugSelectOption = index
 			return true
 		}, true
 

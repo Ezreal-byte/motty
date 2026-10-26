@@ -91,14 +91,10 @@ func (state *State) Paint(canvas *ui.Canvas, size ui.Size) {
 	state.syncVisible()
 	state.contextRect = ui.Rect{}
 	state.hostsBounds, state.chrome.hostList = ui.Rect{}, ui.Rect{}
-	state.debugSelect = ui.Rect{}
+	state.devBeginPaint()
 	state.ai.cfg.mcpSelectBounds = ui.Rect{}
 	if !state.aiSettingsVisible() || state.settingsCategory != settingsMCP || state.settingsSearching() {
 		state.ai.cfg.mcpSelectOpen = false
-	}
-	// The select's popup is transient: leaving the Debug page closes it.
-	if state.activeSection != sectionDebug {
-		state.debugSelectOpen = false
 	}
 	state.aiPanelBeginPaint()
 	// The terminal layout follows the window and the font; remember what it
@@ -152,21 +148,21 @@ func (state *State) Paint(canvas *ui.Canvas, size ui.Size) {
 	} else {
 		workspace := workspaceSlot.Rect()
 		canvas.Clip(workspace)
-		switch state.activeSection {
-		case sectionKeys:
-			state.paintKeysWorkspace(canvas, workspace)
-		case sectionForwards:
-			state.paintForwardsWorkspace(canvas, workspace)
-		case sectionProxies:
-			state.paintProxiesWorkspace(canvas, workspace)
-		case sectionSettings:
-			state.paintSettingsWorkspace(canvas, workspace)
-		case sectionKnownHosts:
-			state.paintKnownHostsWorkspace(canvas, workspace)
-		case sectionDebug:
-			state.paintDebugWorkspace(canvas, workspace)
-		default:
-			state.paintHostsWorkspace(canvas, workspace)
+		if !state.devPaintPage(canvas, workspace) {
+			switch state.activeSection {
+			case sectionKeys:
+				state.paintKeysWorkspace(canvas, workspace)
+			case sectionForwards:
+				state.paintForwardsWorkspace(canvas, workspace)
+			case sectionProxies:
+				state.paintProxiesWorkspace(canvas, workspace)
+			case sectionSettings:
+				state.paintSettingsWorkspace(canvas, workspace)
+			case sectionKnownHosts:
+				state.paintKnownHostsWorkspace(canvas, workspace)
+			default:
+				state.paintHostsWorkspace(canvas, workspace)
+			}
 		}
 		canvas.Unclip()
 		state.paintAIPanel(canvas, size)
@@ -174,12 +170,10 @@ func (state *State) Paint(canvas *ui.Canvas, size ui.Size) {
 	viewport := state.windowRect()
 	state.beginMenus()
 	state.paintMCPClientSelect(canvas)
-	// The Debug page's select is painted here, outside the workspace's clip and
+	// The gallery's select is painted here, outside the workspace's clip and
 	// inside the frame's menu pass, so its popup can leave the page and keeps the
 	// menu state its keyboard handling needs.
-	if state.activeSection == sectionDebug {
-		state.paintDebugSelect(canvas)
-	}
+	state.devPaintOverlay(canvas)
 	switch state.modal {
 	case modalNewHost:
 		state.paintHostDialog(canvas, viewport)
@@ -585,10 +579,11 @@ func (state *State) declareNavigation(f *flex.Frame) {
 			state.navigationItem(f, item.id, item.icon, item.label, item.active, 4)
 		}
 		// A shell on this computer needs no host, so its way in is always at hand:
-		// above the debug gallery and Settings, at the bottom of the sidebar.
+		// above the Settings, at the bottom of the sidebar. A dev build also puts
+		// the component gallery there (see declareDevNavigation).
 		f.Spacer()
 		state.navigationItem(f, hitLocalTerminal, iconTerminal, m.LocalTerminal, false, 4)
-		state.navigationItem(f, hitDebug, iconBug, m.NavDebug, state.activeSection == sectionDebug, 4)
+		state.devDeclareNavigation(f)
 		state.navigationItem(f, hitSettings, iconSettings, m.NavSettings, state.activeSection == sectionSettings, 16)
 	})
 }
