@@ -1,3 +1,4 @@
+import { download } from '@/lib/download-content';
 import { landing } from '@/lib/landing-content';
 import { docsPath, source } from '@/lib/source';
 import { absolute, copy, localePath, site } from '@/lib/seo';
@@ -31,6 +32,16 @@ export function GET() {
     '- Port forwarding: local, remote, SOCKS5 and HTTP CONNECT rules, X11 forwarding, and jump chains where every hop is verified on its own.',
     '- Remote desktops: VNC and RDP in a tab, with certificate pinning, optionally through an SSH hop when the server only listens on loopback.',
     '- Assistant and MCP: Ask and Agent modes behind a risk-classified approval gate, and an optional loopback-only MCP server for external agents.',
+    '',
+    '## Download',
+    '',
+    ...download.en.groups.flatMap((group) => [
+      `**${group.platform}**`,
+      ...group.files.map((file) => `- ${file.label} (${file.kind}): ${site.download}/latest/${file.key}`),
+      '',
+    ]),
+    `- Every file, with its size and SHA-256: ${site.download}/latest.json`,
+    `- Source of record: ${site.releases}`,
     '',
     '## Questions and answers',
     '',

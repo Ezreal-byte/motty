@@ -34,7 +34,7 @@ export function Landing({ lang }: { lang: string }) {
             {c.start}
           </Link>
           <Link
-            href={`/${l}/docs/guides/install`}
+            href={`/${l}/download`}
             className="rounded-lg bg-fd-primary px-6 py-2.5 font-medium text-fd-primary-foreground transition-opacity hover:opacity-90"
           >
             {c.install}

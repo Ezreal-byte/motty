@@ -29,6 +29,13 @@ export default function sitemap(): MetadataRoute.Sitemap {
       alternates: { languages: languages('') },
     });
 
+    entries.push({
+      url: absolute(localePath(lang, '/download')),
+      changeFrequency: 'monthly',
+      priority: 0.8,
+      alternates: { languages: languages('/download') },
+    });
+
     for (const page of source.getPages(lang)) {
       const path = docsPath(page.slugs);
       entries.push({
