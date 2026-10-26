@@ -9,19 +9,22 @@
 #
 # The packages come from REF (default HEAD), built in a temporary worktree so
 # uncommitted changes never leak in, with the sibling ../viva at its main branch
-# (--viva-ref picks another ref, such as HEAD for a checkout of the exact commit).
+# (--viva-ref picks another ref; the release workflow passes the exact commit it
+# resolved once, so every package of a release uses the same frame).
 #
 # --platforms picks what to build; by default everything this machine can: the
-# macOS packages (.zip, .dmg) need Apple's tools and so a Mac, the Linux and
-# Windows ones are cross-built anywhere. A release made on several machines, as
+# macOS packages (.dmg) need Apple's tools and so a Mac, the Linux and Windows
+# ones are cross-built anywhere. A release made on several machines, as
 # .github/workflows/release.yml does, builds one platform on each.
 #
-# The Windows installer needs NSIS (makensis). makensis on Apple Silicon crashes
-# (NSIS bug #1333), so there the installer is skipped with a note; build it on
-# Windows or Linux and pass the file with --installer to include it.
+# The Windows packages are NSIS installers, one per architecture, and NSIS
+# (makensis) must be able to run. The arm64 installer needs makensis 3.10 or
+# newer; if makensis is missing or crashes, that architecture is skipped with a
+# note, and a prebuilt amd64 installer can be passed with --installer.
 #
 # --upload TAG puts the packages on release TAG of the repository's origin; TAG
-# must be v plus the version in viva.toml. A release that does not exist yet is
+# must be v plus the version in viva.toml, and the run refuses to upload unless
+# every package of the platforms it built is there. A release that does not exist yet is
 # created as a DRAFT pointing at the commit that was built; --publish then
 # publishes it. The commit must already be pushed. SHA256SUMS is written when all
 # three platforms were built in this run; otherwise run --sums TAG once they are
@@ -57,6 +60,11 @@ while [ $# -gt 0 ]; do
 done
 
 sums() { if command -v sha256sum >/dev/null 2>&1; then sha256sum "$@"; else shasum -a 256 "$@"; fi; }
+
+# A run that is going to upload must produce the whole matrix: a missing package
+# would otherwise be published as a release nobody can install from.
+strict=0
+[ -z "$tag" ] || strict=1
 
 if [ -n "$sums_tag" ]; then
 	scratch=$(mktemp -d)
@@ -115,8 +123,8 @@ package() { "$work/viva-cli" package "$@" 2>&1 | sed 's/^/   /'; }
 if want mac; then
 	echo "== macOS"
 	for arch in arm64 amd64; do
-		package --arch "$arch" -o "$work/mac-$arch/Motty.app" --format zip,dmg
-		cp "$work/mac-$arch/"motty-*.zip "$work/mac-$arch/"motty-*.dmg "$out/"
+		package --arch "$arch" -o "$work/mac-$arch/Motty.app" --format dmg
+		cp "$work/mac-$arch/"motty-*.dmg "$out/"
 	done
 fi
 if want linux; then
@@ -128,19 +136,40 @@ fi
 if want windows; then
 	echo "== Windows"
 	for arch in amd64 arm64; do
-		package --target windows --arch "$arch" --format zip -o "$out"
+		if [ -n "$installer" ] && [ "$arch" = amd64 ]; then
+			cp "$installer" "$out/"
+			echo "   Windows amd64 installer copied from $installer"
+		elif "$work/viva-cli" package --target windows --arch "$arch" --format nsis -o "$out" >"$work/nsis-$arch.log" 2>&1; then
+			echo "   Windows $arch installer built"
+		else
+			echo "   no Windows $arch installer: $(tail -1 "$work/nsis-$arch.log" | cut -c1-110)"
+			echo "   (makensis needs to work; a prebuilt amd64 installer can be passed with --installer)"
+		fi
 	done
-	if [ -n "$installer" ]; then
-		cp "$installer" "$out/"
-	elif "$work/viva-cli" package --target windows --arch amd64 --format nsis -o "$out" >"$work/nsis.log" 2>&1; then
-		echo "   Windows installer built"
-	else
-		echo "   no Windows installer: $(tail -1 "$work/nsis.log" | cut -c1-110)"
-		echo "   (build it on Windows or Linux and pass it with --installer)"
-	fi
 fi
 
 rm -rf "$out/Motty.app"
+
+if [ "$strict" = 1 ]; then
+	missing=0
+	have() { compgen -G "$out/$1" >/dev/null || { echo "   missing package: $1" >&2; missing=1; }; }
+	if want mac; then
+		have 'motty-*-darwin-arm64.dmg'
+		have 'motty-*-darwin-amd64.dmg'
+	fi
+	if want linux; then
+		have 'motty-*-linux-arm64.tar.gz'
+		have 'motty-*-linux-amd64.tar.gz'
+		have 'motty_*_arm64.deb'
+		have 'motty_*_amd64.deb'
+	fi
+	if want windows; then
+		have 'motty-*-windows-amd64-setup.exe'
+		have 'motty-*-windows-arm64-setup.exe'
+	fi
+	[ "$missing" = 0 ] || { echo "refusing to upload an incomplete release" >&2; exit 1; }
+fi
+
 if want mac && want linux && want windows; then
 	(cd "$out" && rm -f SHA256SUMS && sums motty* > SHA256SUMS)
 else

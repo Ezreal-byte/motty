@@ -179,8 +179,8 @@ Download the package for your platform from the
 
 | Platform | Packages |
 | --- | --- |
-| macOS (arm64, amd64) | `.dmg`, `.zip` |
-| Windows (amd64, arm64) | installer, `.zip` |
+| macOS (arm64, amd64) | `.dmg` |
+| Windows (amd64, arm64) | `.exe` installer |
 | Linux (amd64, arm64) | `.deb`, `.tar.gz` |
 
 macOS builds are signed and notarized when the release has the credentials.
