@@ -189,10 +189,11 @@ func (state *State) eachSettingsEntry(add func(settingsEntry)) {
 
 	about := m.About
 	facts := aboutFacts()
+	row(settingsAbout, about.Version, facts.versionText)
 	row(settingsAbout, about.Platform, facts.platform)
 	row(settingsAbout, about.Build, facts.buildText(about))
 	row(settingsAbout, about.Runtime, facts.runtime)
-	row(settingsAbout, about.CopyRow, about.CopyDescription)
+	group(settingsAbout, about.InfoTitle, about.CopyRow, about.CopyDescription)
 	row(settingsAbout, about.QQ, about.QQDescription)
 	row(settingsAbout, about.WeChat, about.WeChatDescription)
 	row(settingsAbout, about.Discord, about.DiscordDescription)

@@ -7,7 +7,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/vivaui/viva/components"
 	"github.com/vivaui/viva/flex"
 	"github.com/vivaui/viva/ui"
 	"motty/internal/i18n"
@@ -113,11 +112,82 @@ func (facts aboutBuildInfo) buildText(m i18n.AboutMessages) string {
 	return facts.build
 }
 
+// Tiles are two to a row whenever the page is at least this wide; below it one
+// tile per row keeps each one readable. The page width is known while it is
+// declared, so the layout is chosen rather than approximated by a minimum cell.
+const aboutTwoColumnMin = float32(460)
+
+// tileBox is the inset grid of a group's card: rows of tiles with room between
+// them. It takes the place of a row, so whatever follows it gets a hairline.
+func (page *settingsPage) tileBox(children func()) {
+	page.separator()
+	page.f.Column().FillWidth().Pad(14).Gap(10).Children(children)
+}
+
+// pair places two tiles side by side, or one above the other when the page is
+// too narrow for two.
+func (page *settingsPage) pair(first, second func()) {
+	if page.width < aboutTwoColumnMin {
+		page.f.Column().FillWidth().Gap(10).Children(func() {
+			first()
+			second()
+		})
+		return
+	}
+	page.f.Row().FillWidth().Gap(10).Children(func() {
+		page.f.Column().Grow(1).Basis(0).Children(first)
+		page.f.Column().Grow(1).Basis(0).Children(second)
+	})
+}
+
+// factTile is one fact of the build: its name above its value.
+func (page *settingsPage) factTile(icon uint8, label, value string) {
+	f, pal := page.f, page.state.pal
+	tile := f.Column().FillWidth().Height(60).PadSides(10, 12, 10, 12).Justify(flex.Center).Gap(3).Background(pal.surfaceSoft).Radius(radius.item)
+	page.matchAnchor(label, tile, 0)
+	tile.Children(func() {
+		f.Row().Items(flex.Center).Gap(6).Children(func() {
+			f.Icon(lucideIcons[icon]).Size(14, 14).Color(pal.muted).Shrink(0)
+			f.Text(label).FontSize(metrics.FontSizeS).Color(pal.muted).LineHeight(15)
+		})
+		f.Text(value).Mono().FontSize(metrics.FontSizeM).Color(pal.text).LineHeight(19).Ellipsis()
+	})
+}
+
+// linkCard is one place to go: its name, what it is for, and a mark that it
+// opens outside the window. The whole card is the target.
+func (page *settingsPage) linkCard(id ui.ID, icon uint8, label, description string) {
+	f, pal := page.f, page.state.pal
+	background := pal.surfaceSoft
+	if f.Canvas().Hovered() == id {
+		background = pal.surfaceHot
+	}
+	border := withAlpha(pal.line, 0.85)
+	if f.Canvas().Focused() == id {
+		border = pal.accent
+	}
+	card := f.Column().FillWidth().Height(86).PadSides(12, 12, 12, 12).Gap(5).Justify(flex.Center).Background(background).Radius(radius.control).Border(1, border)
+	page.matchAnchor(label, card, 0)
+	page.hitOn(card, id, label, ui.HitOptions{Role: ui.RoleLink, Cursor: ui.PointerCursorHand, Description: description})
+	card.Children(func() {
+		f.Row().Items(flex.Center).Gap(8).Children(func() {
+			f.Icon(lucideIcons[icon]).Size(16, 16).Color(pal.text).Shrink(0)
+			f.Text(label).FontSize(metrics.FontSizeM).Weight(ui.WeightMedium).Color(pal.text).LineHeight(20).Grow(1)
+			f.Icon(lucideIcons[iconLink]).Size(12, 12).Color(pal.faint).Shrink(0)
+		})
+		f.Paragraph(description, 2).FontSize(metrics.FontSizeS).Color(pal.muted).LineHeight(15)
+	})
+}
+
 // paintAboutSettings paints the About category: what this copy is, where to
 // report a problem and where the project lives.
 func (state *State) paintAboutSettings(page *settingsPage) {
 	m, pal := state.messages, state.pal
 	facts := aboutFacts()
+	copyAction := m.About.CopyAction
+	if state.settings.aboutCopied {
+		copyAction = m.About.CopiedAction
+	}
 	page.groups(func() {
 		page.group("", func() {
 			// The wordmark is a picture, so it keeps a slot the page paints
@@ -128,35 +198,45 @@ func (state *State) paintAboutSettings(page *settingsPage) {
 					page.add(settingsControl{kind: controlLogo, slot: page.f.Slot().Size(lockupWidth, lockupHeight).Shrink(0)})
 					page.f.Paragraph(m.About.Tagline, 2).FontSize(metrics.FontSizeS).Color(pal.muted).LineHeight(16).MarginSides(6, 0, 0, 0)
 				})
-				page.f.Text(facts.versionText).Mono().FontSize(metrics.FontSizeS).Color(pal.muted).LineHeight(18).Shrink(0)
+				page.button(hitAboutCopyInfo, copyAction, aiButtonOutline, false).Shrink(0)
 			})
 		})
 		page.group(m.About.InfoTitle, func() {
-			page.line(m.About.Platform, facts.platform, 0)
-			page.line(m.About.Build, facts.buildText(m.About), 0)
-			page.line(m.About.Runtime, facts.runtime, 0)
-			copyAction := m.About.CopyAction
-			if state.settings.aboutCopied {
-				copyAction = m.About.CopiedAction
-			}
-			page.actionRow(m.About.CopyRow, m.About.CopyDescription, false,
-				components.ButtonAction{ID: hitAboutCopyInfo, Label: copyAction, Variant: components.ButtonOutline})
+			page.tileBox(func() {
+				page.pair(func() {
+					page.factTile(iconInfo, m.About.Version, facts.versionText)
+				}, func() {
+					page.factTile(iconDesktop, m.About.Platform, facts.platform)
+				})
+				page.pair(func() {
+					page.factTile(iconWrench, m.About.Build, facts.buildText(m.About))
+				}, func() {
+					page.factTile(iconTerminal, m.About.Runtime, facts.runtime)
+				})
+			})
 		})
 		page.group(m.About.CommunityTitle, func() {
-			page.actionRow(m.About.QQ, m.About.QQDescription, false,
-				components.ButtonAction{ID: hitAboutQQ, Label: m.About.Join, Variant: components.ButtonOutline})
-			page.actionRow(m.About.WeChat, m.About.WeChatDescription, false,
-				components.ButtonAction{ID: hitAboutWeChat, Label: m.About.Open, Variant: components.ButtonOutline})
-			page.actionRow(m.About.Discord, m.About.DiscordDescription, false,
-				components.ButtonAction{ID: hitAboutDiscord, Label: m.About.Join, Variant: components.ButtonOutline})
-			page.actionRow(m.About.Issues, m.About.IssuesDescription, false,
-				components.ButtonAction{ID: hitAboutIssues, Label: m.About.Open, Variant: components.ButtonOutline})
+			page.tileBox(func() {
+				page.pair(func() {
+					page.linkCard(hitAboutQQ, iconQQ, m.About.QQ, m.About.QQDescription)
+				}, func() {
+					page.linkCard(hitAboutWeChat, iconWeChat, m.About.WeChat, m.About.WeChatDescription)
+				})
+				page.pair(func() {
+					page.linkCard(hitAboutDiscord, iconDiscord, m.About.Discord, m.About.DiscordDescription)
+				}, func() {
+					page.linkCard(hitAboutIssues, iconBug, m.About.Issues, m.About.IssuesDescription)
+				})
+			})
 		})
 		page.group(m.About.ProjectTitle, func() {
-			page.actionRow(m.About.Repo, m.About.RepoDescription, false,
-				components.ButtonAction{ID: hitAboutRepo, Label: m.About.Open, Variant: components.ButtonOutline})
-			page.actionRow(m.About.Docs, m.About.DocsDescription, false,
-				components.ButtonAction{ID: hitAboutDocs, Label: m.About.Open, Variant: components.ButtonOutline})
+			page.tileBox(func() {
+				page.pair(func() {
+					page.linkCard(hitAboutRepo, iconGitHub, m.About.Repo, m.About.RepoDescription)
+				}, func() {
+					page.linkCard(hitAboutDocs, iconGlobe, m.About.Docs, m.About.DocsDescription)
+				})
+			})
 		})
 	})
 }

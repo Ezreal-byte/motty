@@ -1537,6 +1537,7 @@ var chineseAbout = AboutMessages{
 	Tagline: "SSH、SFTP、端口转发、远程桌面和 AI 助手，都在一个原生窗口里。",
 
 	InfoTitle:        "版本信息",
+	Version:          "版本",
 	Platform:         "运行平台",
 	Build:            "构建",
 	BuildDevelopment: "本地开发构建",

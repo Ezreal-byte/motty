@@ -10,6 +10,7 @@ type AboutMessages struct {
 	// The facts of the build. BuildDevelopment stands in for the commit when
 	// this copy was built without one.
 	InfoTitle        string
+	Version          string
 	Platform         string
 	Build            string
 	BuildDevelopment string

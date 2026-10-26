@@ -1536,7 +1536,8 @@ var englishAbout = AboutMessages{
 	Title:   "About",
 	Tagline: "SSH, SFTP, port forwarding, remote desktop and an AI assistant, in one native window.",
 
-	InfoTitle:        "Version",
+	InfoTitle:        "Version info",
+	Version:          "Version",
 	Platform:         "Platform",
 	Build:            "Build",
 	BuildDevelopment: "Development build",

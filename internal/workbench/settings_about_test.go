@@ -28,7 +28,7 @@ func TestAboutShowsTheBuildAndOpensTheCommunityLinks(t *testing.T) {
 		t.Fatalf("the category is named %q", state.settingsCategoryName(settingsAbout))
 	}
 	facts := aboutFacts()
-	for _, want := range []string{about.Tagline, about.InfoTitle, about.CommunityTitle, about.ProjectTitle, about.QQ, about.WeChat, about.Discord, facts.platform, facts.runtime} {
+	for _, want := range []string{about.Tagline, about.InfoTitle, about.Version, about.CommunityTitle, about.ProjectTitle, about.QQ, about.WeChat, about.Discord, facts.platform, facts.runtime} {
 		if !contains(texts, want) {
 			t.Errorf("the About page does not paint %q", want)
 		}
