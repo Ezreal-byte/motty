@@ -230,6 +230,34 @@ func skipWithoutUnixShell(t testing.TB) {
 	t.Setenv("SHELL", "/bin/sh")
 }
 
+// The keyboard shortcut opens a shell on this computer like the sidebar,
+// window bar and tray do.
+func TestLocalTerminalShortcutOpensAShell(t *testing.T) {
+	skipWithoutUnixShell(t)
+	state := newTestState(t, testOptions(t))
+	state.options.Invalidate = func() {}
+	chord := state.shortcuts.chords[shortcutLocalTerminal]
+	if !chord.valid() {
+		t.Fatalf("the local terminal shortcut is not a valid chord: %+v", chord)
+	}
+	result := state.Shortcut(ui.KeyEvent{Modifiers: chord.Modifiers, Text: string([]byte{chord.Key})})
+	if !result.Handled || !result.Repaint {
+		t.Fatalf("shortcut result = %+v", result)
+	}
+	session, found := state.sessionByIDPointer(state.activeSessionID)
+	if !found || !session.isLocal() {
+		t.Fatalf("session after the shortcut = %+v", session)
+	}
+	t.Cleanup(func() {
+		if session.term != nil && session.term.shell != nil {
+			session.term.shell.Close()
+		}
+	})
+	if state.activeSection != sectionTerminal || result.Focus != state.activeTerminalFocusHit() {
+		t.Fatalf("the shortcut left section %d and focus %v, want the new terminal", state.activeSection, result.Focus)
+	}
+}
+
 func TestWindowBarHasALocalTerminalButtonThatOpensAShell(t *testing.T) {
 	skipWithoutUnixShell(t)
 	state := newTestState(t, testOptions(t))

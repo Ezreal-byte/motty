@@ -202,6 +202,7 @@ type Messages struct {
 	ShortcutCopy                         string
 	ShortcutPaste                        string
 	ShortcutNewTab                       string
+	ShortcutLocalTerminal                string
 	ShortcutCloseTab                     string
 	RecordingStart                       string
 	RecordingStop                        string
@@ -860,6 +861,7 @@ var EnglishMessages = Messages{
 	ShortcutCopy:                           "Copy terminal selection",
 	ShortcutPaste:                          "Paste into terminal",
 	ShortcutNewTab:                         "New tab",
+	ShortcutLocalTerminal:                  "Open local terminal",
 	ShortcutCloseTab:                       "Close tab",
 	RecordingStart:                         "Record",
 	RecordingStop:                          "Stop recording",
@@ -1488,6 +1490,7 @@ var ChineseMessages = Messages{
 	ShortcutCopy:                           "复制终端选择",
 	ShortcutPaste:                          "粘贴到终端",
 	ShortcutNewTab:                         "新标签页",
+	ShortcutLocalTerminal:                  "打开本地终端",
 	ShortcutCloseTab:                       "关闭标签页",
 	RecordingStart:                         "录制",
 	RecordingStop:                          "停止录制",

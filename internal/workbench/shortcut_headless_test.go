@@ -124,3 +124,48 @@ func TestHeadlessClosedDialogLeavesAndTheWindowGoesIdle(t *testing.T) {
 		t.Fatal("the window is still animating a second after the dialog closed")
 	}
 }
+
+// The chord reaches the application through the real key path, not just
+// State.Shortcut, and the window then shows the new local terminal.
+func TestHeadlessLocalTerminalShortcutOpensItsTab(t *testing.T) {
+	skipWithoutUnixShell(t)
+	state := newTestState(t, freshOptions(t))
+	state.options.Invalidate = func() {}
+	session, err := headless.Open(app.Config{
+		Title: "local terminal", Width: 1400, Height: 900,
+		Paint: state.Paint, OnPointer: state.Pointer,
+		OnKey: state.Key, OnShortcut: state.Shortcut, OnResize: state.Resize,
+		TextInput: state.TerminalInput,
+	}, nil, headless.Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer session.Close()
+
+	modifier := "ctrl"
+	if defaultShortcutModifier()&ui.ModifierMeta != 0 {
+		modifier = "cmd"
+	}
+	if err := session.Keys(modifier + "+shift+t"); err != nil {
+		t.Fatal(err)
+	}
+	opened, found := state.sessionByIDPointer(state.activeSessionID)
+	if !found || !opened.isLocal() {
+		t.Fatalf("session after the shortcut = %+v", opened)
+	}
+	t.Cleanup(func() {
+		if opened.term != nil && opened.term.shell != nil {
+			opened.term.shell.Close()
+		}
+	})
+	if err := session.WaitFor(func(snapshot app.Snapshot) bool {
+		for _, text := range snapshot.Texts {
+			if text.Value == state.messages.LocalTerminalTitle {
+				return true
+			}
+		}
+		return false
+	}, 3*time.Second); err != nil {
+		t.Fatal(err)
+	}
+}

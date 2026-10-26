@@ -18,6 +18,7 @@ const (
 	shortcutCopy
 	shortcutPaste
 	shortcutNewTab
+	shortcutLocalTerminal
 	shortcutCloseTab
 	shortcutPanePrevious
 	shortcutPaneNext
@@ -52,6 +53,7 @@ func defaultShortcuts() shortcutMap {
 	shortcuts.chords[shortcutCopy] = shortcutChord{Modifiers: primary, Key: 'c'}
 	shortcuts.chords[shortcutPaste] = shortcutChord{Modifiers: primary, Key: 'v'}
 	shortcuts.chords[shortcutNewTab] = shortcutChord{Modifiers: primary, Key: 't'}
+	shortcuts.chords[shortcutLocalTerminal] = shortcutChord{Modifiers: primary | ui.ModifierShift, Key: 't'}
 	shortcuts.chords[shortcutCloseTab] = shortcutChord{Modifiers: primary, Key: 'w'}
 	shortcuts.chords[shortcutPanePrevious] = shortcutChord{Modifiers: primary | ui.ModifierAlt, Key: 'j'}
 	shortcuts.chords[shortcutPaneNext] = shortcutChord{Modifiers: primary | ui.ModifierAlt, Key: 'k'}
@@ -182,6 +184,8 @@ func (action shortcutAction) String() string {
 		return "paste"
 	case shortcutNewTab:
 		return "new_tab"
+	case shortcutLocalTerminal:
+		return "local_terminal"
 	case shortcutCloseTab:
 		return "close_tab"
 	case shortcutPanePrevious:
@@ -318,6 +322,9 @@ func (state *State) executeShortcut(action shortcutAction) ui.EventResult {
 		}
 	case shortcutNewTab:
 		state.Click(hitNewTab)
+	case shortcutLocalTerminal:
+		state.openLocalTerminal()
+		result.Focus = state.activeTerminalFocusHit()
 	case shortcutCloseTab:
 		state.closeActivePaneOrTab()
 	case shortcutPanePrevious:
