@@ -16,8 +16,11 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
+	"aead.dev/minisign"
 	"motty/internal/update"
+	"motty/internal/updatesign"
 )
 
 func assetFor(server *httptest.Server, body []byte) update.Asset {
@@ -30,6 +33,48 @@ func serve(t *testing.T, body []byte) *httptest.Server {
 	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.Write(body) }))
 	t.Cleanup(server.Close)
 	return server
+}
+
+func TestAPackageMustCarryTheReleaseSignature(t *testing.T) {
+	publicKey, privateKey, err := minisign.GenerateKey(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	previous := releaseKey
+	releaseKey = func() minisign.PublicKey { return publicKey }
+	t.Cleanup(func() { releaseKey = previous })
+
+	body := []byte("the package bytes")
+	path := filepath.Join(t.TempDir(), "motty-1.0.0-test.zip")
+	if err := os.WriteFile(path, body, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	signature, err := updatesign.Sign(privateKey, bytes.NewReader(body), "1.0.0", "motty-1.0.0-test.zip", time.Unix(1_700_000_000, 0))
+	if err != nil {
+		t.Fatal(err)
+	}
+	good := update.Release{Version: "1.0.0", Asset: update.Asset{Name: "motty-1.0.0-test.zip", Signature: signature}}
+	if err := verifyReleasePackage(path, good); err != nil {
+		t.Fatalf("a signed package was refused: %v", err)
+	}
+
+	for name, release := range map[string]update.Release{
+		"no signature":  {Version: "1.0.0", Asset: update.Asset{Name: "motty-1.0.0-test.zip"}},
+		"other version": {Version: "1.0.1", Asset: update.Asset{Name: "motty-1.0.0-test.zip", Signature: signature}},
+		"other file":    {Version: "1.0.0", Asset: update.Asset{Name: "motty-1.0.0-other.zip", Signature: signature}},
+		"broken base64": {Version: "1.0.0", Asset: update.Asset{Name: "motty-1.0.0-test.zip", Signature: "!!"}},
+	} {
+		if err := verifyReleasePackage(path, release); err == nil {
+			t.Errorf("%s: accepted", name)
+		}
+	}
+
+	if err := os.WriteFile(path, []byte("changed"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := verifyReleasePackage(path, good); err == nil {
+		t.Error("a changed package was accepted")
+	}
 }
 
 func TestADownloadMustBeExactlyWhatTheReleaseNames(t *testing.T) {

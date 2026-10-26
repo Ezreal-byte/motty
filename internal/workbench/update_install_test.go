@@ -56,7 +56,7 @@ func (updater *fakeUpdater) launches() int {
 
 var offeredRelease = update.Release{
 	Version: "99.0.0", URL: "https://example.com/release", Notes: "- better",
-	Asset: update.Asset{Name: "motty-99.0.0-x.zip", URL: "https://example.com/a", SHA256: strings.Repeat("a", 64), Size: 10},
+	Asset: update.Asset{Name: "motty-99.0.0-x.zip", URL: "https://example.com/a", SHA256: strings.Repeat("a", 64), Size: 10, Signature: "c2ln"},
 }
 
 // updateWindow is a window that has been offered offeredRelease.
@@ -91,6 +91,21 @@ func TestAnUpdateThatCanBeInstalledIsInstalledAndTheApplicationQuits(t *testing.
 	waitUpdate(t, state, func() bool { return quits == 1 })
 	if updater.launches() != 1 || state.update.install.phase != installRestarting || len(opened) != 0 {
 		t.Fatalf("launched %d, phase %d, opened %q", updater.launches(), state.update.install.phase, opened)
+	}
+}
+
+func TestAnUnsignedReleaseIsDownloadedByHand(t *testing.T) {
+	updater, quits, opened := &fakeUpdater{}, 0, []string(nil)
+	state := updateWindow(t, updater, &quits, &opened)
+	state.update.release.Asset.Signature = ""
+	_, texts := paintedTexts(state)
+	m := state.messages.Tools
+	if contains(texts, m.UpdateInstall) || !contains(texts, m.GeneralUpdateDownload) || !contains(texts, m.UpdateWhyUnsigned) {
+		t.Fatalf("texts %q", texts)
+	}
+	state.Click(hitUpdateDownload)
+	if !reflect.DeepEqual(opened, []string{"https://example.com/release"}) || quits != 0 {
+		t.Fatalf("opened %q, quits %d", opened, quits)
 	}
 }
 

@@ -5,6 +5,7 @@ package update
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -49,14 +50,24 @@ type Asset struct {
 	URL    string // https, on the host the feed came from
 	SHA256 string // lower-case hex
 	Size   int64
+	// Signature is the base64 minisign signature over the package, naming its
+	// version and file. An empty signature means the release cannot be
+	// installed in place, only downloaded by hand.
+	Signature string
 }
 
 // Has reports whether the release carries a package for the asking platform.
 func (asset Asset) Has() bool { return asset.URL != "" }
 
+// Signed reports whether the package can be checked against the release key.
+func (asset Asset) Signed() bool { return asset.Signature != "" }
+
 const (
 	maxFeedBytes  = 1 << 20
 	maxNotesBytes = 16 << 10
+	// A minisign signature is a few hundred bytes; anything far past that is
+	// not one, and the feed should not be allowed to make the app carry it.
+	maxSignatureBytes = 4096
 )
 
 // Latest reads the feed. The client decides timeouts and proxies; nil uses one
@@ -224,9 +235,10 @@ func LatestMirror(ctx context.Context, client *http.Client, feed, goos, goarch s
 		Source  string `json:"source"`
 		Notes   string `json:"notes"`
 		Files   []struct {
-			Name   string `json:"name"`
-			Size   int64  `json:"size"`
-			SHA256 string `json:"sha256"`
+			Name      string `json:"name"`
+			Size      int64  `json:"size"`
+			SHA256    string `json:"sha256"`
+			Signature string `json:"signature"`
 		} `json:"files"`
 	}
 	if err := json.NewDecoder(io.LimitReader(response.Body, maxFeedBytes)).Decode(&body); err != nil {
@@ -249,10 +261,23 @@ func LatestMirror(ctx context.Context, client *http.Client, feed, goos, goarch s
 		}
 		name := strings.Replace(stable, "motty-", "motty-"+body.Version+"-", 1)
 		pinned := url.URL{Scheme: "https", Host: base.Host, Path: "/releases/" + body.Tag + "/" + name}
-		release.Asset = Asset{Name: name, URL: pinned.String(), SHA256: file.SHA256, Size: file.Size}
+		release.Asset = Asset{Name: name, URL: pinned.String(), SHA256: file.SHA256, Size: file.Size, Signature: validSignature(file.Signature)}
 		break
 	}
 	return release, nil
+}
+
+// validSignature keeps a signature the app can use and drops anything that is
+// not a base64 string of a sane length: a broken one is the same as none, and
+// the download page still works.
+func validSignature(signature string) string {
+	if signature == "" || len(signature) > maxSignatureBytes {
+		return ""
+	}
+	if _, err := base64.StdEncoding.DecodeString(signature); err != nil {
+		return ""
+	}
+	return signature
 }
 
 // Newer reports whether latest is a later version than current. Either that is

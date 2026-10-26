@@ -2,11 +2,13 @@ package update
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"regexp"
+	"strings"
 	"testing"
 )
 
@@ -150,6 +152,30 @@ func TestTheMirrorNamesThePackageOfThePlatformAndWhereToGetIt(t *testing.T) {
 	release, err = LatestMirror(context.Background(), server.Client(), server.URL+"/latest.json", "darwin", "amd64")
 	if err != nil || release.Asset.Has() || release.URL == "" {
 		t.Fatalf("release %+v, err %v", release, err)
+	}
+}
+
+func TestTheMirrorCarriesTheReleaseSignature(t *testing.T) {
+	signature := base64.StdEncoding.EncodeToString([]byte("minisign armour"))
+	files := func(sig string) string {
+		return `"files":[{"name":"motty-darwin-arm64.zip","size":100,"sha256":"` + goodHash + `","signature":"` + sig + `"}]`
+	}
+	server := mirrorServer(t, `{"version":"1.2.3","tag":"v1.2.3","source":"https://github.com/o/r",`+files(signature)+`}`)
+	release, err := LatestMirror(context.Background(), server.Client(), server.URL, "darwin", "arm64")
+	if err != nil || !release.Asset.Signed() || release.Asset.Signature != signature {
+		t.Fatalf("release %+v, err %v", release, err)
+	}
+
+	for name, sig := range map[string]string{
+		"absent":     "",
+		"not base64": "no!",
+		"too long":   strings.Repeat("A", 8192),
+	} {
+		server := mirrorServer(t, `{"version":"1.2.3","tag":"v1.2.3","source":"https://github.com/o/r",`+files(sig)+`}`)
+		release, err := LatestMirror(context.Background(), server.Client(), server.URL, "darwin", "arm64")
+		if err != nil || !release.Asset.Has() || release.Asset.Signed() {
+			t.Errorf("%s: %+v %v", name, release, err)
+		}
 	}
 }
 

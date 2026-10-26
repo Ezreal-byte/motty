@@ -12,6 +12,7 @@ import (
 	"runtime"
 
 	"motty/internal/update"
+	"motty/internal/updatesign"
 )
 
 // Phase is what Prepare is doing, for the progress it shows.
@@ -25,6 +26,10 @@ const (
 // ErrUnsupported means this installation cannot replace itself, or the release
 // has no package for it.
 var ErrUnsupported = errors.New("selfupdate: this installation cannot be updated in place")
+
+// releaseKey is what a package signature is checked against. A test replaces it
+// with a key it can sign with.
+var releaseKey = updatesign.ReleaseKey
 
 // Staged is a downloaded and checked version, ready to replace the running one.
 type Staged struct {
@@ -96,7 +101,13 @@ func (updater *Updater) Prepare(ctx context.Context, release update.Release, pro
 	case KindMacApp:
 		want, err = macIdentity(ctx, install.Root)
 	case KindWindowsSetup:
+		// A Windows installer may be unsigned: the release signature is what
+		// decides whether it can be installed. If this copy is signed, the new
+		// installer still has to be signed by the same subject.
 		want, err = windowsIdentity(ctx, install.Exe)
+		if errors.Is(err, ErrUnsigned) {
+			want, err = Identity{}, nil
+		}
 	}
 	if err != nil {
 		return Staged{}, err
@@ -114,6 +125,9 @@ func (updater *Updater) Prepare(ctx context.Context, release update.Release, pro
 	if phase != nil {
 		phase(PhaseVerifying)
 	}
+	if err := verifyReleasePackage(archive, release); err != nil {
+		return Staged{}, err
+	}
 	staged := Staged{Install: install, Version: release.Version}
 	switch install.Kind {
 	case KindMacApp:
@@ -130,8 +144,10 @@ func (updater *Updater) Prepare(ctx context.Context, release update.Release, pro
 		}
 		staged.Path = app
 	case KindWindowsSetup:
-		if err := verifyWindows(ctx, archive, want); err != nil {
-			return Staged{}, err
+		if want.Subject != "" {
+			if err := verifyWindows(ctx, archive, want); err != nil {
+				return Staged{}, err
+			}
 		}
 		staged.Path = archive
 	case KindLinuxPrefix:
@@ -149,6 +165,13 @@ func (updater *Updater) Prepare(ctx context.Context, release update.Release, pro
 		staged.Path = script
 	}
 	return staged, nil
+}
+
+// verifyReleasePackage holds the downloaded package to the signature the feed
+// carries: the bytes, the version and the file name all have to be the ones the
+// release key signed. The package is streamed, not read into memory.
+func verifyReleasePackage(path string, release update.Release) error {
+	return updatesign.VerifyFile(releaseKey(), path, release.Asset.Signature, release.Version, release.Asset.Name)
 }
 
 // findInstallScript is the directory of the unpacked archive that holds

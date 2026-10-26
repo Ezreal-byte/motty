@@ -30,6 +30,11 @@
 # three platforms were built in this run; otherwise run --sums TAG once they are
 # all uploaded, which checksums what the release holds.
 #
+# The packages are signed with the update key in MOTTY_UPDATE_SIGNING_KEY (the
+# minisign private key itself, not a path) and the signatures are uploaded as
+# SIGNATURES. An upload without the key is refused: a release nobody can update
+# in place is a release with a broken update path.
+#
 # Signing is optional and comes from the environment, which viva package reads:
 # with APPLE_SIGNING_IDENTITY (or APPLE_CERTIFICATE and APPLE_CERTIFICATE_PASSWORD)
 # the macOS bundles and images are signed, and with notarytool credentials as well
@@ -60,6 +65,7 @@ while [ $# -gt 0 ]; do
 done
 
 sums() { if command -v sha256sum >/dev/null 2>&1; then sha256sum "$@"; else shasum -a 256 "$@"; fi; }
+sums_packages() { if [ -f SIGNATURES ]; then sums motty* SIGNATURES; else sums motty*; fi; }
 
 # A run that is going to upload must produce the whole matrix: a missing package
 # would otherwise be published as a release nobody can install from.
@@ -70,7 +76,8 @@ if [ -n "$sums_tag" ]; then
 	scratch=$(mktemp -d)
 	trap 'rm -rf "$scratch"' EXIT
 	gh release download "$sums_tag" --dir "$scratch" --pattern 'motty*'
-	(cd "$scratch" && sums motty* > SHA256SUMS && cat SHA256SUMS)
+	gh release download "$sums_tag" --dir "$scratch" --pattern 'SIGNATURES' 2>/dev/null || true
+	(cd "$scratch" && sums_packages > SHA256SUMS && cat SHA256SUMS)
 	gh release upload "$sums_tag" --clobber "$scratch/SHA256SUMS"
 	exit 0
 fi
@@ -173,8 +180,26 @@ if [ "$strict" = 1 ]; then
 	[ "$missing" = 0 ] || { echo "refusing to upload an incomplete release" >&2; exit 1; }
 fi
 
+# The update signature is what lets a Windows build update itself without a
+# code-signing certificate, and what binds a package to its version everywhere.
+signing_key=
+if [ -n "${MOTTY_UPDATE_SIGNING_KEY:-}" ]; then
+	signing_key=$work/update.key
+	(umask 077 && printf '%s\n' "$MOTTY_UPDATE_SIGNING_KEY" >"$signing_key")
+elif [ -n "$tag" ]; then
+	echo "MOTTY_UPDATE_SIGNING_KEY is not set: refusing to upload a release that cannot be updated in place" >&2
+	exit 1
+else
+	echo "warning: MOTTY_UPDATE_SIGNING_KEY is not set; the packages will not be installable in place" >&2
+fi
+if [ -n "$signing_key" ]; then
+	echo "== signing packages"
+	(cd "$work/motty" && go run ./tools/updatesign sign -key "$signing_key" -version "$version" -dir "$out")
+	(cd "$work/motty" && go run ./tools/updatesign verify -version "$version" -dir "$out")
+fi
+
 if want mac && want linux && want windows; then
-	(cd "$out" && rm -f SHA256SUMS && sums motty* > SHA256SUMS)
+	(cd "$out" && rm -f SHA256SUMS && sums_packages > SHA256SUMS)
 else
 	echo "   no SHA256SUMS: this run builds only $platforms; run --sums TAG when every platform is uploaded"
 fi
@@ -186,6 +211,7 @@ ls -l "$out" | awk 'NR>1 {printf "   %10d  %s\n", $5, $9}'
 echo "== release $tag"
 assets=("$out"/motty*)
 [ ! -f "$out/SHA256SUMS" ] || assets+=("$out/SHA256SUMS")
+[ ! -f "$out/SIGNATURES" ] || assets+=("$out/SIGNATURES")
 if gh release view "$tag" >/dev/null 2>&1; then
 	gh release upload "$tag" --clobber "${assets[@]}"
 else

@@ -281,6 +281,7 @@ type ToolsMessages struct {
 	UpdateWhyNotWritable            string
 	UpdateWhyTranslocated           string
 	UpdateWhyNoPackage              string
+	UpdateWhyUnsigned               string
 	GeneralUpdateInstall            string
 	UpdateConfirmTitle              string
 	UpdateConfirmDescriptionFmt     string
@@ -819,6 +820,7 @@ var englishTools = ToolsMessages{
 	UpdateWhyNotWritable:            "Motty cannot write to where it is installed.",
 	UpdateWhyTranslocated:           "macOS is running Motty from a temporary place. Move it to Applications first.",
 	UpdateWhyNoPackage:              "This release has no package for this system.",
+	UpdateWhyUnsigned:               "This release is not signed for in-place installation; download it from the release page.",
 	GeneralUpdateInstall:            "Update",
 	UpdateConfirmTitle:              "Install the update and restart?",
 	UpdateConfirmDescriptionFmt:     "%d open sessions will be disconnected while Motty restarts.",
@@ -1357,6 +1359,7 @@ var chineseTools = ToolsMessages{
 	UpdateWhyNotWritable:            "没有权限写入 Motty 的安装位置。",
 	UpdateWhyTranslocated:           "macOS 正从临时位置运行 Motty，请先把它移到“应用程序”文件夹。",
 	UpdateWhyNoPackage:              "此版本没有适用于当前系统的安装包。",
+	UpdateWhyUnsigned:               "此版本没有用于自更新的签名，请从下载页安装。",
 	GeneralUpdateInstall:            "更新",
 	UpdateConfirmTitle:              "安装更新并重启？",
 	UpdateConfirmDescriptionFmt:     "重启期间会断开 %d 个已打开的会话。",

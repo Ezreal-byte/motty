@@ -144,6 +144,9 @@ jobs:
           WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
           WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
           WINDOWS_SIGN_COMMAND: ${{ secrets.WINDOWS_SIGN_COMMAND }}
+          # The minisign key the updater checks; the packages are signed with it
+          # before they are uploaded.
+          MOTTY_UPDATE_SIGNING_KEY: ${{ secrets.MOTTY_UPDATE_SIGNING_KEY }}
         working-directory: motty
         run: tools/release.sh --platforms "${{ matrix.platforms }}" --viva-ref "${{ needs.viva.outputs.commit }}" --ref "$GITHUB_SHA" --upload "$GITHUB_REF_NAME"
 

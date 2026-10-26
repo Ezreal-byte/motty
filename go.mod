@@ -3,12 +3,13 @@ module motty
 go 1.26.0
 
 require (
+	aead.dev/minisign v0.3.0
 	github.com/creack/pty v1.1.24
 	github.com/makiuchi-d/gozxing v0.1.1
 	github.com/pkg/sftp v1.13.11
+	github.com/vivaui/viva v0.0.0
 	golang.org/x/crypto v0.55.0
 	golang.org/x/sys v0.48.0
-	github.com/vivaui/viva v0.0.0
 	modernc.org/sqlite v1.60.1
 )
 

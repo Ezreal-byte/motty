@@ -25,7 +25,9 @@ gh release edit v0.1.2 --draft=false
 | Checksums | Ubuntu | `SHA256SUMS` of everything the release then holds |
 
 The two build jobs run at the same time and upload to the same draft. Re-running
-a failed job replaces its files. The Linux packages are not signed.
+a failed job replaces its files. Both sign every package with the update key
+before uploading, and upload the resulting `SIGNATURES`; the Linux packages are
+not code-signed.
 
 ## The framework commit
 
@@ -49,9 +51,23 @@ builds a cgo program for the other Mac architecture and checks its Mach-O slice.
 
 ## Secrets
 
-All optional: a platform without its secrets is built unsigned and the log says so
-in a warning. Set them in the repository's *Settings > Secrets and variables >
-Actions*, or with `gh secret set NAME`.
+The platform certificates are optional: a platform without its secrets is built
+unsigned and the log says so in a warning. The update signing key is not — an
+upload without it is refused. Set them in the repository's *Settings > Secrets
+and variables > Actions*, or with `gh secret set NAME`.
+
+**Update signing**
+
+| Secret | What |
+| --- | --- |
+| `MOTTY_UPDATE_SIGNING_KEY` | the contents of the file `tools/updatesign generate` writes (for example `~/.motty/updater-signing.key`), a minisign private key. The matching public key is compiled into `internal/updatesign` |
+
+Keep the private key in a password manager or on an offline medium as well as in
+the secret. It is the trust root for every 0.1.2-or-later installation: if it is
+lost, those installations can no longer update in place. Rotating it is a
+migration — the release that carries the new public key has to be signed with the
+old key — not a quiet secret replacement. The decision is
+[0001](decisions/0001-updater-signing.md).
 
 **macOS**
 
@@ -156,17 +172,29 @@ send the user to the page but cannot install). The release notes in the update
 dialog are the `notes` field of that file, which `tools/mirror-release.sh` copies
 from the GitHub release body.
 
-What the app downloads is chosen by name, so three things must stay as they are:
+Every package carries a minisign signature from the release key, and the feed
+copies it into the `signature` field of that file. The signature's signed comment
+names the version and the file, so verification holds the bytes, the version the
+feed announced and the file the app resolved together; a changed feed cannot pass
+an older package off as a newer one. The app verifies this before it replaces
+anything and refuses a release without a signature.
+
+What the app downloads is chosen by name, so these must stay as they are:
 
 - the stable asset names in `update.StableName` (`motty-darwin-<arch>.zip`,
   `motty-linux-<arch>.tar.gz`, `motty-windows-amd64-setup.exe`) match what
   `viva package` produces, after the mirror takes the version out;
 - `latest.json` keeps `version`, `tag` (`v` plus the version) and, per file, `name`,
-  `size` and `sha256`;
-- the program in the macOS zip is signed with the same Developer ID as the one it
-  replaces, and the Windows installer with the same certificate. The app refuses an
-  update whose signer differs, and a copy that is not signed at all is not updated
-  in place.
+  `size`, `sha256` and `signature`;
+- the release carries `SIGNATURES`, one `name<TAB>base64` line per package, and
+  the mirror only folds a signature in for a file it names.
+
+The operating system check stays as a second layer: the program in the macOS zip
+must be signed with the same Developer ID team as the copy it replaces, and a
+Windows installer that is signed must have the same subject as a signed running
+copy. An unsigned Windows installer is accepted on the strength of the update
+signature alone, which is what lets Windows update without a code-signing
+certificate.
 
 Only a user-owned installation replaces itself (an app bundle in a writable folder,
 the per-user Windows installer, a Linux `install.sh` prefix). A `.deb`, Program
@@ -187,6 +215,10 @@ in-app updater downloads, so a release without it would leave macOS unable to
 update in place. `viva package` staples the ticket to the `.dmg`, not to a
 bundle it also zips, so the zip's first launch checks the signature online.
 
+A signed release also carries `SIGNATURES`, the minisign signature of every
+package. That is 12 release assets: the packages above, `SHA256SUMS` and
+`SIGNATURES`.
+
 `tools/release.sh` refuses to upload when one of those is missing, so a run with
 a broken makensis stops instead of publishing a release with a hole in it. The
 installers are built on Linux; makensis on Apple Silicon crashes (NSIS issue
@@ -201,3 +233,10 @@ for real with `osslsigncode` and a self-signed certificate, including the
 installer and a DigiCert timestamp, and the signed installer installed. Not run: the
 workflow itself on GitHub, the import of a `.p12` for a certificate Apple trusts,
 `signtool`, and a certificate from a Windows certificate authority.
+
+The update signature was checked against a real build: `tools/release.sh
+--platforms linux` signed a release directory with the key, `tools/updatesign
+verify` accepted every package, and a changed byte, another version and another
+file name were each refused. Not run: the signing step on GitHub's runners, a
+Windows installation replacing itself in place, and the update dialog against a
+signed feed.

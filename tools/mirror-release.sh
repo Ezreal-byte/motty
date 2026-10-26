@@ -5,7 +5,7 @@
 #
 #   releases/<tag>/<asset>    the exact release bytes, cached for a year
 #   releases/latest/<stable>  the same bytes under a version-less name, five minute cache
-#   latest.json               version, tag, and every file's size and digest
+#   latest.json               version, tag, and every file's size, digest and signature
 #
 # releases/latest is not a tag: it is the projection of latest.json, so a format
 # a new release drops loses its alias here instead of serving old bytes forever.
@@ -156,13 +156,31 @@ else
 	echo "warning: could not read the previous feed; stale aliases are left in place" >&2
 fi
 
+# SIGNATURES is the release's per-package minisign signatures, one
+# "name<TAB>base64" line each. The feed carries the signature of every package so
+# the app can check it before installing.
+signatures=$dir/SIGNATURES
+[ -f "$signatures" ] || signatures=
+signature_of() {
+	[ -n "$signatures" ] || return 0
+	awk -F"$(printf '\t')" -v name="$1" '$1 == name { print $2; exit }' "$signatures"
+}
+
 echo "Uploading $tag to $mirror"
 scratch_list=$(mktemp)
 upload_log=$(mktemp)
 for file in "$dir"/*; do
 	[ -f "$file" ] || continue
 	name=$(basename "$file")
-	case $name in latest.json) continue ;; esac
+	case $name in
+	latest.json) continue ;;
+	SIGNATURES)
+		# The signatures themselves stay with the release, not in the alias
+		# directory: latest.json carries them per file.
+		upload "releases/$tag/$name" "$file" "$(content_type "$name")" 'public, max-age=31536000, immutable'
+		continue
+		;;
+	esac
 	stable=$(stable_name "$name")
 	upload "releases/$tag/$name" "$file" "$(content_type "$name")" 'public, max-age=31536000, immutable'
 	upload "releases/latest/$stable" "$file" "$(content_type "$stable")" 'public, max-age=300'
@@ -200,8 +218,14 @@ notes_json=$(gh release view "$tag" --repo "$repo" --json body --jq '.body | toj
 	first=1
 	while IFS="$(printf '\t')" read -r stable name; do
 		if [ "$first" -eq 1 ]; then first=0; else printf ',\n'; fi
-		printf '    {"name": "%s", "size": %s, "sha256": "%s", "url": "%s/releases/latest/%s"}' \
-			"$stable" "$(wc -c <"$dir/$name" | tr -d ' ')" "$(sha256_of "$dir/$name")" "$mirror" "$stable"
+		signature=$(signature_of "$name")
+		if [ -n "$signature" ]; then
+			printf '    {"name": "%s", "size": %s, "sha256": "%s", "signature": "%s", "url": "%s/releases/latest/%s"}' \
+				"$stable" "$(wc -c <"$dir/$name" | tr -d ' ')" "$(sha256_of "$dir/$name")" "$signature" "$mirror" "$stable"
+		else
+			printf '    {"name": "%s", "size": %s, "sha256": "%s", "url": "%s/releases/latest/%s"}' \
+				"$stable" "$(wc -c <"$dir/$name" | tr -d ' ')" "$(sha256_of "$dir/$name")" "$mirror" "$stable"
+		fi
 	done <"$scratch_list"
 	printf '\n  ]\n}\n'
 } >"$dir/latest.json"
