@@ -4,9 +4,9 @@ import (
 	"strings"
 	"testing"
 
-	"motty/internal/term"
 	"github.com/vivaui/viva/app"
 	"github.com/vivaui/viva/ui"
+	"motty/internal/term"
 )
 
 func openFindForTest(t testing.TB, state *State) (*Session, *terminalFind) {

@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"motty/internal/term"
 	"github.com/vivaui/viva/ui"
+	"motty/internal/term"
 )
 
 type shortcutAction uint8

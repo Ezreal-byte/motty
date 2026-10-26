@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/vivaui/viva/ui"
 	"motty/internal/ai/agent"
 	"motty/internal/ai/llm"
-	"github.com/vivaui/viva/ui"
 )
 
 // TestLastAnswerShowsCopyAndUsageOnHover proves the action row belongs to the
