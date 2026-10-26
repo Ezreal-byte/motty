@@ -208,11 +208,11 @@ func (state *State) clickUpdateDialog(id ui.ID) {
 
 // updateState is what the updates row shows.
 // The automatic check: a first look shortly after a window wakes, then one every
-// few hours for as long as the application runs. The delays are fields so a test
+// hour for as long as the application runs. The delays are fields so a test
 // can shorten them without waiting.
 const (
 	updateFirstDelayDefault = 5 * time.Second
-	updateIntervalDefault   = 6 * time.Hour
+	updateIntervalDefault   = time.Hour
 )
 
 type updateState struct {
