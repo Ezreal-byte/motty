@@ -20,7 +20,7 @@ gh release edit v0.1.2 --draft=false
 | --- | --- | --- |
 | Pin viva | Ubuntu | resolves `vivaui/viva` main to one commit |
 | Draft release | Ubuntu | creates the draft if there is none |
-| macOS | macOS 15 (arm64) | `.dmg` for arm64 and amd64; signed, notarized and stapled |
+| macOS | macOS 15 (arm64) | `.dmg` and `.zip` for arm64 and amd64; signed, notarized and stapled |
 | Linux and Windows | Ubuntu | `.tar.gz` and `.deb` (amd64, arm64), and an NSIS installer for Windows amd64 and arm64; the Windows programs and the installers signed |
 | Checksums | Ubuntu | `SHA256SUMS` of everything the release then holds |
 
@@ -169,13 +169,17 @@ Files or a portable program is sent to the release page.
 
 ## The package matrix
 
-Every release carries one native package per platform and architecture:
+Every release carries the packages below for every platform and architecture:
 
 | Platform | arm64 | amd64 |
 | --- | --- | --- |
-| macOS | `.dmg` | `.dmg` |
+| macOS | `.dmg`, `.zip` | `.dmg`, `.zip` |
 | Windows | `.exe` installer | `.exe` installer |
 | Linux | `.deb`, `.tar.gz` | `.deb`, `.tar.gz` |
+
+The macOS `.zip` holds the same signed and stapled bundle; it is what the
+in-app updater downloads, so a release without it would leave macOS unable to
+update in place.
 
 `tools/release.sh` refuses to upload when one of those is missing, so a run with
 a broken makensis stops instead of publishing a release with a hole in it. The

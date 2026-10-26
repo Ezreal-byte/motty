@@ -25,6 +25,27 @@ func TestNewer(t *testing.T) {
 	}
 }
 
+func TestStableName(t *testing.T) {
+	// These are the names the mirror publishes after taking the version out of
+	// a release asset, so they have to be the files the release workflow builds.
+	for _, test := range []struct {
+		goos, goarch, want string
+	}{
+		{"darwin", "arm64", "motty-darwin-arm64.zip"},
+		{"darwin", "amd64", "motty-darwin-amd64.zip"},
+		{"linux", "arm64", "motty-linux-arm64.tar.gz"},
+		{"linux", "amd64", "motty-linux-amd64.tar.gz"},
+		{"windows", "amd64", "motty-windows-amd64-setup.exe"},
+		{"windows", "arm64", "motty-windows-arm64-setup.exe"},
+		{"darwin", "386", ""},
+		{"freebsd", "amd64", ""},
+	} {
+		if got := StableName(test.goos, test.goarch); got != test.want {
+			t.Errorf("StableName(%q, %q) = %q, want %q", test.goos, test.goarch, got, test.want)
+		}
+	}
+}
+
 func TestCurrentMatchesTheManifest(t *testing.T) {
 	data, err := os.ReadFile("../../viva.toml")
 	if os.IsNotExist(err) {

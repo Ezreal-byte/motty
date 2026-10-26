@@ -173,16 +173,16 @@ func Check(ctx context.Context, client *http.Client, goos, goarch string) (Relea
 }
 
 // StableName is the name the mirror gives the package of a platform, or "" for
-// a platform that has none: the Windows installer is built for amd64 only, and
-// there are no other systems.
+// a platform that has none: the three systems the release builds for, on the
+// architectures it builds for.
 func StableName(goos, goarch string) string {
 	switch {
 	case goos == "darwin" && (goarch == "arm64" || goarch == "amd64"):
 		return "motty-darwin-" + goarch + ".zip"
 	case goos == "linux" && (goarch == "arm64" || goarch == "amd64"):
 		return "motty-linux-" + goarch + ".tar.gz"
-	case goos == "windows" && goarch == "amd64":
-		return "motty-windows-amd64-setup.exe"
+	case goos == "windows" && (goarch == "arm64" || goarch == "amd64"):
+		return "motty-windows-" + goarch + "-setup.exe"
 	}
 	return ""
 }

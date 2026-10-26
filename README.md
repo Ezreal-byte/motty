@@ -181,7 +181,7 @@ Download the package for your platform from the
 
 | Platform | Packages |
 | --- | --- |
-| macOS (arm64, amd64) | `.dmg` |
+| macOS (arm64, amd64) | `.dmg`, `.zip` |
 | Windows (amd64, arm64) | `.exe` installer |
 | Linux (amd64, arm64) | `.deb`, `.tar.gz` |
 

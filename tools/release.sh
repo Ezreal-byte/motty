@@ -13,7 +13,7 @@
 # resolved once, so every package of a release uses the same frame).
 #
 # --platforms picks what to build; by default everything this machine can: the
-# macOS packages (.dmg) need Apple's tools and so a Mac, the Linux and Windows
+# macOS packages (.dmg and .zip) need Apple's tools and so a Mac, the Windows
 # ones are cross-built anywhere. A release made on several machines, as
 # .github/workflows/release.yml does, builds one platform on each.
 #
@@ -123,8 +123,8 @@ package() { "$work/viva-cli" package "$@" 2>&1 | sed 's/^/   /'; }
 if want mac; then
 	echo "== macOS"
 	for arch in arm64 amd64; do
-		package --arch "$arch" -o "$work/mac-$arch/Motty.app" --format dmg
-		cp "$work/mac-$arch/"motty-*.dmg "$out/"
+		package --arch "$arch" -o "$work/mac-$arch/Motty.app" --format zip,dmg
+		cp "$work/mac-$arch/"motty-*.zip "$work/mac-$arch/"motty-*.dmg "$out/"
 	done
 fi
 if want linux; then
@@ -156,6 +156,9 @@ if [ "$strict" = 1 ]; then
 	if want mac; then
 		have 'motty-*-darwin-arm64.dmg'
 		have 'motty-*-darwin-amd64.dmg'
+		# The zip is what the in-app updater downloads (update.StableName).
+		have 'motty-*-darwin-arm64.zip'
+		have 'motty-*-darwin-amd64.zip'
 	fi
 	if want linux; then
 		have 'motty-*-linux-arm64.tar.gz'

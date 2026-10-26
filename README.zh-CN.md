@@ -148,7 +148,7 @@ bearer token，支持 observe 和 ask 两种模式。
 | 平台 | 包 |
 | --- | --- |
 | macOS（arm64、amd64） | `.dmg`、`.zip` |
-| Windows（amd64、arm64） | 安装程序、`.zip` |
+| Windows（amd64、arm64） | 安装程序 |
 | Linux（amd64、arm64） | `.deb`、`.tar.gz` |
 
 macOS 包在发布带证书时签名并公证，Windows 包在配置证书时签名；Linux 包不签名。
