@@ -21,6 +21,53 @@ export type ChangelogEntry = {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '0.1.1',
+    date: '2026-10-26',
+    sections: [
+      {
+        title: { en: 'New', zh: '新功能' },
+        items: [
+          {
+            en: 'Motty updates itself: it downloads the release from the mirror, checks its SHA-256 and signature, and restarts into the new version. Installs it does not own (a .deb, Program Files, a portable copy) still open the download page.',
+            zh: 'Motty 可以自己更新了：从镜像下载安装包，校验 SHA-256 和签名后重启进入新版本。不是自己持有的安装（.deb、Program Files、便携版）仍会打开下载页。',
+          },
+          {
+            en: 'Local Claude Code, Codex and OpenCode CLI providers, each with its own login terminal.',
+            zh: '本地 Claude Code、Codex、OpenCode CLI 提供方，各自带登录终端。',
+          },
+          {
+            en: 'A per-host outbound proxy: inherit, direct, SOCKS5 or HTTP CONNECT.',
+            zh: '每台主机可单独设置出站代理：继承、直连、SOCKS5 或 HTTP CONNECT。',
+          },
+          {
+            en: 'Copy the MCP client configuration for 13 clients from Settings.',
+            zh: '在设置里复制 13 种客户端的 MCP 配置。',
+          },
+          { en: 'Import Electerm bookmarks with their nested groups.', zh: '导入 Electerm 书签及其嵌套分组。' },
+          {
+            en: 'Save a host password when creating or copying a host; hosts with the same endpoint can share it.',
+            zh: '新建或复制主机时保存密码，同一地址的主机可以共用。',
+          },
+          { en: 'Duplicate a tab and close a pane from the interface.', zh: '界面里复制标签页、关闭分屏。' },
+        ],
+      },
+      {
+        title: { en: 'Fixed', zh: '修复' },
+        items: [
+          { en: 'Ctrl+C reaches a terminal without a selection again.', zh: '终端没有选中内容时也能收到 Ctrl+C。' },
+          {
+            en: 'AI rename dialogs take their buttons again, and the wheel no longer scrolls the panel behind them.',
+            zh: 'AI 重命名对话框的按钮恢复可点，滚轮不再滚动背后的面板。',
+          },
+          {
+            en: 'The host form keeps its fields on one grid in a narrow window.',
+            zh: '窄窗口下主机表单的字段保持在同一栅格。',
+          },
+        ],
+      },
+    ],
+  },
+  {
     version: '0.1.0',
     date: '2026-10-26',
     sections: [
