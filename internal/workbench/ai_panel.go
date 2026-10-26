@@ -205,7 +205,11 @@ func (state *State) aiSectionReserve(size ui.Size) float32 {
 	if state.deck.ActiveWorkspace() != 0 {
 		return 0
 	}
-	return state.aiReserve(0, size)
+	if reserve := state.aiReserve(0, size); reserve > 0 {
+		// Replace the terminal divider with a gap between cards and an outer margin.
+		return reserve - 1 + 2*sectionCardMargin
+	}
+	return 0
 }
 
 // aiReserve is the width a docked panel takes from the panes of a workspace, its
@@ -528,6 +532,7 @@ func (state *State) aiPanelPointer(event ui.PointerEvent) (ui.EventResult, bool)
 			return ui.EventResult{}, true
 		}
 		panel.drag = aiDragWidth
+		panel.dragFrom, panel.dragStart = event.X, panel.rect.Width
 		if event.Target == hitAIComposerGrip {
 			panel.drag, panel.dragFrom, panel.dragStart = aiDragHeight, event.Y, panel.boxHeight
 		}
@@ -561,7 +566,7 @@ func (state *State) aiDrag(event ui.PointerEvent) ui.EventResult {
 	switch panel.drag {
 	case aiDragWidth:
 		least, most := state.aiPanelLimits(event.Viewport)
-		ai.panelWidth = min(max(event.Viewport.Width-event.X-1, least), most)
+		ai.panelWidth = min(max(panel.dragStart+panel.dragFrom-event.X, least), most)
 		state.aiPanelSync()
 	case aiDragHeight:
 		ai.composerHeight = max(panel.dragStart+panel.dragFrom-event.Y, 0)
