@@ -170,7 +170,11 @@ jobs:
           printf '\nBuilt against vivaui/viva `%s`.\n' "$VIVA" >> "$RUNNER_TEMP/notes.md"
           gh release edit "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --notes-file "$RUNNER_TEMP/notes.md"
 
-      - name: Checksum what the release holds
+      - name: Sign and checksum what the release holds
         env:
           GH_TOKEN: ${{ github.token }}
+          # Signing happens here rather than in the build jobs: this is the only
+          # step that has every platform's packages at once, so the manifest
+          # cannot be left partial by whichever build job uploaded last.
+          MOTTY_UPDATE_SIGNING_KEY: ${{ secrets.MOTTY_UPDATE_SIGNING_KEY }}
         run: tools/release.sh --sums "$GITHUB_REF_NAME"

@@ -22,12 +22,14 @@ gh release edit v0.1.2 --draft=false
 | Draft release | Ubuntu | creates the draft if there is none |
 | macOS | macOS 15 (arm64) | `.dmg` and `.zip` for arm64 and amd64; signed, notarized and stapled |
 | Linux and Windows | Ubuntu | `.tar.gz` and `.deb` (amd64, arm64), and an NSIS installer for Windows amd64 and arm64; the Windows programs and the installers signed |
-| Checksums | Ubuntu | `SHA256SUMS` of everything the release then holds |
+| Checksums | Ubuntu | signs every package of the release and writes `SIGNATURES` and `SHA256SUMS` |
 
 The two build jobs run at the same time and upload to the same draft. Re-running
-a failed job replaces its files. Both sign every package with the update key
-before uploading, and upload the resulting `SIGNATURES`; the Linux packages are
-not code-signed.
+a failed job replaces its files. The *Checksums* job is the only one that sees
+the whole matrix, so it is where the packages are signed into one `SIGNATURES`
+and where `SHA256SUMS` is written: a build job that signed only its own platform
+would have its manifest replaced by the other job's upload. The Linux packages
+are not code-signed.
 
 ## The framework commit
 
@@ -52,9 +54,9 @@ builds a cgo program for the other Mac architecture and checks its Mach-O slice.
 ## Secrets
 
 The platform certificates are optional: a platform without its secrets is built
-unsigned and the log says so in a warning. The update signing key is not — an
-upload without it is refused. Set them in the repository's *Settings > Secrets
-and variables > Actions*, or with `gh secret set NAME`.
+unsigned and the log says so in a warning. The update signing key is not — a
+release is not finalized without it. Set them in the repository's *Settings >
+Secrets and variables > Actions*, or with `gh secret set NAME`.
 
 **Update signing**
 

@@ -28,12 +28,16 @@
 # created as a DRAFT pointing at the commit that was built; --publish then
 # publishes it. The commit must already be pushed. SHA256SUMS is written when all
 # three platforms were built in this run; otherwise run --sums TAG once they are
-# all uploaded, which checksums what the release holds.
+# all uploaded, which signs and checksums what the release holds.
 #
-# The packages are signed with the update key in MOTTY_UPDATE_SIGNING_KEY (the
-# minisign private key itself, not a path) and the signatures are uploaded as
-# SIGNATURES. An upload without the key is refused: a release nobody can update
-# in place is a release with a broken update path.
+# The packages of a release are signed with the update key in
+# MOTTY_UPDATE_SIGNING_KEY (the minisign private key itself, not a path), and the
+# signatures are uploaded as SIGNATURES. The signatures for a whole release are
+# written by --sums, not by the jobs that build it: a job sees only its own
+# platform's packages, so a manifest it uploaded would be replaced by the next
+# job's and leave that platform without a signature. Finalizing without the key
+# is refused: a release nobody can update in place is a release with a broken
+# update path.
 #
 # Signing is optional and comes from the environment, which viva package reads:
 # with APPLE_SIGNING_IDENTITY (or APPLE_CERTIFICATE and APPLE_CERTIFICATE_PASSWORD)
@@ -73,12 +77,24 @@ strict=0
 [ -z "$tag" ] || strict=1
 
 if [ -n "$sums_tag" ]; then
+	version=$(sed -n 's/^version *= *"\([^"]*\)".*/\1/p' "$here/viva.toml" | head -1)
+	[ -n "$version" ] || { echo "no version in viva.toml" >&2; exit 1; }
 	scratch=$(mktemp -d)
 	trap 'rm -rf "$scratch"' EXIT
 	gh release download "$sums_tag" --dir "$scratch" --pattern 'motty*'
-	gh release download "$sums_tag" --dir "$scratch" --pattern 'SIGNATURES' 2>/dev/null || true
+	# Sign here, once, with the whole matrix in hand: a build job only sees the
+	# packages of its own platform, so a manifest written there is overwritten by
+	# the next job's upload and leaves that platform out of the release.
+	[ -n "${MOTTY_UPDATE_SIGNING_KEY:-}" ] || {
+		echo "MOTTY_UPDATE_SIGNING_KEY is not set: refusing to finalize a release that cannot be updated in place" >&2
+		exit 1
+	}
+	key=$scratch/update.key
+	(umask 077 && printf '%s\n' "$MOTTY_UPDATE_SIGNING_KEY" >"$key")
+	(cd "$here" && go run ./tools/updatesign sign -key "$key" -version "$version" -dir "$scratch")
+	(cd "$here" && go run ./tools/updatesign verify -version "$version" -dir "$scratch")
 	(cd "$scratch" && sums_packages > SHA256SUMS && cat SHA256SUMS)
-	gh release upload "$sums_tag" --clobber "$scratch/SHA256SUMS"
+	gh release upload "$sums_tag" --clobber "$scratch/SIGNATURES" "$scratch/SHA256SUMS"
 	exit 0
 fi
 
@@ -210,8 +226,13 @@ ls -l "$out" | awk 'NR>1 {printf "   %10d  %s\n", $5, $9}'
 
 echo "== release $tag"
 assets=("$out"/motty*)
-[ ! -f "$out/SHA256SUMS" ] || assets+=("$out/SHA256SUMS")
-[ ! -f "$out/SIGNATURES" ] || assets+=("$out/SIGNATURES")
+# Only a run that built every platform in one place uploads a manifest. The
+# finalize step signs the whole matrix into one SIGNATURES; a per-platform one
+# would be overwritten by the other build job and leave its packages unsigned.
+if [ -f "$out/SHA256SUMS" ]; then
+	assets+=("$out/SHA256SUMS")
+	[ ! -f "$out/SIGNATURES" ] || assets+=("$out/SIGNATURES")
+fi
 if gh release view "$tag" >/dev/null 2>&1; then
 	gh release upload "$tag" --clobber "${assets[@]}"
 else
