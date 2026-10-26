@@ -402,6 +402,25 @@ func (state *State) paintAIPanel(canvas *ui.Canvas, size ui.Size) {
 	}
 	state.ai.panel.window = ui.Rect{Width: size.Width, Height: size.Height}
 	pal := state.pal
+	if reserve := state.aiSectionReserve(size); reserve > 0 {
+		bounds := ui.Rect{
+			X: size.Width - reserve + sectionCardMargin, Y: windowBarHeight,
+			Width: reserve - 2*sectionCardMargin, Height: max(size.Height-windowBarHeight-sectionCardMargin, 0),
+		}
+		canvas.RoundedBorder(bounds, radius.surface, 1, pal.windowStroke, pal.workspace)
+		// Keep the resize target in the gutter. Only hover/press/focus paints a
+		// separator; the resting cards already have their own rounded borders.
+		theme := state.Theme()
+		theme.Border = ui.Color{}
+		window := ui.Rect{Y: bounds.Y, Width: size.Width, Height: bounds.Height}
+		dividerX := bounds.X - (sectionCardMargin+1)/2
+		components.BeginResizable(canvas, theme, hitAIDivider, window, dividerX/max(window.Width-1, 1)).
+			Limits(0, 1).HandleSize(sectionCardMargin).Paint(state.messages.AIPanel.ResizePanel)
+		canvas.Clip(bounds)
+		state.paintAIBody(canvas, bounds)
+		canvas.Unclip()
+		return
+	}
 	if reserve := state.aiReserve(state.deck.ActiveWorkspace(), size); reserve > 0 {
 		// Under the window bar, at the right: a hairline, then the panel.
 		var bounds, divider flex.Box

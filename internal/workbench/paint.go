@@ -12,6 +12,8 @@ import (
 	layoutcore "motty/internal/workspace"
 )
 
+const sectionCardMargin = float32(7)
+
 const (
 	iconHosts uint8 = iota
 	iconDesktop
@@ -113,9 +115,9 @@ func (state *State) Paint(canvas *ui.Canvas, size ui.Size) {
 	}
 	scroll := state.tabStrip.layout(geometry.area, float32(len(state.workspaceTabs))*(geometry.tabWidth+barGap), state.workspaceTabs, geometry.tabWidth+barGap, geometry.tabWidth, active)
 	var workspaceSlot flex.Box
-	// Beside the assistant's panel the section's card ends at the panel's divider,
-	// so the two edges are one line; otherwise it keeps its margin from the window.
-	cardRight := float32(7)
+	// The section and assistant are sibling cards, separated by the same margin
+	// the cards keep from the window's right and bottom edges.
+	cardRight := sectionCardMargin
 	if reserve := state.aiSectionReserve(size); reserve > 0 {
 		cardRight = reserve
 	}
@@ -129,7 +131,7 @@ func (state *State) Paint(canvas *ui.Canvas, size ui.Size) {
 		if !terminal {
 			f.Row().Grow(1).Children(func() {
 				state.declareNavigation(f)
-				workspaceSlot = f.Slot().Grow(1).MarginSides(0, cardRight, 7, 0).
+				workspaceSlot = f.Slot().Grow(1).MarginSides(0, cardRight, sectionCardMargin, 0).
 					Radius(radius.surface).Border(1, pal.windowStroke).Background(pal.workspace)
 			})
 		}
