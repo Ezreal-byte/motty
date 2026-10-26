@@ -82,6 +82,18 @@ On a Mac that is signed in to a keychain with the certificate, `APPLE_SIGNING_ID
 and a profile made once with `xcrun notarytool store-credentials motty` are enough;
 no `.p12` is needed. See `viva help package` for every variable.
 
+## The changelog page
+
+`website/lib/changelog.ts` holds one entry per release, newest first, with the
+English and Chinese text side by side. The website's `/en/changelog` and
+`/zh/changelog` render it, and the nav links to it. When a release is published,
+add its entry there and push: the site rebuilds and the entry goes live. The
+entry is the release notes written for readers, not the generated changelog, so
+keep it to what a user notices.
+
+The release title carries the tag as-is (`Motty v0.1.2`, not `Motty 0.1.2`), so
+the version on GitHub reads the same as in the app and in the changelog.
+
 ## The Cloudflare mirror
 
 Publishing the draft (`gh release edit v0.1.2 --draft=false`) also triggers
