@@ -850,6 +850,7 @@ var englishAISettings = AISettingsMessages{
 	MCPEndpoint:      "Endpoint",
 	MCPNotRunning:    "Not running",
 	MCPOff:           "Off",
+	MCPCommand:       "Command",
 	MCPCopy:          "Copy configuration",
 	MCPConfig:        "Client configuration",
 	MCPClientLabel:   "Client",

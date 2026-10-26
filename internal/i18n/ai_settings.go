@@ -126,6 +126,7 @@ type AISettingsMessages struct {
 	MCPEndpoint      string
 	MCPNotRunning    string
 	MCPOff           string
+	MCPCommand       string
 	MCPCopy          string
 	MCPCopied        string
 	MCPCopyFailed    string

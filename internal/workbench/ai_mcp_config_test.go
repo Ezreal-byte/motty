@@ -63,6 +63,39 @@ func TestMCPClientConfigurationSchemas(t *testing.T) {
 	}
 }
 
+// The preview's header names what the block holds, so it has to be the format
+// the client reads: a file body labeled as another format sends people to the
+// wrong editor.
+func TestMCPPreviewHeaderMatchesThePayload(t *testing.T) {
+	world := newSettingsWorld(t, newLister())
+	m := world.state.messages.AISettings
+	clients := aiMCPClientOptions()
+	for index := range clients {
+		client := aiMCPClient(index)
+		payload := aiMCPConfig(client, "http://127.0.0.1:4455/mcp", "test-secret")
+		switch format := aiMCPPreviewFormat(client, m); format {
+		case m.MCPCommand:
+			if !strings.HasPrefix(payload, "claude mcp add ") && !strings.HasPrefix(payload, "codebuddy mcp add ") {
+				t.Fatalf("%s: a command is expected, got %q", clients[index].Label, payload)
+			}
+		case "JSON":
+			if !json.Valid([]byte(payload)) {
+				t.Fatalf("%s: JSON is expected, got %q", clients[index].Label, payload)
+			}
+		case "TOML":
+			if !strings.HasPrefix(payload, "[mcp_servers.motty]") {
+				t.Fatalf("%s: TOML is expected, got %q", clients[index].Label, payload)
+			}
+		case "YAML":
+			if !strings.HasPrefix(payload, "- insert:") {
+				t.Fatalf("%s: YAML is expected, got %q", clients[index].Label, payload)
+			}
+		default:
+			t.Fatalf("%s: unnamed preview format %q", clients[index].Label, format)
+		}
+	}
+}
+
 func TestMCPClientSelectAndCompleteCatalog(t *testing.T) {
 	want := []string{"Claude Code", "Cursor", "CodeBuddy Code CLI", "ZCode", "TRAE", "VS Code", "Windsurf", "Codex", "DeepSeek Harness", "OpenCode", "Cherry Studio", "Qoder", "WorkBuddy"}
 	tabs := aiMCPClientOptions()

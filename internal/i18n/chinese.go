@@ -850,6 +850,7 @@ var chineseAISettings = AISettingsMessages{
 	MCPEndpoint:      "地址",
 	MCPNotRunning:    "未运行",
 	MCPOff:           "已关闭",
+	MCPCommand:       "命令",
 	MCPCopy:          "复制配置",
 	MCPConfig:        "客户端配置",
 	MCPClientLabel:   "客户端",

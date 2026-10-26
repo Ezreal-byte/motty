@@ -2,7 +2,9 @@ package workbench
 
 import (
 	"github.com/vivaui/viva/components"
+	"github.com/vivaui/viva/flex"
 	"github.com/vivaui/viva/ui"
+	"motty/internal/i18n"
 )
 
 // Paint after the workspace clip and inside the menu pass, as other selects do.
@@ -73,6 +75,20 @@ func (page *settingsPage) mcpCopyButton(id ui.ID, label string, disabled bool) {
 	page.button(id, label, aiButtonOutline, disabled).Width(width)
 }
 
+// aiMCPPreviewFormat names what the configuration preview holds: a command to
+// run in a terminal, or the body of a file to paste.
+func aiMCPPreviewFormat(client aiMCPClient, m i18n.AISettingsMessages) string {
+	switch client {
+	case aiMCPClaude, aiMCPCodeBuddy:
+		return m.MCPCommand
+	case aiMCPCodex:
+		return "TOML"
+	case aiMCPDeepSeek:
+		return "YAML"
+	}
+	return "JSON"
+}
+
 func (state *State) paintAIMCPConfig(page *settingsPage, endpoint string, ready bool) {
 	f, pal, m, cfg := page.f, state.pal, state.messages.AISettings, &state.ai.cfg
 	hint := m.MCPClaudeHint
@@ -112,8 +128,11 @@ func (state *State) paintAIMCPConfig(page *settingsPage, endpoint string, ready 
 			page.add(settingsControl{kind: controlMCPSelect, slot: f.Slot().FillWidth().Height(36)})
 			f.Wrap(hint).FontSize(metrics.FontSizeS).Color(pal.muted).LineHeight(18)
 			f.Column().Background(pal.surfaceSoft).Border(1, pal.line).Radius(radius.control).Children(func() {
-				f.Row().Pad(12).Children(func() {
-					f.Column().Grow(1)
+				// The header names what the block holds, so the room the copy
+				// button takes says something instead of staying blank.
+				f.Row().PadSides(10, 14, 10, 14).Items(flex.Center).Children(func() {
+					f.Text(aiMCPPreviewFormat(cfg.mcpClient, m)).FontSize(metrics.FontSizeS).Weight(ui.WeightMedium).Color(pal.muted)
+					f.Spacer()
 					page.mcpCopyButton(hitAISetMCPCopy, m.MCPCopy, !ready)
 				})
 				f.Column().MarginSides(0, 14, 14, 14).Children(func() {
