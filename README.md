@@ -262,6 +262,7 @@ capabilities go into Viva rather than being duplicated here.
 | `internal/workbench` | application state, screens, painting and input |
 | `internal/ai` | assistant, tools, risk gate and MCP server |
 | `assets`, `docs`, `tools` | branding, technical notes and development tooling |
+| `website` | static documentation site published to motty.page — [docs/website.md](docs/website.md) |
 
 ## 💬 Community
 
