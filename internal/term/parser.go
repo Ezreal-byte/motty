@@ -80,22 +80,9 @@ func (t *Terminal) Write(p []byte) (int, error) {
 }
 
 func (t *Terminal) feed(b byte) {
-	if t.utf8n == 0 {
-		switch b {
-		case 0x90: // C1 DCS
-			t.state, t.dcs, t.dcsOverflow = stDCS, t.dcs[:0], false
-			return
-		case 0x9D: // C1 OSC
-			t.state, t.osc, t.oscOverflow = stOSC, t.osc[:0], false
-			return
-		case 0x9F: // C1 APC
-			t.state, t.apc, t.apcOverflow = stAPC, t.apc[:0], false
-			return
-		case 0x9C: // C1 ST
-			t.endString()
-			return
-		}
-	}
+	// Input is UTF-8: C1 byte values can be continuation bytes inside a
+	// control-string payload, where ground's UTF-8 decoder is not running.
+	// Recognize string controls through their seven-bit ESC forms instead.
 	switch b {
 	case 0x18, 0x1A: // CAN, SUB cancel any sequence
 		if t.utf8n > 0 {
