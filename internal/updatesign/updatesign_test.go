@@ -89,6 +89,24 @@ func TestAMissingOrBrokenSignatureIsRefused(t *testing.T) {
 	}
 }
 
+func TestAFeedSignatureMustNameTheReleaseKey(t *testing.T) {
+	publicKey, privateKey := keyPair(t)
+	signature := signed(t, privateKey, []byte("the package bytes"), "0.1.2", "a.zip")
+	if err := UsableWith(publicKey, signature); err != nil {
+		t.Fatalf("a signature from the key was refused: %v", err)
+	}
+	otherKey, _ := keyPair(t)
+	if err := UsableWith(otherKey, signature); !errors.Is(err, ErrSignature) {
+		t.Errorf("another key accepted the signature: %v", err)
+	}
+	if err := UsableWith(publicKey, ""); !errors.Is(err, ErrUnsigned) {
+		t.Errorf("no signature gave %v", err)
+	}
+	if err := UsableWith(publicKey, "!!"); !errors.Is(err, ErrSignature) {
+		t.Errorf("a broken signature gave %v", err)
+	}
+}
+
 func TestTheEmbeddedReleaseKeyParses(t *testing.T) {
 	if id := ReleaseKey().ID(); id == 0 {
 		t.Fatal("the embedded key has no id")

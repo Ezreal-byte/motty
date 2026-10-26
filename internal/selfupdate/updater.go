@@ -112,6 +112,11 @@ func (updater *Updater) Prepare(ctx context.Context, release update.Release, pro
 	if err != nil {
 		return Staged{}, err
 	}
+	// A signature that is missing, malformed or from another key cannot pass
+	// the check after the download, so stop before spending the bandwidth.
+	if err := updatesign.UsableWith(releaseKey(), release.Asset.Signature); err != nil {
+		return Staged{}, err
+	}
 
 	updater.clean()
 	dir := filepath.Join(updater.Dir, release.Version)

@@ -66,30 +66,57 @@ func Sign(privateKey minisign.PrivateKey, r io.Reader, version, file string, now
 	return base64.StdEncoding.EncodeToString(armour), nil
 }
 
+// armour decodes a feed signature. It says nothing about the bytes; Verify is
+// what checks those.
+func armour(signature string) ([]byte, minisign.Signature, error) {
+	var parsed minisign.Signature
+	if signature == "" {
+		return nil, parsed, ErrUnsigned
+	}
+	decoded, err := base64.StdEncoding.DecodeString(signature)
+	if err != nil || len(decoded) == 0 || len(decoded) > 4096 {
+		return nil, parsed, ErrSignature
+	}
+	if err := parsed.UnmarshalText(decoded); err != nil {
+		return nil, parsed, ErrSignature
+	}
+	return decoded, parsed, nil
+}
+
+// Usable reports whether a feed signature could have been made by the release
+// key: it decodes, parses as a minisign signature, and names this key. It does
+// not verify any bytes, so a download can be refused before it starts.
+func Usable(signature string) error { return UsableWith(ReleaseKey(), signature) }
+
+// UsableWith is Usable against a given key, which a test can make itself.
+func UsableWith(publicKey minisign.PublicKey, signature string) error {
+	_, parsed, err := armour(signature)
+	if err != nil {
+		return err
+	}
+	if parsed.KeyID != publicKey.ID() {
+		return ErrSignature
+	}
+	return nil
+}
+
 // Verify reads the package from r and holds it to signature, which must have
 // been made for this version and file. The package is streamed, so a large one
 // costs no more memory than a small one.
 func Verify(publicKey minisign.PublicKey, r io.Reader, signature, version, file string) error {
-	if signature == "" {
-		return ErrUnsigned
-	}
-	armour, err := base64.StdEncoding.DecodeString(signature)
-	if err != nil || len(armour) == 0 || len(armour) > 4096 {
-		return ErrSignature
+	decoded, parsed, err := armour(signature)
+	if err != nil {
+		return err
 	}
 	reader := minisign.NewReader(r)
 	if _, err := io.Copy(io.Discard, reader); err != nil {
 		return fmt.Errorf("updatesign: reading the package: %w", err)
 	}
-	if !reader.Verify(publicKey, armour) {
+	if !reader.Verify(publicKey, decoded) {
 		return ErrSignature
 	}
 	// Only now, with the signature checked, is the comment usable: minisign's
 	// global signature covers it, and Verify is what checks that signature.
-	var parsed minisign.Signature
-	if err := parsed.UnmarshalText(armour); err != nil {
-		return ErrSignature
-	}
 	signedVersion, signedFile, err := commentFields(parsed.TrustedComment)
 	if err != nil {
 		return ErrSignature
