@@ -103,3 +103,55 @@ func TestLatestKeepsTheReleaseNotes(t *testing.T) {
 		t.Fatalf("release %+v, error %v", release, err)
 	}
 }
+
+func mirrorServer(t *testing.T, body string) *httptest.Server {
+	t.Helper()
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.Write([]byte(body)) }))
+	t.Cleanup(server.Close)
+	return server
+}
+
+const goodHash = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+
+func TestTheMirrorNamesThePackageOfThePlatformAndWhereToGetIt(t *testing.T) {
+	server := mirrorServer(t, `{"version":"1.2.3","tag":"v1.2.3","source":"https://github.com/o/r/releases/tag/v1.2.3","mirror":"https://evil.example","notes":"## Fixed",
+	  "files":[{"name":"motty-darwin-arm64.zip","size":100,"sha256":"`+goodHash+`","url":"https://evil.example/x"},{"name":"motty-linux-amd64.tar.gz","size":5,"sha256":"`+goodHash+`"}]}`)
+	release, err := LatestMirror(context.Background(), server.Client(), server.URL+"/latest.json", "darwin", "arm64")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := server.URL + "/releases/v1.2.3/motty-1.2.3-darwin-arm64.zip"
+	if release.Version != "1.2.3" || release.Notes != "## Fixed" || release.Asset.URL != want || release.Asset.SHA256 != goodHash || release.Asset.Size != 100 {
+		t.Fatalf("release %+v, want asset at %s", release, want)
+	}
+
+	// A platform the release has no package for still gets the page.
+	release, err = LatestMirror(context.Background(), server.Client(), server.URL+"/latest.json", "darwin", "amd64")
+	if err != nil || release.Asset.Has() || release.URL == "" {
+		t.Fatalf("release %+v, err %v", release, err)
+	}
+}
+
+func TestAMirrorAnswerThatCannotBeTrustedGivesNoPackage(t *testing.T) {
+	for name, files := range map[string]string{
+		"short hash": `[{"name":"motty-darwin-arm64.zip","size":100,"sha256":"abc"}]`,
+		"no size":    `[{"name":"motty-darwin-arm64.zip","size":0,"sha256":"` + goodHash + `"}]`,
+		"huge":       `[{"name":"motty-darwin-arm64.zip","size":99999999999,"sha256":"` + goodHash + `"}]`,
+	} {
+		server := mirrorServer(t, `{"version":"1.2.3","tag":"v1.2.3","source":"https://github.com/o/r","files":`+files+`}`)
+		release, err := LatestMirror(context.Background(), server.Client(), server.URL, "darwin", "arm64")
+		if err != nil || release.Asset.Has() {
+			t.Errorf("%s: %+v %v", name, release, err)
+		}
+	}
+	for name, body := range map[string]string{
+		"tag and version differ": `{"version":"1.2.3","tag":"v9.9.9","source":"https://x","files":[]}`,
+		"odd tag":                `{"version":"1.2.3","tag":"v1.2.3/../x","source":"https://x","files":[]}`,
+		"page not https":         `{"version":"1.2.3","tag":"v1.2.3","source":"http://x","files":[]}`,
+	} {
+		server := mirrorServer(t, body)
+		if _, err := LatestMirror(context.Background(), server.Client(), server.URL, "darwin", "arm64"); err == nil {
+			t.Errorf("%s: accepted", name)
+		}
+	}
+}

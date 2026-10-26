@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"runtime"
 	"slices"
 	"strconv"
 	"strings"
@@ -185,34 +186,6 @@ func (state *State) paintLaunchDialog(canvas *ui.Canvas, viewport ui.Rect) {
 	dialog.End()
 }
 
-// updateNotesLines is how many lines of release notes the update dialog shows.
-const updateNotesLines = 9
-
-func (state *State) paintUpdateDialog(canvas *ui.Canvas, viewport ui.Rect) {
-	m := state.messages.Tools
-	dialog := components.BeginDialog(canvas, state.Theme(), viewport, components.DialogOptions{
-		Layer: dialogLayer, Scope: dialogScope,
-		DismissID: hitUpdateDismiss, CloseID: hitUpdateClose, InitialFocusID: hitUpdateDownload,
-		ContentSize: ui.Size{Width: 560}, FitBody: true, BodyHeight: updateNotesLines * 20,
-	})
-	layout := dialog.Begin(fmt.Sprintf(m.UpdateDialogTitleFmt, state.update.release.Version), fmt.Sprintf(m.UpdateDialogDescriptionFmt, update.Current))
-	notes := update.PlainNotes(state.update.release.Notes)
-	if notes == "" {
-		notes = m.UpdateNotesEmpty
-	}
-	f := state.settingsRow.Begin(canvas, state.Theme(), layout.Body)
-	f.Column().Fill().Children(func() {
-		f.Paragraph(notes, updateNotesLines).FontSize(metrics.FontSizeS).Color(state.pal.muted).LineHeight(20)
-	})
-	f.End()
-	dialog.Actions(layout,
-		components.ButtonAction{ID: hitUpdateSkip, Label: m.UpdateSkip, Variant: components.ButtonOutline},
-		components.ButtonAction{ID: hitUpdateLater, Label: m.UpdateLater, Variant: components.ButtonSecondary},
-		components.ButtonAction{ID: hitUpdateDownload, Label: m.GeneralUpdateDownload},
-	)
-	dialog.End()
-}
-
 func (state *State) clickUpdateDialog(id ui.ID) {
 	switch id {
 	case hitUpdateDismiss, hitUpdateClose, hitUpdateLater:
@@ -221,23 +194,14 @@ func (state *State) clickUpdateDialog(id ui.ID) {
 		state.save()
 	case hitUpdateDownload:
 		state.openExternal(state.update.release.URL)
+	case hitUpdateInstall:
+		state.askInstall()
+		return
 	default:
 		return
 	}
 	state.closeModal()
 	state.showNextPrompt()
-}
-
-func (state *State) updateKey(event ui.KeyEvent) (ui.EventResult, bool) {
-	if state.modal != modalUpdate || event.Key != ui.KeyEnter || event.Repeat {
-		return ui.EventResult{}, false
-	}
-	switch event.Target {
-	case hitUpdateDownload, hitUpdateSkip, hitUpdateLater:
-		state.clickUpdateDialog(event.Target)
-		return ui.EventResult{Handled: true, Repaint: true}, true
-	}
-	return ui.EventResult{}, false
 }
 
 // ---- the General settings: starting at login and updates ----
@@ -250,6 +214,8 @@ type updateState struct {
 	text      string // the outcome of the last check, in the language it was made in
 	offer     bool   // a dialog about release is waiting for its turn
 	skipped   string // the version the user asked not to be reminded of
+	install   updateInstall
+	notes     updateNotes
 }
 
 func (state *State) settingsLoginEnabled() bool {
@@ -276,7 +242,11 @@ func (state *State) paintUpdateSettings(page *settingsPage) {
 		}
 		actions := []components.ButtonAction{{ID: hitSettingsUpdateCheck, Label: m.GeneralUpdateCheck, Variant: components.ButtonOutline, Disabled: state.update.checking}}
 		if state.update.available {
-			actions = append(actions, components.ButtonAction{ID: hitSettingsUpdateDownload, Label: m.GeneralUpdateDownload})
+			label := m.GeneralUpdateDownload
+			if state.canInstallUpdate() {
+				label = m.GeneralUpdateInstall
+			}
+			actions = append(actions, components.ButtonAction{ID: hitSettingsUpdateDownload, Label: label})
 		}
 		page.actionRow(m.GeneralUpdate, description, false, actions...)
 	})
@@ -306,7 +276,11 @@ func (state *State) clickLaunchSettings(id ui.ID) bool {
 	case hitSettingsDiagnostics:
 		state.openExportDiagnostics()
 	case hitSettingsUpdateDownload:
-		if state.update.available {
+		switch {
+		case state.canInstallUpdate():
+			state.update.offer = true
+			state.showNextPrompt()
+		case state.update.available:
 			state.openExternal(state.update.release.URL)
 		}
 	default:
@@ -330,7 +304,7 @@ func (state *State) checkForUpdates(asked bool) {
 		check = func() (update.Release, error) {
 			ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 			defer cancel()
-			return update.Latest(ctx, nil, update.Feed)
+			return update.Check(ctx, nil, runtime.GOOS, runtime.GOARCH)
 		}
 	}
 	go func() {
@@ -353,6 +327,7 @@ func (state *State) checkForUpdates(asked bool) {
 				}
 			case update.Newer(update.Current, release.Version):
 				state.update.release, state.update.available = release, true
+				state.update.notes = updateNotes{text: update.PlainNotes(release.Notes)}
 				state.update.text = fmt.Sprintf(m.UpdateAvailableFmt, release.Version)
 				state.status = state.update.text
 				// A check the user asked for always answers; one made at startup

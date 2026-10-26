@@ -668,6 +668,10 @@ func (state *State) Close() {
 		return
 	}
 	state.closed = true
+	if state.update.install.cancel != nil {
+		state.update.install.cancel()
+		state.update.install.cancel = nil
+	}
 	if state.options.Group != nil {
 		state.options.Group.leave(state)
 	}
@@ -775,6 +779,7 @@ func New(options Options) *State {
 	state.syncPending = state.sync.configured() && !state.sync.manual
 	state.stateFileOutcome = report.describe()
 	state.explainStateFile(report)
+	state.explainFailedUpdate()
 	state.syncVisible()
 	state.refreshHostGroups()
 	state.refreshHostSelection()
@@ -1132,6 +1137,9 @@ func (state *State) Click(id ui.ID) {
 		return
 	case modalUpdate:
 		state.clickUpdateDialog(id)
+		return
+	case modalUpdateProgress:
+		state.clickUpdateProgress(id)
 		return
 	case modalCommandPalette:
 		state.clickCommandPalette(id)

@@ -272,8 +272,25 @@ type ToolsMessages struct {
 	UpdateDialogTitleFmt            string
 	UpdateDialogDescriptionFmt      string
 	UpdateNotesEmpty                string
+	UpdateNotesLabel                string
 	UpdateLater                     string
 	UpdateSkip                      string
+	UpdateInstall                   string
+	UpdateInstallDescriptionFmt     string
+	UpdateWhyNotUserInstall         string
+	UpdateWhyNotWritable            string
+	UpdateWhyTranslocated           string
+	UpdateWhyNoPackage              string
+	GeneralUpdateInstall            string
+	UpdateConfirmTitle              string
+	UpdateConfirmDescriptionFmt     string
+	UpdateConfirmSubmit             string
+	UpdateDownloadingTitleFmt       string
+	UpdateVerifying                 string
+	UpdateRestarting                string
+	UpdateFailedTitle               string
+	UpdateFailedBodyFmt             string
+	UpdateOpenPage                  string
 	UpdateNoReleaseText             string
 	ActionSSHFmt                    string
 	ActionBrowserFmt                string
@@ -793,8 +810,25 @@ var englishTools = ToolsMessages{
 	UpdateDialogTitleFmt:            "Motty %s is available",
 	UpdateDialogDescriptionFmt:      "You are on %s. Downloading opens the release page in your browser.",
 	UpdateNotesEmpty:                "This release came without notes.",
+	UpdateNotesLabel:                "Release notes",
 	UpdateLater:                     "Later",
 	UpdateSkip:                      "Skip this version",
+	UpdateInstall:                   "Install and restart",
+	UpdateInstallDescriptionFmt:     "You are on %s. Motty quits to install the update and opens again when it is done.",
+	UpdateWhyNotUserInstall:         "This copy was not installed the way Motty's own packages install it, so it cannot update itself.",
+	UpdateWhyNotWritable:            "Motty cannot write to where it is installed.",
+	UpdateWhyTranslocated:           "macOS is running Motty from a temporary place. Move it to Applications first.",
+	UpdateWhyNoPackage:              "This release has no package for this system.",
+	GeneralUpdateInstall:            "Update",
+	UpdateConfirmTitle:              "Install the update and restart?",
+	UpdateConfirmDescriptionFmt:     "%d open sessions will be disconnected while Motty restarts.",
+	UpdateConfirmSubmit:             "Disconnect and update",
+	UpdateDownloadingTitleFmt:       "Downloading Motty %s",
+	UpdateVerifying:                 "Checking the download…",
+	UpdateRestarting:                "Installing and restarting…",
+	UpdateFailedTitle:               "The update did not finish",
+	UpdateFailedBodyFmt:             "%s\n\nMotty is still the version you had. You can download the new one from the release page.",
+	UpdateOpenPage:                  "Open release page",
 	UpdateNoReleaseText:             "No published release was found yet.",
 	ActionSSHFmt:                    "SSH to %s",
 	ActionBrowserFmt:                "Open %s in browser",
@@ -1314,8 +1348,25 @@ var chineseTools = ToolsMessages{
 	UpdateDialogTitleFmt:            "Motty %s 可更新",
 	UpdateDialogDescriptionFmt:      "当前版本 %s。点击下载会在浏览器中打开发布页。",
 	UpdateNotesEmpty:                "此版本没有附带更新说明。",
+	UpdateNotesLabel:                "更新说明",
 	UpdateLater:                     "稍后",
 	UpdateSkip:                      "跳过此版本",
+	UpdateInstall:                   "安装并重启",
+	UpdateInstallDescriptionFmt:     "当前版本 %s。安装前会先退出 Motty，完成后自动重新打开。",
+	UpdateWhyNotUserInstall:         "这份 Motty 不是按官方安装包的方式安装的，无法自行更新。",
+	UpdateWhyNotWritable:            "没有权限写入 Motty 的安装位置。",
+	UpdateWhyTranslocated:           "macOS 正从临时位置运行 Motty，请先把它移到“应用程序”文件夹。",
+	UpdateWhyNoPackage:              "此版本没有适用于当前系统的安装包。",
+	GeneralUpdateInstall:            "更新",
+	UpdateConfirmTitle:              "安装更新并重启？",
+	UpdateConfirmDescriptionFmt:     "重启期间会断开 %d 个已打开的会话。",
+	UpdateConfirmSubmit:             "断开并更新",
+	UpdateDownloadingTitleFmt:       "正在下载 Motty %s",
+	UpdateVerifying:                 "正在校验下载内容…",
+	UpdateRestarting:                "正在安装并重启…",
+	UpdateFailedTitle:               "更新没有完成",
+	UpdateFailedBodyFmt:             "%s\n\nMotty 仍是原来的版本。可以到发布页下载新版本。",
+	UpdateOpenPage:                  "打开发布页",
 	UpdateNoReleaseText:             "还没有找到已发布的版本。",
 	ActionSSHFmt:                    "SSH 连接 %s",
 	ActionBrowserFmt:                "在浏览器中打开 %s",

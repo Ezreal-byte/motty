@@ -143,6 +143,30 @@ Pages token from docs/website.md covers the site only) and `CLOUDFLARE_ACCOUNT_I
 (the same value the website workflow uses). Re-run a mirror from *Actions →
 Mirror release → Run workflow* with the tag.
 
+## In-app updates
+
+The app updates itself from the mirror: it reads `https://dl.motty.page/latest.json`
+(GitHub's latest release is only the fallback, and carries no checksums, so it can
+send the user to the page but cannot install). The release notes in the update
+dialog are the `notes` field of that file, which `tools/mirror-release.sh` copies
+from the GitHub release body.
+
+What the app downloads is chosen by name, so three things must stay as they are:
+
+- the stable asset names in `update.StableName` (`motty-darwin-<arch>.zip`,
+  `motty-linux-<arch>.tar.gz`, `motty-windows-amd64-setup.exe`) match what
+  `viva package` produces, after the mirror takes the version out;
+- `latest.json` keeps `version`, `tag` (`v` plus the version) and, per file, `name`,
+  `size` and `sha256`;
+- the program in the macOS zip is signed with the same Developer ID as the one it
+  replaces, and the Windows installer with the same certificate. The app refuses an
+  update whose signer differs, and a copy that is not signed at all is not updated
+  in place.
+
+Only a user-owned installation replaces itself (an app bundle in a writable folder,
+the per-user Windows installer, a Linux `install.sh` prefix). A `.deb`, Program
+Files or a portable program is sent to the release page.
+
 ## The package matrix
 
 Every release carries one native package per platform and architecture:

@@ -919,6 +919,9 @@ func (state *State) Scroll(event ui.ScrollEvent) ui.EventResult {
 	if state.modal == modalCommandPalette {
 		return state.scrollCommandPalette(event)
 	}
+	if state.modal == modalUpdate {
+		return state.scrollUpdateNotes(event)
+	}
 	// Dialogs own the wheel even over their backdrop. Menus and scrollable
 	// dialogs above have their own handlers; nothing behind them should move.
 	if state.modal != modalNone || state.knownHosts.action != knownHostsActionNone ||

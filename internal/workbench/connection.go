@@ -162,6 +162,12 @@ type Options struct {
 	StartAtLogin *LoginStart
 	// CheckUpdate asks the release feed for the newest version. Nil asks GitHub.
 	CheckUpdate func() (update.Release, error)
+	// Updater installs a newer release over the running program. Nil, or a nil
+	// Quit, offers only the download page.
+	Updater Updater
+	// Quit ends the application, every window of it. An update needs it to hand
+	// over to the new version.
+	Quit func()
 	// OpenURL opens an external HTTP or HTTPS target. Nil uses app.OpenURL.
 	OpenURL func(string) error
 	// Group lets this window's tabs move to and from the group's other windows.
@@ -338,6 +344,7 @@ const (
 	modalAutofillConfirm
 	modalHistory
 	modalUpdate
+	modalUpdateProgress
 )
 
 // tone colors a session's headline.
@@ -911,6 +918,7 @@ func (state *State) showNextPrompt() {
 	}
 	if state.update.offer {
 		state.update.offer = false
+		state.update.notes.scroll = 0
 		state.modal = modalUpdate
 	}
 }

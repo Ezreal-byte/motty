@@ -133,6 +133,10 @@ done
 
 repo=${GITHUB_REPOSITORY:-}
 [ -n "$repo" ] || repo=$(gh repo view --json nameWithOwner --jq .nameWithOwner)
+# The release notes, as one JSON string, for the update dialog. A release without
+# them, or a failed lookup, gives an empty string: the dialog says so.
+notes_json=$(gh release view "$tag" --repo "$repo" --json body --jq '.body | tojson' 2>/dev/null) || notes_json=
+[ -n "$notes_json" ] || notes_json='""'
 
 {
 	printf '{\n'
@@ -141,6 +145,7 @@ repo=${GITHUB_REPOSITORY:-}
 	printf '  "publishedAt": "%s",\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 	printf '  "source": "https://github.com/%s/releases/tag/%s",\n' "$repo" "$tag"
 	printf '  "mirror": "%s",\n' "$mirror"
+	printf '  "notes": %s,\n' "$notes_json"
 	printf '  "files": [\n'
 	first=1
 	while IFS="$(printf '\t')" read -r stable name; do

@@ -241,6 +241,8 @@ func (state *State) Paint(canvas *ui.Canvas, size ui.Size) {
 		state.paintStateNotice(canvas, viewport)
 	case modalUpdate:
 		state.paintUpdateDialog(canvas, viewport)
+	case modalUpdateProgress:
+		state.paintUpdateProgress(canvas, viewport)
 	case modalCommandPalette:
 		state.paintCommandPalette(canvas, viewport)
 	case modalHistory:

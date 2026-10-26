@@ -41,6 +41,17 @@ func (group *Group) windowFrame() (ui.Rect, bool) {
 // NewGroup returns an empty group.
 func NewGroup() *Group { return &Group{} }
 
+// sessionCount is how many sessions are open in all the windows.
+func (group *Group) sessionCount() int {
+	group.mu.Lock()
+	defer group.mu.Unlock()
+	count := 0
+	for _, member := range group.members {
+		count += len(member.sessions)
+	}
+	return count
+}
+
 func (group *Group) join(state *State) {
 	group.mu.Lock()
 	defer group.mu.Unlock()

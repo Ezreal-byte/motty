@@ -14,6 +14,7 @@ import (
 	"github.com/vivaui/viva/app/singleinstance"
 	"github.com/vivaui/viva/ui"
 	"motty/internal/diag"
+	"motty/internal/selfupdate"
 	"motty/internal/workbench"
 )
 
@@ -37,6 +38,9 @@ func main() {
 	log.SetOutput(io.MultiWriter(os.Stderr, recentLog))
 	if len(os.Args) > 1 && os.Args[1] == "mcp-bridge" {
 		os.Exit(runMCPBridge(os.Args[2:]))
+	}
+	if len(os.Args) > 1 && os.Args[1] == selfupdate.Command {
+		os.Exit(runApplyUpdate(os.Args[2:]))
 	}
 	args, background := launchArguments(os.Args[1:])
 	// A second launch hands what it was asked to open to the copy that runs, and
@@ -204,6 +208,8 @@ func openWorkbenchWindow(application *app.Application, status *tray, hub *workbe
 		PreferredLanguages: preferredLanguages,
 		Raise:              func() { mainWindow.Show() },
 		StartAtLogin:       loginStart(),
+		Updater:            updater(),
+		Quit:               application.Quit,
 		AISettingsChanged: func() {
 			if err := hub.Reconfigure(); err != nil {
 				log.Printf("motty: external agent access: %v", err)
@@ -305,4 +311,14 @@ func openWorkbenchWindow(application *app.Application, status *tray, hub *workbe
 		invalidator.Invalidate()
 	}
 	return err
+}
+
+// updater replaces the program with a newer release, or is nil when there is
+// nowhere to keep downloads.
+func updater() workbench.Updater {
+	dir := updatesDir(os.Getenv(dataDirVariable))
+	if dir == "" {
+		return nil
+	}
+	return selfupdate.New(dir)
 }
