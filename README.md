@@ -298,6 +298,12 @@ go test -race ./...
 Keep SSH, protocol and product logic in this repository. A capability that
 belongs to the desktop framework should be proposed in Viva instead.
 
+## 👥 Contributors
+
+<a href="https://github.com/t8y2/motty/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=t8y2/motty&max=300&columns=15" alt="Contributors" />
+</a>
+
 ## 📄 License
 
 Motty is released under the [Apache License, Version 2.0](LICENSE). See
