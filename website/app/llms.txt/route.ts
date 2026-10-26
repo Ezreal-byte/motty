@@ -1,5 +1,5 @@
 import { changelog, versionLabel } from '@/lib/changelog';
-import { download } from '@/lib/download-content';
+import { downloadGroups } from '@/lib/download-content';
 import { landing } from '@/lib/landing-content';
 import { docsPath, source } from '@/lib/source';
 import { absolute, copy, localePath, site } from '@/lib/seo';
@@ -13,7 +13,8 @@ export const dynamic = 'force-static';
  * (license, platforms, downloads). The same facts appear in the HTML and in the
  * JSON-LD; this file just saves the crawler from parsing them out.
  */
-export function GET() {
+export async function GET() {
+  const groups = await downloadGroups('en');
   const lines: string[] = [
     `# ${site.name}`,
     '',
@@ -36,7 +37,7 @@ export function GET() {
     '',
     '## Download',
     '',
-    ...download.en.groups.flatMap((group) => [
+    ...groups.flatMap((group) => [
       `**${group.platform}**`,
       ...group.files.map((file) => `- ${file.label} (${file.kind}): ${site.download}/latest/${file.key}`),
       '',
