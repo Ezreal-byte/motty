@@ -177,9 +177,10 @@ Every release carries the packages below for every platform and architecture:
 | Windows | `.exe` installer | `.exe` installer |
 | Linux | `.deb`, `.tar.gz` | `.deb`, `.tar.gz` |
 
-The macOS `.zip` holds the same signed and stapled bundle; it is what the
+The macOS `.zip` holds the same signed bundle; it is what the
 in-app updater downloads, so a release without it would leave macOS unable to
-update in place.
+update in place. `viva package` staples the ticket to the `.dmg`, not to a
+bundle it also zips, so the zip's first launch checks the signature online.
 
 `tools/release.sh` refuses to upload when one of those is missing, so a run with
 a broken makensis stops instead of publishing a release with a hole in it. The
