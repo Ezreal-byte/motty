@@ -61,13 +61,15 @@ func (state *State) paintHostProtocolSwitch(canvas *ui.Canvas, bounds ui.Rect) {
 	components.BeginSegmentedControl(canvas, state.Theme(), bounds, options[:], selected).Paint()
 }
 
-// paintHostEndpointRows draws the two rows that say where the host is: address
-// and then its credentials and port, or the device and its line.
+// paintHostEndpointRows draws where the host is: its address and, beside it, the
+// port it is reached on, and on the row below the credentials the protocol takes.
+// A serial port takes the device, its line and, on its own row, the flow
+// control; a Telnet host has no credentials in the form, so it takes one row.
 func (state *State) paintHostEndpointRows(canvas *ui.Canvas, x, y, width, rowHeight float32) {
 	m, tools := state.messages, state.messages.Tools
 	editor := &state.editor
 	var address, picker, second, password, third flex.Box
-	f := state.partLayout.Begin(canvas, state.Theme(), ui.Rect{X: x, Y: y, Width: width, Height: 2 * rowHeight})
+	f := state.partLayout.Begin(canvas, state.Theme(), ui.Rect{X: x, Y: y, Width: width, Height: float32(state.hostEndpointRows()) * rowHeight})
 	f.Column().Fill().Children(func() {
 		switch editor.protocol {
 		case protocolSerial:
@@ -75,29 +77,35 @@ func (state *State) paintHostEndpointRows(canvas *ui.Canvas, x, y, width, rowHei
 				address = f.Slot().Grow(1)
 				picker = f.Slot().WidthPercent(30)
 			})
-			f.Row().Height(rowHeight).Children(func() {
-				second = f.Slot().WidthPercent(42)
-				f.Spacer()
-				third = f.Slot().WidthPercent(54)
-			})
+			// The flow control is a three-way choice: it takes the row under
+			// the line settings rather than sharing one with them, where its
+			// labels would be cut.
+			second = f.Slot().Height(rowHeight)
+			third = f.Slot().Height(rowHeight)
 		case protocolTelnet:
-			address = f.Slot().Height(rowHeight)
-			second = f.Slot().Height(rowHeight).WidthPercent(34).Self(flex.Start)
+			f.Row().Height(rowHeight).Gap(8).Children(func() {
+				address = f.Slot().Grow(1)
+				third = f.Slot().Width(hostPortWidth).Shrink(0)
+			})
 		case protocolVNC:
-			address = f.Slot().Height(rowHeight)
+			f.Row().Height(rowHeight).Gap(8).Children(func() {
+				address = f.Slot().Grow(1)
+				third = f.Slot().Width(hostPortWidth).Shrink(0)
+			})
 			f.Row().Height(rowHeight).Gap(8).Children(func() {
 				if editor.viaSSH {
 					second = f.Slot().Grow(1)
 				}
 				password = f.Slot().Grow(1)
-				third = f.Slot().Width(84).Shrink(0)
 			})
 		default:
-			address = f.Slot().Height(rowHeight)
+			f.Row().Height(rowHeight).Gap(8).Children(func() {
+				address = f.Slot().Grow(1)
+				third = f.Slot().Width(hostPortWidth).Shrink(0)
+			})
 			f.Row().Height(rowHeight).Gap(8).Children(func() {
 				second = f.Slot().Grow(1)
 				password = f.Slot().Grow(1)
-				third = f.Slot().Width(84).Shrink(0)
 			})
 		}
 	})
@@ -116,7 +124,7 @@ func (state *State) paintHostEndpointRows(canvas *ui.Canvas, x, y, width, rowHei
 		components.BeginSegmentedControl(canvas, state.Theme(), content, options[:], options[editor.flow].ID).Paint()
 	case protocolTelnet:
 		state.paintDialogField(canvas, hitDialogAddress, fieldAddress, m.FieldAddress, m.FieldAddressPlaceholder, address.Rect())
-		state.paintDialogField(canvas, hitDialogPort, fieldPort, m.FieldPort, "", second.Rect())
+		state.paintDialogField(canvas, hitDialogPort, fieldPort, m.FieldPort, "", third.Rect())
 	case protocolRDP:
 		state.paintDialogField(canvas, hitDialogAddress, fieldAddress, m.FieldAddress, m.FieldAddressPlaceholder, address.Rect())
 		state.paintDialogField(canvas, hitDialogUser, fieldUser, state.messages.Desktop.FieldRDPUser, state.messages.Desktop.RDPUserHint, second.Rect())
@@ -262,6 +270,34 @@ func (state *State) clickHostProtocol(id ui.ID) bool {
 
 // hostFormRowHeight is the height of one labelled row of the host dialog.
 const hostFormRowHeight = 58
+
+// hostPortWidth is the width of the port field: the label and five digits fit,
+// and the address keeps the rest of the row.
+const hostPortWidth = 84
+
+// hostDialogBaseHeight is the content height of the host dialog for its base
+// form, whose endpoint block takes two rows, before the protocol's own rows.
+const hostDialogBaseHeight = 472
+
+// hostEndpointRows is how many labelled rows the endpoint block of the form
+// takes: the address with the port and, under it, the credentials. A serial
+// port takes three (its device, its line, and the flow control) and Telnet one
+// (Telnet has no credentials in the form).
+func (state *State) hostEndpointRows() int {
+	switch state.editor.protocol {
+	case protocolSerial:
+		return 3
+	case protocolTelnet:
+		return 1
+	}
+	return 2
+}
+
+// hostDialogHeight is the content height of the host dialog: the base form, less
+// the endpoint rows the protocol does not need, plus the rows it adds.
+func (state *State) hostDialogHeight() float32 {
+	return hostDialogBaseHeight - float32(2-state.hostEndpointRows())*hostFormRowHeight + state.hostDialogExtra()
+}
 
 // switchRowsHeight is the room of the three switches under the algorithm
 // rows: "Forward X11", "Forward ssh-agent" and "Don't record commands". A

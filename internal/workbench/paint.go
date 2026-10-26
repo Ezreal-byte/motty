@@ -1455,7 +1455,7 @@ func (state *State) paintHostDialog(canvas *ui.Canvas, viewport ui.Rect) {
 		DismissID:      hitDialogDismiss,
 		CloseID:        hitDialogClose,
 		InitialFocusID: hitDialogLabel,
-		ContentSize:    ui.Size{Width: 460, Height: 472 + proxyHeight + state.hostDialogExtra()},
+		ContentSize:    ui.Size{Width: 460, Height: state.hostDialogHeight() + proxyHeight},
 	})
 	layout := dialog.Begin(title, "")
 
@@ -1468,15 +1468,15 @@ func (state *State) paintHostDialog(canvas *ui.Canvas, viewport ui.Rect) {
 	f.Column().Fill().PadSides(2, 4, 0, 4).Children(func() {
 		protocol = f.Slot().Height(34).MarginSides(0, 0, 10, 0)
 		label = f.Slot().Height(rowHeight)
-		endpoint = f.Slot().Height(2 * rowHeight)
+		endpoint = f.Slot().Height(float32(state.hostEndpointRows()) * rowHeight)
 		f.Row().Height(rowHeight).Gap(8).Children(func() {
 			group = f.Slot().Grow(1)
-			tags = f.Slot().WidthPercent(46)
+			tags = f.Slot().Grow(1)
 		})
 		f.Row().Height(rowHeight).Gap(8).Children(func() {
 			iconField = f.Slot().Grow(1)
 			if ssh {
-				transfer = f.Slot().WidthPercent(46)
+				transfer = f.Slot().Grow(1)
 			}
 		})
 		if networkHost {
