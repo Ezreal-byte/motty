@@ -229,6 +229,21 @@ func (state *State) Shortcut(event ui.KeyEvent) (outcome ui.EventResult) {
 	if !ok {
 		return ui.EventResult{}
 	}
+	if login := state.ai.login; login != nil && state.ai.cfg.dialog == aiDialogCLILogin {
+		action := state.shortcuts.actionFor(chord)
+		if action == shortcutNone {
+			return ui.EventResult{}
+		}
+		if action == shortcutPaste && event.Target == hitAICLILoginTerminal && login.term.shell != nil && !login.finished {
+			if text, err := state.options.ClipboardText(); err == nil {
+				login.term.shell.Write(term.EncodePaste(text, login.term.screen.Modes().BracketedPaste))
+			}
+		}
+		if action == shortcutCloseTab {
+			state.aiStopCLILogin()
+		}
+		return ui.EventResult{Handled: true, Repaint: true}
+	}
 	if state.modal == modalShortcutCapture {
 		if event.Repeat {
 			return ui.EventResult{Handled: true}

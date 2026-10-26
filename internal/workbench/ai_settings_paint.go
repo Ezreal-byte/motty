@@ -118,6 +118,7 @@ func (state *State) paintAISettings(page *settingsPage) {
 	state.paintAISettingsHead(page)
 	page.groups(func() {
 		state.paintAIProviders(page)
+		state.paintAICLIAuth(page)
 		state.paintAIModels(page)
 		state.paintAIBehaviour(page)
 	})
@@ -205,6 +206,13 @@ func (state *State) paintAIProviders(page *settingsPage) {
 // whether a key is saved. The key itself never reaches it.
 func (state *State) aiProviderMeta(provider store.Provider) string {
 	m := state.messages.AISettings
+	if store.IsCLIKind(provider.Kind) {
+		path := provider.CLIPath
+		if path == "" {
+			path = m.CLIPathDefault
+		}
+		return aiPresets[aiPresetOf(provider)].label + "  ·  " + path
+	}
 	kind := m.ProviderKindOpenAI
 	if provider.Kind == store.KindAnthropic {
 		kind = m.ProviderKindClaude
@@ -230,6 +238,9 @@ func (state *State) aiModelsStatus() (string, bool) {
 	case cfg.fetched && cfg.fetchErr != "":
 		return fmt.Sprintf(m.ModelsFailedFmt, cfg.fetchErr), true
 	case cfg.fetched:
+		if provider, ok := state.aiSelectedProvider(); ok && store.IsCLIKind(provider.Kind) {
+			return m.CLIModelsNote, false
+		}
 		return fmt.Sprintf(m.ModelsFetchedFmt, cfg.fetchCount), false
 	}
 	return "", false
@@ -251,6 +262,9 @@ func (state *State) paintAIModels(page *settingsPage) {
 	page.group(m.ModelsTitle, func() {
 		// Which provider, what it holds, and the fetch button.
 		fetchLabel := m.ModelsFetch
+		if store.IsCLIKind(provider.Kind) {
+			fetchLabel = m.CLIModelsCheck
+		}
 		description := fmt.Sprintf(m.ModelsDescFmt, total, enabled)
 		if cfg.fetch != nil {
 			fetchLabel, description = m.ModelsCancel, m.ModelsFetching
@@ -277,7 +291,11 @@ func (state *State) paintAIModels(page *settingsPage) {
 				nameColor = pal.muted
 			}
 			page.rowOf(aiModelRowHeight).PadX(18).Gap(14).Children(func() {
-				f.Text(model.Name).FontSize(metrics.FontSizeM).Color(nameColor).Grow(1).MarginSides(0, 4, 0, 0)
+				label := model.Name
+				if store.IsCLIKind(provider.Kind) && model.Name == "default" {
+					label = m.CLIDefaultModel
+				}
+				f.Text(label).FontSize(metrics.FontSizeM).Color(nameColor).Grow(1).MarginSides(0, 4, 0, 0)
 				if isDefault {
 					f.Row().Height(20).PadX(8).Center().Shrink(0).Background(pal.accentSoft).Radius(10).Children(func() {
 						f.Text(m.ModelDefault).FontSize(metrics.FontSizeS).Weight(ui.WeightSemibold).Color(pal.accent)
@@ -420,6 +438,8 @@ func (state *State) paintAIDialogs(canvas *ui.Canvas, viewport ui.Rect) {
 		return
 	}
 	switch state.ai.cfg.dialog {
+	case aiDialogCLILogin:
+		state.paintAICLILogin(canvas, viewport)
 	case aiDialogProvider:
 		state.paintAIProviderForm(canvas, viewport)
 	case aiDialogDelete:
@@ -444,6 +464,10 @@ func (state *State) paintAIConfirm(canvas *ui.Canvas, viewport ui.Rect, title, b
 }
 
 func (state *State) paintAIProviderForm(canvas *ui.Canvas, viewport ui.Rect) {
+	if store.IsCLIKind(state.ai.cfg.kind) {
+		state.paintAICLIProviderForm(canvas, viewport)
+		return
+	}
 	m, theme := state.messages.AISettings, state.Theme()
 	cfg := &state.ai.cfg
 	title, submit := m.FormAddTitle, m.FormAdd

@@ -28,6 +28,9 @@ type Config struct {
 	Cols, Rows int
 	// Shell is the program to run. Empty means the platform's default shell.
 	Shell string
+	// Args starts a specific local executable without interpreting a shell
+	// command. Nil preserves the platform's normal interactive shell behavior.
+	Args []string
 	// Dir is the working directory. Empty means the user's home directory.
 	Dir string
 	// Env is added to the environment the shell inherits.

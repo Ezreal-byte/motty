@@ -353,6 +353,12 @@ func (state *State) aiPanelClick(id ui.ID) bool {
 		}
 	case id == hitAISetup:
 		state.openSettings()
+		if ai.needLogin != "" {
+			id := ai.needLogin
+			state.selectSettingsCategory(settingsAssistant)
+			ai.cfg.selected, ai.needLogin = id, ""
+			state.aiStartCLILogin(id, false)
+		}
 	case id == hitAIModelChip:
 		panel.modelMenu = !panel.modelMenu
 		panel.modelTypeahead.Reset()

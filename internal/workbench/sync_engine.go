@@ -289,8 +289,11 @@ func (state *State) reloadShared() error {
 	if err != nil {
 		return err
 	}
-	if saved.AIProviders == nil && state.recordedProviders() > 0 {
+	if saved.AIProviders == nil && state.recordedProviders(kindAIProvider) > 0 {
 		saved.AIProviders = &[]savedAIProvider{} // all it had recorded are gone
+	}
+	if saved.AICLIProviders == nil && state.recordedProviders(kindAICLIProvider) > 0 {
+		saved.AICLIProviders = &[]savedAIProvider{}
 	}
 	state.restoreShared(saved)
 	state.configBase = base

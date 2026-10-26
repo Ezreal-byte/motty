@@ -237,9 +237,12 @@ func (state *State) declareInactiveBar(f *flex.Frame, width float32, title, stat
 // change of their content; painting a screen that did not change builds
 // nothing.
 func (state *State) paintGrid(canvas *ui.Canvas, session *Session, geometry terminalGeometry) {
+	state.paintGridWithID(canvas, session, geometry, hitTerminalList.At(int(session.ID)), false)
+}
+
+func (state *State) paintGridWithID(canvas *ui.Canvas, session *Session, geometry terminalGeometry, id ui.ID, sensitive bool) {
 	t, pal := session.term, &state.termPal
 	inactive := state.paneIsInactive(session.ID)
-	id := hitTerminalList.At(int(session.ID))
 	focused := canvas.Focused() == id
 	t.expireSync()
 	cols, rows := t.presentedSize()
@@ -265,7 +268,7 @@ func (state *State) paintGrid(canvas *ui.Canvas, session *Session, geometry term
 	block := cursor.Visible && cursor.Style == term.CursorBlock && focused && !composing && !predicting && blinkOn
 	style := ui.TextStyle{Size: state.terminalFontSize, Color: pal.termFG, MonoFace: state.terminalFontFace}
 	// The strip is empty on the alternate screen, whose program owns the grid.
-	gutterShown := state.terminalGutter != gutterOff && !t.presentedAltScreen() && t.sync == nil
+	gutterShown := !sensitive && state.terminalGutter != gutterOff && !t.presentedAltScreen() && t.sync == nil
 	gutterStyle := ui.TextStyle{Size: state.terminalFontSize, Color: pal.faint, MonoFace: state.terminalFontFace}
 	labelWidth := float32(math.Ceil(float64(float32(cols)*cellWidth))) + 1
 
@@ -381,7 +384,7 @@ func (state *State) paintGrid(canvas *ui.Canvas, session *Session, geometry term
 			canvas.Fill(ui.Rect{X: x + cellWidth - 1, Y: y, Width: 1, Height: cellHeight}, cursorColor)
 		}
 	}
-	if focused && !composing && !predicting && t.sync == nil {
+	if !sensitive && focused && !composing && !predicting && t.sync == nil {
 		if rest, ok := state.commandGhost(session); ok {
 			state.paintGhost(canvas, t, geometry, cursor, rest, block)
 		}

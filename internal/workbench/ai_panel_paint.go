@@ -476,8 +476,13 @@ func (state *State) paintAIBody(canvas *ui.Canvas, bounds ui.Rect) {
 	panel.rect = bounds
 	width := bounds.Width - 2*aiPad
 	_, hasModel := state.aiModelText()
+	setupLabel, setupSummary := m.SetupModel, m.SetupSummary
+	showSetup := !hasModel || ai.needLogin != ""
+	if ai.needLogin != "" {
+		setupLabel, setupSummary = state.messages.AISettings.CLIAuthLogin, state.messages.AISettings.CLIAuthSignedOut
+	}
 	boxHeight := state.aiPrepareBottom(canvas, width)
-	setupWidth := min(max(canvas.TextWidthWeight(m.SetupModel, aiSmallSize, ui.WeightMedium)+32, 110), width*0.5)
+	setupWidth := min(max(canvas.TextWidthWeight(setupLabel, aiSmallSize, ui.WeightMedium)+32, 110), width*0.5)
 
 	var body aiBody
 	f := state.aiFlex.body.Begin(canvas, state.Theme(), bounds)
@@ -491,9 +496,9 @@ func (state *State) paintAIBody(canvas *ui.Canvas, bounds ui.Rect) {
 			body.close = f.Slot().Size(barToolSize, barToolSize)
 		})
 		// The way to get a model; once there is one, the message box names it.
-		if !hasModel {
+		if showSetup {
 			f.Row().Height(56).MarginSides(0, aiPad, 8, aiPad).PadX(12).Gap(12).Items(flex.Center).Background(pal.surface).Border(1, pal.line).Radius(radius.control).Children(func() {
-				f.Paragraph(m.SetupSummary, 3).FontSize(aiSmallSize).Weight(ui.WeightRegular).Color(pal.muted).LineHeight(aiSmallLine).Grow(1)
+				f.Paragraph(setupSummary, 3).FontSize(aiSmallSize).Weight(ui.WeightRegular).Color(pal.muted).LineHeight(aiSmallLine).Grow(1)
 				body.setup = f.Slot().Size(setupWidth, 30)
 			})
 		}
@@ -504,8 +509,8 @@ func (state *State) paintAIBody(canvas *ui.Canvas, bounds ui.Rect) {
 	f.End()
 
 	state.paintAIHeader(canvas, &body)
-	if !hasModel {
-		components.BeginButton(canvas, state.Theme(), hitAISetup, body.setup.Rect()).Small().Default(m.SetupModel)
+	if showSetup {
+		components.BeginButton(canvas, state.Theme(), hitAISetup, body.setup.Rect()).Small().Default(setupLabel)
 	}
 	list := body.list.Rect()
 	panel.list = list

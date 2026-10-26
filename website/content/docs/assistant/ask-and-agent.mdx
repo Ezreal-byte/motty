@@ -8,6 +8,74 @@ Add a provider in **Settings > AI assistant**. OpenAI-compatible endpoints and
 Anthropic are supported. Provider keys are stored in the vault, never in the
 settings file.
 
+### Local CLI providers
+
+Choose **Claude Code CLI**, **Codex CLI**, or **OpenCode CLI** to use an already
+installed local agent. Leave the executable path empty to discover its command,
+or enter the path to the executable (spaces are supported; shell commands and
+extra arguments are not). Executable paths are local to each computer and are
+not copied by configuration sync. Other provider settings and models still sync.
+
+No Endpoint or API Key is required in Motty. The CLI keeps its own credentials
+and provider configuration. Select **CLI default model** to use its configured
+default, or manually add a model ID. The default entry and a successful version
+probe do not establish that authentication or model access works.
+
+Official-account sign-in is optional when the CLI already has a working
+third-party provider, API key, or gateway configuration. Authentication status
+is advisory: even a signed-out status does not block sending. Motty preserves
+the CLI's user-level routing and inherited environment; it does not replace
+them with official endpoints or move those credentials into Motty's vault.
+
+### Sign in from Motty
+
+The selected local provider has **Check status** and **Sign in** actions. A
+definite login-required assistant error also offers **Sign in** for that provider.
+Only your click starts authentication; opening settings or refreshing models
+never starts a browser or signs you in.
+
+Sign in opens a dedicated **sensitive local terminal**, not an SSH session:
+
+| Provider | Official command | Flow |
+| --- | --- | --- |
+| Claude Code | `claude auth login` | Official browser authorization and CLI code fallback. |
+| Codex | `codex login` | Official browser authorization; **Device code** is an explicit alternative. |
+| OpenCode | `opencode auth login` | Choose the provider, then its supported browser/key/other method. |
+
+Complete the CLI prompts, close the login terminal, and manually retry your
+question. Authentication is rechecked where the CLI supplies reliable status;
+OpenCode and custom/environment-key configurations may remain **unknown**.
+Unknown does not block sending a request. A provider/model permission or network
+error is not automatically treated as a signed-out account.
+
+The terminal's output and input never enter AI context, conversation history,
+recordings, or sync. Motty does not read, copy, or manage the CLI's credential
+files; the official CLI may save credentials during your login. Cancel/Escape,
+a 15-minute timeout, provider removal, or window close stops the owned login
+process without logging you out or closing your browser. Original AI requests
+and terminal actions are never automatically resumed after login.
+
+### CLI safety and compatibility
+
+Each AI send uses a private working directory and a short-lived, authenticated
+MCP endpoint scoped to its window and mode. It does not enable external MCP.
+CLI shell/file/browser/subagent execution channels are disabled: terminal and
+SFTP operations still go through Motty's normal approval gate. Unsupported
+isolation controls cause a clear failure rather than a weaker fallback. Installed
+CLI executables remain trusted software, not hostile programs sandboxed by Motty.
+
+For native CLI sessions, each accepted Motty tool call consumes one configured
+step. HTTP providers retain their existing tool-requesting-model-turn counting.
+Sends have a 30-minute total timeout; individual tool approval limits still apply.
+Motty does not automatically install, upgrade, or log in to a CLI.
+
+This adapter revision accepts Claude Code **2.1.309 or later in 2.1.x**, Codex
+**0.163.x**, and OpenCode **1.x with `--pure` support**. Other versions fail
+closed until their tool controls and protocol have been checked. Codex retains
+protocol-only MCP resource helpers, but the private Motty endpoint publishes no
+resources and rejects resource list/read requests. These helpers cannot read
+local files or reach another MCP server.
+
 ## Modes
 
 **Ask** answers questions with the visible terminal as context.

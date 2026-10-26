@@ -16,6 +16,7 @@ import (
 	"github.com/vivaui/viva/text"
 	"motty/internal/ai/llm"
 	"motty/internal/ai/store"
+	"motty/internal/localshell"
 	"motty/internal/sftpclient"
 	"motty/internal/sshconn"
 	"motty/internal/update"
@@ -170,6 +171,8 @@ type Options struct {
 	Quit func()
 	// OpenURL opens an external HTTP or HTTPS target. Nil uses app.OpenURL.
 	OpenURL func(string) error
+	// CLIAuthStart is a dedicated local auth terminal, never an AI-visible session.
+	CLIAuthStart func(localshell.Config) (Shell, error)
 	// Group lets this window's tabs move to and from the group's other windows.
 	// Nil keeps tabs in their window.
 	Group *Group
@@ -576,6 +579,7 @@ func (state *State) Wake() {
 	}
 	state.showNextPrompt()
 	state.drainAI()
+	state.aiPumpCLILogin()
 }
 
 // apply reads one status into a session: its dot, its busy flag, and the next

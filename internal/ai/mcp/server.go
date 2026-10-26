@@ -64,6 +64,10 @@ type Config struct {
 	Token string
 	// Gate supplies the gate for each tool call.
 	Gate func() gate.Gate
+	// Tools nil preserves the public server's default catalog. An explicit
+	// empty slice exposes no tools. Dispatch is used by request-scoped agents.
+	Tools    []tools.Spec
+	Dispatch func(context.Context, string, []byte) gate.Result
 	// ServerName and Version appear in the initialize reply.
 	ServerName, Version string
 	// MaxBody limits a request body; default 1 MiB.
@@ -80,6 +84,8 @@ type Server struct {
 	maxBody   int64
 	timeout   time.Duration
 	toolsList json.RawMessage
+	allowed   map[string]bool
+	dispatch  func(context.Context, string, []byte) gate.Result
 
 	base   context.Context
 	cancel context.CancelFunc
@@ -99,7 +105,7 @@ func New(cfg Config) (*Server, error) {
 			return nil, errors.New("mcp: token must be printable ASCII without spaces")
 		}
 	}
-	if cfg.Gate == nil {
+	if cfg.Gate == nil && cfg.Dispatch == nil {
 		return nil, errors.New("mcp: Gate provider is required")
 	}
 	s := &Server{
@@ -109,6 +115,8 @@ func New(cfg Config) (*Server, error) {
 		ver:       cfg.Version,
 		maxBody:   cfg.MaxBody,
 		timeout:   cfg.CallTimeout,
+		dispatch:  cfg.Dispatch,
+		allowed:   make(map[string]bool),
 	}
 	if s.name == "" {
 		s.name = "motty"
@@ -122,7 +130,17 @@ func New(cfg Config) (*Server, error) {
 	if s.timeout <= 0 {
 		s.timeout = DefaultCallTimeout
 	}
-	list, err := buildToolsList()
+	specs := cfg.Tools
+	if specs == nil {
+		specs = tools.All()
+	}
+	for _, spec := range specs {
+		if spec.Name == "" || s.allowed[spec.Name] {
+			return nil, errors.New("mcp: invalid scoped tool catalog")
+		}
+		s.allowed[spec.Name] = true
+	}
+	list, err := buildToolsListFor(specs)
 	if err != nil {
 		return nil, err
 	}
@@ -448,6 +466,10 @@ func (s *Server) initialize(params json.RawMessage) json.RawMessage {
 }
 
 func buildToolsList() (json.RawMessage, error) {
+	return buildToolsListFor(tools.All())
+}
+
+func buildToolsListFor(specs []tools.Spec) (json.RawMessage, error) {
 	type annotations struct {
 		ReadOnlyHint    bool  `json:"readOnlyHint"`
 		DestructiveHint *bool `json:"destructiveHint,omitempty"`
@@ -459,8 +481,8 @@ func buildToolsList() (json.RawMessage, error) {
 		Annotations annotations     `json:"annotations"`
 	}
 	yes, no := true, false
-	var list []entry
-	for _, sp := range tools.All() {
+	list := make([]entry, 0, len(specs))
+	for _, sp := range specs {
 		a := annotations{ReadOnlyHint: sp.Kind == tools.Read, DestructiveHint: &yes}
 		if sp.Kind == tools.Read {
 			a.DestructiveHint = &no
@@ -500,7 +522,7 @@ func (s *Server) callTool(ctx context.Context, params json.RawMessage) (json.Raw
 	if p.Name == "" {
 		return nil, &rpcError{codeInvalidParams, "name is required"}
 	}
-	if _, ok := tools.Lookup(p.Name); !ok {
+	if !s.allowed[p.Name] {
 		return nil, &rpcError{codeInvalidParams, "unknown tool: " + p.Name}
 	}
 	args := strings.TrimSpace(string(p.Arguments))
@@ -520,6 +542,10 @@ func (s *Server) callTool(ctx context.Context, params json.RawMessage) (json.Raw
 				done <- gate.Result{Text: "internal error while running the tool", IsError: true}
 			}
 		}()
+		if s.dispatch != nil {
+			done <- s.dispatch(ctx, p.Name, []byte(args))
+			return
+		}
 		g := s.gate()
 		if g.Backend == nil {
 			done <- gate.Result{Text: "the assistant backend is not available", IsError: true}

@@ -69,7 +69,7 @@ func startBackend(config Config) (backend, error) {
 	// the pseudo console, which then shows nothing.
 	startup.StartupInfo.Flags |= windows.STARTF_USESTDHANDLES
 
-	commandLine, err := windows.UTF16PtrFromString(windows.ComposeCommandLine([]string{program}))
+	commandLine, err := windows.UTF16PtrFromString(windows.ComposeCommandLine(append([]string{program}, config.Args...)))
 	if err != nil {
 		return fail(err)
 	}

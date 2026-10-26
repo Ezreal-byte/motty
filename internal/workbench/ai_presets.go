@@ -34,6 +34,9 @@ var aiPresets = [...]aiPreset{
 	{label: "Zhipu", icon: icons.AiZai, kind: store.KindOpenAI, url: "https://api.z.ai/api/paas/v4", urlZH: "https://open.bigmodel.cn/api/paas/v4"},
 	{label: "MiniMax", icon: icons.AiMinimax, kind: store.KindOpenAI, url: "https://api.minimax.io/v1", urlZH: "https://api.minimaxi.com/v1"},
 	{label: "Ollama", icon: icons.AiOllama, kind: store.KindOpenAI, url: "http://localhost:11434/v1"},
+	{label: "Claude Code CLI", icon: icons.AiClaude, kind: store.KindClaudeCLI},
+	{label: "Codex CLI", icon: icons.AiOpenai, kind: store.KindCodexCLI},
+	{label: "OpenCode CLI", icon: icons.Terminal, kind: store.KindOpenCodeCLI},
 	{icon: icons.Plug, kind: store.KindOpenAI}, // custom
 }
 
@@ -69,6 +72,14 @@ func (state *State) aiChoosePreset(index int) {
 	}
 	cfg.baseURL.SetSelection(text.Range{Start: 0, End: cfg.baseURL.RuneCount()})
 	cfg.baseURL.Insert(preset.address(state.language))
+	if store.IsCLIKind(preset.kind) {
+		if cfg.preset != index {
+			// A path belongs to one CLI executable, not to the preset slot.
+			cfg.cliPath = text.Editor{}
+		}
+		cfg.apiKey = text.Editor{}
+		cfg.hadKey = false
+	}
 	cfg.kind, cfg.preset, cfg.presetOpen = preset.kind, index, false
 }
 
@@ -85,6 +96,14 @@ func (state *State) aiPresetName(index int) string {
 // the name is the user's to change, so the address decides: a preset's host, in
 // either of its regions. No address is the official one of the provider's kind.
 func aiPresetOf(provider store.Provider) int {
+	if store.IsCLIKind(provider.Kind) {
+		for index, preset := range aiPresets {
+			if preset.kind == provider.Kind {
+				return index
+			}
+		}
+		return aiPresetCustom
+	}
 	if strings.TrimSpace(provider.BaseURL) == "" {
 		if provider.Kind == store.KindAnthropic {
 			return 0

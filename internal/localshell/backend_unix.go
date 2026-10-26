@@ -19,7 +19,11 @@ func startBackend(config Config) (backend, error) {
 	if program == "" {
 		program = "/bin/sh"
 	}
-	cmd := exec.Command(program, "-l")
+	args := config.Args
+	if args == nil {
+		args = []string{"-l"}
+	}
+	cmd := exec.Command(program, args...)
 	cmd.Dir = config.Dir
 	if cmd.Dir == "" {
 		if home, err := os.UserHomeDir(); err == nil {

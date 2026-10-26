@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strings"
 
+	"motty/internal/ai/store"
 	"motty/internal/configstore"
 )
 
@@ -86,6 +87,7 @@ var entityFields = []entityField{
 		return joinKey(fieldText(fields, "host"), fieldText(fields, "path"))
 	}},
 	{field: "ai_providers", kind: kindAIProvider, keepWhenAbsent: true, key: func(fields map[string]json.RawMessage) string { return fieldText(fields, "id") }},
+	{field: "ai_cli_providers", kind: kindAICLIProvider, keepWhenAbsent: true, key: func(fields map[string]json.RawMessage) string { return fieldText(fields, "id") }},
 	{field: "outbound_proxy", kind: "outbound-proxy", single: true, key: func(map[string]json.RawMessage) string { return "main" }},
 }
 
@@ -146,6 +148,17 @@ func boundKey(key string) string {
 // known setting or list item of the right shape. A record of a kind or setting
 // this build does not know is left alone, neither read nor deleted.
 func recordParses(kind, id string, data json.RawMessage) (known, ok bool) {
+	if kind == kindAIProvider || kind == kindAICLIProvider {
+		var provider savedAIProvider
+		if json.Unmarshal(data, &provider) != nil {
+			return true, false
+		}
+		// Future provider subtypes are opaque too: importing and then omitting
+		// them from a snapshot would otherwise turn a save into a deletion.
+		if !store.ValidProviderKind(provider.Kind) || store.IsCLIKind(provider.Kind) != (kind == kindAICLIProvider) {
+			return false, true
+		}
+	}
 	var body []byte
 	if kind == kindSetting {
 		if !syncedSettings[id] {

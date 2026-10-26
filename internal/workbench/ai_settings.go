@@ -46,6 +46,7 @@ var (
 	hitAISetFormName          = tree.ID(aiSettingsHits, "ai-set-form-name")
 	hitAISetFormURL           = tree.ID(aiSettingsHits, "ai-set-form-url")
 	hitAISetFormKey           = tree.ID(aiSettingsHits, "ai-set-form-key")
+	hitAISetFormCLIPath       = tree.ID(aiSettingsHits, "ai-set-form-cli-path")
 	hitAISetConfirmCancel     = tree.ID(aiSettingsHits, "ai-set-confirm-cancel")
 	hitAISetConfirmAction     = tree.ID(aiSettingsHits, "ai-set-confirm-action")
 	hitAISetFetchModels       = tree.ID(aiSettingsHits, "ai-set-fetch-models")
@@ -104,6 +105,7 @@ const (
 	aiDialogProvider
 	aiDialogDelete
 	aiDialogClear
+	aiDialogCLILogin
 )
 
 // aiCopyState is what the "copy client configuration" button last did.
@@ -137,6 +139,7 @@ type aiSettingsUI struct {
 	name       text.Editor
 	baseURL    text.Editor
 	apiKey     text.Editor
+	cliPath    text.Editor
 	hadKey     bool
 	formErr    string
 	// deleteID is the provider the delete question is about.
@@ -187,6 +190,18 @@ func (state *State) aiSettingsClick(id ui.ID) bool {
 	}
 	cfg.clearedDone, cfg.copied, cfg.tokenReset, cfg.notice = false, aiCopyIdle, false, ""
 	switch {
+	case id == hitAICLILogin:
+		if provider, ok := state.aiSelectedProvider(); ok {
+			state.aiStartCLILogin(provider.ID, false)
+		}
+	case id == hitAICLIDevice:
+		if provider, ok := state.aiSelectedProvider(); ok {
+			state.aiStartCLILogin(provider.ID, true)
+		}
+	case id == hitAICLIRecheck:
+		if provider, ok := state.aiSelectedProvider(); ok {
+			state.aiCheckCLIAuth(provider)
+		}
 	case id == hitAISetProviderAdd:
 		state.aiOpenProviderForm("")
 	case id.Scope() == hitAISetProviderRow:
@@ -290,6 +305,10 @@ func onOff(on bool) string {
 func (state *State) aiDialogClick(id ui.ID) {
 	cfg := &state.ai.cfg
 	switch cfg.dialog {
+	case aiDialogCLILogin:
+		if id == hitAISetFormDismiss || id == hitAISetFormClose || id == hitAISetFormCancel {
+			state.aiStopCLILogin()
+		}
 	case aiDialogProvider:
 		if cfg.presetOpen {
 			switch {
@@ -310,8 +329,14 @@ func (state *State) aiDialogClick(id ui.ID) {
 		case hitAISetFormSubmit:
 			state.aiSubmitProvider()
 		case hitAISetFormKindOpenAI:
+			if store.IsCLIKind(cfg.kind) {
+				return
+			}
 			cfg.kind = store.KindOpenAI
 		case hitAISetFormKindClaude:
+			if store.IsCLIKind(cfg.kind) {
+				return
+			}
 			cfg.kind = store.KindAnthropic
 		}
 	case aiDialogDelete:
@@ -339,24 +364,39 @@ func (state *State) aiCloseDialog() {
 	cfg := &state.ai.cfg
 	cfg.dialog, cfg.editID, cfg.deleteID, cfg.formErr, cfg.hadKey, cfg.presetOpen = aiDialogNone, "", "", "", false, false
 	cfg.name, cfg.baseURL, cfg.apiKey = text.Editor{}, text.Editor{}, text.Editor{}
+	cfg.cliPath = text.Editor{}
 }
 
 func (state *State) aiSettingsPointer(event ui.PointerEvent) (ui.EventResult, bool) {
+	if state.ai.login != nil && event.Target == hitAICLILoginTerminal {
+		return ui.EventResult{Handled: true, Focus: hitAICLILoginTerminal}, true
+	}
 	return ui.EventResult{}, false
 }
 
 func (state *State) aiSettingsScroll(event ui.ScrollEvent) (ui.EventResult, bool) {
+	if state.ai.login != nil && state.ai.cfg.dialog == aiDialogCLILogin {
+		state.ai.login.term.screen.Scroll(int(event.DeltaY / max(state.cellHeight, 1)))
+		return ui.EventResult{Handled: true, Repaint: true}, true
+	}
 	return ui.EventResult{}, false
 }
 
 func (state *State) aiSettingsKey(event ui.KeyEvent) (ui.EventResult, bool) {
+	if state.ai.login != nil && state.ai.cfg.dialog == aiDialogCLILogin {
+		if event.Key == ui.KeyEscape {
+			state.aiStopCLILogin()
+			return ui.EventResult{Handled: true, Repaint: true}, true
+		}
+		return state.aiCLILoginKey(event), true
+	}
 	if !state.aiSettingsVisible() {
 		return ui.EventResult{}, false
 	}
 	cfg := &state.ai.cfg
 	if event.Key == ui.KeyEnter && !event.Repeat {
 		switch {
-		case cfg.dialog == aiDialogProvider && (event.Target == hitAISetFormName || event.Target == hitAISetFormURL || event.Target == hitAISetFormKey):
+		case cfg.dialog == aiDialogProvider && (event.Target == hitAISetFormName || event.Target == hitAISetFormURL || event.Target == hitAISetFormKey || event.Target == hitAISetFormCLIPath):
 			state.aiSubmitProvider()
 			return ui.EventResult{Handled: true, Repaint: true}, true
 		case cfg.dialog == aiDialogNone && event.Target == hitAISetModelInput:
@@ -409,9 +449,11 @@ func (state *State) aiSettingsEditor(hit ui.ID) *text.Editor {
 	switch {
 	case cfg.dialog == aiDialogProvider && hit == hitAISetFormName:
 		return &cfg.name
-	case cfg.dialog == aiDialogProvider && hit == hitAISetFormURL:
+	case cfg.dialog == aiDialogProvider && hit == hitAISetFormCLIPath && store.IsCLIKind(cfg.kind):
+		return &cfg.cliPath
+	case cfg.dialog == aiDialogProvider && hit == hitAISetFormURL && !store.IsCLIKind(cfg.kind):
 		return &cfg.baseURL
-	case cfg.dialog == aiDialogProvider && hit == hitAISetFormKey:
+	case cfg.dialog == aiDialogProvider && hit == hitAISetFormKey && !store.IsCLIKind(cfg.kind):
 		return &cfg.apiKey
 	case cfg.dialog == aiDialogNone && hit == hitAISetModelInput:
 		cfg.modelInput.Restrict(modelNameRune, 200)
@@ -483,6 +525,7 @@ func (state *State) aiWrote() {
 // aiScrub removes an API key from text about to be shown. The libraries already
 // keep keys out of their errors; this is the second lock.
 func (state *State) aiScrub(message, key string) string {
+	message = state.aiCLIError(message)
 	if len(key) >= 4 {
 		message = strings.ReplaceAll(message, key, "***")
 	}
@@ -554,6 +597,7 @@ func (state *State) aiOpenProviderForm(id string) {
 	cfg.name.Restrict(printableLine, 64)
 	cfg.baseURL.Restrict(printableLine, 300)
 	cfg.apiKey.Restrict(printableLine, 600)
+	cfg.cliPath.Restrict(printableLine, 4096)
 	if id == "" {
 		return
 	}
@@ -565,6 +609,7 @@ func (state *State) aiOpenProviderForm(id string) {
 	cfg.editID, cfg.kind, cfg.hadKey = provider.ID, provider.Kind, provider.HasKey
 	cfg.name.Insert(provider.Name)
 	cfg.baseURL.Insert(provider.BaseURL)
+	cfg.cliPath.Insert(provider.CLIPath)
 }
 
 // printableLine accepts what a one-line field may hold: no control characters
@@ -598,28 +643,37 @@ func (state *State) aiSubmitProvider() {
 	name := strings.TrimSpace(cfg.name.String())
 	base := strings.TrimSpace(cfg.baseURL.String())
 	key := strings.TrimSpace(cfg.apiKey.String())
+	cliProvider := store.IsCLIKind(cfg.kind)
+	if cliProvider {
+		base, key = "", ""
+	}
 	switch {
 	case name == "":
 		cfg.formErr = m.ErrFormName
 		return
-	case base != "" && !validBaseURL(base):
+	case !cliProvider && base != "" && !validBaseURL(base):
 		cfg.formErr = m.ErrFormBaseURL
 		return
-	case base == "" && key == "" && !cfg.hadKey:
+	case !cliProvider && base == "" && key == "" && !cfg.hadKey:
 		cfg.formErr = m.ErrFormKey
 		return
 	}
 	provider := store.Provider{ID: cfg.editID, Name: name, Kind: cfg.kind, BaseURL: base, APIKey: key, HasKey: key != "", Enabled: true}
+	if cliProvider {
+		provider.CLIPath = strings.TrimSpace(cfg.cliPath.String())
+	}
 	// A new provider, or one reached differently, has models nobody has listed yet.
 	refetch := cfg.editID == ""
+	resetAuth := false
 	if cfg.editID == "" {
 		provider.ID = newProviderID()
 	} else if old, ok := state.aiProviderByID(cfg.editID); ok {
 		provider.Enabled = old.Enabled
-		if key == "" {
+		if key == "" && !cliProvider {
 			provider.APIKey, provider.HasKey = old.APIKey, old.HasKey // the field is left empty to keep the key
 		}
-		refetch = provider.Kind != old.Kind || provider.BaseURL != old.BaseURL || provider.APIKey != old.APIKey
+		refetch = provider.Kind != old.Kind || provider.BaseURL != old.BaseURL || provider.APIKey != old.APIKey || provider.CLIPath != old.CLIPath
+		resetAuth = cliProvider && (provider.Kind != old.Kind || provider.CLIPath != old.CLIPath)
 	}
 	db, err := state.aiStore()
 	if err == nil && key != "" {
@@ -637,6 +691,9 @@ func (state *State) aiSubmitProvider() {
 	}
 	if cfg.editID == "" {
 		cfg.selected, cfg.page = provider.ID, 0
+	}
+	if resetAuth {
+		state.aiResetCLIAuth(provider.ID)
 	}
 	state.aiCloseDialog()
 	state.aiWrote()
@@ -660,10 +717,20 @@ func (state *State) aiSaveKey(providerID, key string) error {
 }
 
 func (state *State) aiDeleteProvider(id string) {
+	if state.ai.login != nil && state.ai.login.provider.ID == id {
+		state.aiStopCLILogin()
+	}
+	if check := state.ai.authChecks[id]; check != nil {
+		check.cancel()
+		delete(state.ai.authChecks, id)
+	}
 	cfg := &state.ai.cfg
 	db, err := state.aiStore()
 	if err == nil {
-		if opened := state.secrets.vault; opened != nil {
+		// CLI providers have no API key. Asking for the master password just to
+		// delete one is both surprising and unnecessary.
+		provider, hasProvider := state.aiProviderByID(id)
+		if opened := state.secrets.vault; hasProvider && provider.HasKey && opened != nil {
 			// The key goes first, so a failure leaves the provider whole. A locked
 			// vault is opened and the deletion tried again.
 			switch err = opened.Delete(aiKeySecretName(id)); {

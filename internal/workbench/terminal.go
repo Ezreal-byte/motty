@@ -721,6 +721,9 @@ func (state *State) terminalSession(hit ui.ID) *Session {
 // preedit surface at the cursor cell where input methods compose, and the
 // receiver of committed text and pastes. The returned value is reused.
 func (state *State) TerminalInput(context app.TextInputContext) *app.TextInput {
+	if context.ID == hitAICLILoginTerminal {
+		return state.aiCLILoginInput(context)
+	}
 	session, local, embedded := state.decodePaneHit(context.ID)
 	if embedded {
 		context.ID = local

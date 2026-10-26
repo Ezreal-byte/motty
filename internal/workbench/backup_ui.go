@@ -251,7 +251,7 @@ func (state *State) applyBackup(document backup.Document) (hosts int, err error)
 	if err != nil {
 		return 0, backup.ErrNotBackup
 	}
-	if incoming.AIProviders == nil && state.recordedProviders() > 0 {
+	if incoming.AIProviders == nil && state.recordedProviders(kindAIProvider) > 0 {
 		incoming.AIProviders = &[]savedAIProvider{} // a restore replaces what was recorded
 	}
 	state.restoreShared(incoming)

@@ -14,6 +14,7 @@ import (
 	"github.com/vivaui/viva/components"
 	"github.com/vivaui/viva/text"
 	"motty/internal/ai/agent"
+	"motty/internal/ai/cli"
 	"motty/internal/ai/gate"
 	"motty/internal/ai/llm"
 	"motty/internal/ai/risk"
@@ -70,7 +71,8 @@ type aiAnswer struct {
 
 // aiRun is one request to the model in flight.
 type aiRun struct {
-	cancel context.CancelFunc
+	cancel     context.CancelFunc
+	providerID string
 	// open is the item that streamed text is appended to, or -1.
 	open int
 	// text accumulates the open item's streamed text. A builder (rather than
@@ -115,6 +117,7 @@ type aiState struct {
 	// switch to Agent, so the model can still answer instead of stopping at the
 	// escalation card.
 	answerOnly bool
+	needLogin  string
 	// panelWidth is the width the user dragged the docked panel to, 0 for the
 	// default; composerHeight likewise for the message box, 0 for as tall as its
 	// text asks.
@@ -153,7 +156,10 @@ type aiState struct {
 	// what they must present; empty while the server is not running.
 	mcpAddr, mcpToken string
 	// cfg is the settings section's own state (ai_settings.go).
-	cfg aiSettingsUI
+	cfg        aiSettingsUI
+	login      *aiCLILogin
+	auth       map[string]cli.AuthState
+	authChecks map[string]*aiCLIAuthCheck
 	// panel is the assistant panel's own state (ai_panel.go).
 	panel aiPanel
 }
@@ -172,6 +178,10 @@ func (state *State) closeAI() {
 	}
 	if state.ai.run != nil {
 		state.ai.run.cancel()
+	}
+	state.aiStopCLILogin()
+	for _, check := range state.ai.authChecks {
+		check.cancel()
 	}
 	for _, approval := range state.ai.approvals {
 		if approval.reply != nil {
@@ -301,6 +311,10 @@ func (state *State) aiAdoptKeys() {
 // in a vault that is locked it asks for the master password, runs retry once it
 // has been given, and reports false: nothing may be sent without the key.
 func (state *State) aiKeyedProvider(provider store.Provider, retry func()) (store.Provider, bool) {
+	if store.IsCLIKind(provider.Kind) {
+		provider.APIKey, provider.HasKey = "", false
+		return provider, true
+	}
 	if provider.APIKey != "" || !provider.HasKey {
 		return provider, true
 	}
@@ -346,6 +360,9 @@ var errNoAIModel = errors.New("no model is set up")
 func (state *State) aiProvider(provider store.Provider) llm.Provider {
 	if state.options.AIProvider != nil {
 		return state.options.AIProvider(provider)
+	}
+	if store.IsCLIKind(provider.Kind) || !store.ValidProviderKind(provider.Kind) {
+		return cli.New(provider.Kind, provider.CLIPath)
 	}
 	config := llm.Config{BaseURL: provider.BaseURL, APIKey: provider.APIKey}
 	if provider.Kind == store.KindAnthropic {
@@ -577,6 +594,7 @@ func (state *State) aiSend() {
 		return // the question stays in the box until the vault is open
 	}
 	ai.notice = ""
+	ai.needLogin = ""
 	retry := ai.retry
 	answerOnly := ai.answerOnly
 	ai.retry = false
@@ -614,7 +632,7 @@ func (state *State) aiSend() {
 		RedactToolResults: ai.settings.redact,
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	run := &aiRun{cancel: cancel, open: -1}
+	run := &aiRun{cancel: cancel, open: -1, providerID: provider.ID}
 	ai.run = run
 	history := append([]llm.Message(nil), ai.history...)
 	go func() {
@@ -633,6 +651,12 @@ func (state *State) aiStop() {
 }
 
 func (state *State) aiEvent(run *aiRun, event agent.Event) {
+	if event.Kind == agent.EventError {
+		if state.ai.run == run && event.Text == "cli: login_required" {
+			state.ai.needLogin = run.providerID
+		}
+		event.Text = state.aiCLIError(event.Text)
+	}
 	ai := &state.ai
 	if ai.run != run {
 		return
@@ -773,7 +797,7 @@ func (state *State) aiFinished(run *aiRun, messages []llm.Message, err error) {
 	ai.approvals = kept
 	if err != nil && !errors.Is(err, context.Canceled) {
 		if n := len(ai.items); n == 0 || ai.items[n-1].kind != aiNotice {
-			ai.items = append(ai.items, aiItem{kind: aiNotice, text: err.Error()})
+			ai.items = append(ai.items, aiItem{kind: aiNotice, text: state.aiCLIError(err.Error())})
 		}
 	}
 	ai.history = append(ai.history, messages...)

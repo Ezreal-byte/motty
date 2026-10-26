@@ -213,6 +213,9 @@ func Run(ctx context.Context, cfg Config, history []llm.Message, userText string
 		msgs = append(msgs, user)
 		safe++
 	}
+	if session, ok := cfg.Provider.(SessionProvider); ok {
+		return runSession(ctx, cfg, session, msgs, base, specs, emit)
+	}
 
 	var (
 		usage     llm.Usage

@@ -75,7 +75,7 @@ func (e *LimitError) Error() string {
 // Is makes errors.Is(err, ErrTooLarge) true.
 func (e *LimitError) Is(target error) bool { return target == ErrTooLarge }
 
-const schemaVersion = 2
+const schemaVersion = 3
 
 var migrations = [...]string{
 	// version 1
@@ -119,6 +119,8 @@ var migrations = [...]string{
 	// The legacy api_key column stays until its value has been moved.
 	`ALTER TABLE providers ADD COLUMN has_key INTEGER NOT NULL DEFAULT 0;
 	UPDATE providers SET has_key = (api_key <> '');`,
+	// Executable paths belong to this machine, not provider sync records.
+	`ALTER TABLE providers ADD COLUMN cli_path TEXT NOT NULL DEFAULT '';`,
 }
 
 const sqliteMagic = "SQLite format 3\x00"
@@ -289,9 +291,20 @@ func toTime(ns int64) time.Time { return time.Unix(0, ns) }
 
 // Provider kinds.
 const (
-	KindOpenAI    = "openai"
-	KindAnthropic = "anthropic"
+	KindOpenAI      = "openai"
+	KindAnthropic   = "anthropic"
+	KindClaudeCLI   = "claude-code-cli"
+	KindCodexCLI    = "codex-cli"
+	KindOpenCodeCLI = "opencode-cli"
 )
+
+func IsCLIKind(kind string) bool {
+	return kind == KindClaudeCLI || kind == KindCodexCLI || kind == KindOpenCodeCLI
+}
+
+func ValidProviderKind(kind string) bool {
+	return kind == KindOpenAI || kind == KindAnthropic || IsCLIKind(kind)
+}
 
 // Provider is a configured model endpoint. The API key is not persisted by
 // the store: HasKey says a key exists in the vault, and APIKey is an in-memory
@@ -299,8 +312,9 @@ const (
 type Provider struct {
 	ID      string
 	Name    string
-	Kind    string // "openai" or "anthropic"
+	Kind    string
 	BaseURL string
+	CLIPath string // Machine-local; never included in provider sync records.
 	APIKey  string
 	HasKey  bool
 	Enabled bool
@@ -324,19 +338,22 @@ func (p Provider) GoString() string { return p.redacted() }
 // SaveProvider inserts or updates a provider by ID. It never writes the API
 // key; a legacy plaintext key already in the row is left for ClearLegacyKey.
 func (s *Store) SaveProvider(p Provider) error {
-	if p.ID == "" || (p.Kind != KindOpenAI && p.Kind != KindAnthropic) {
-		return fmt.Errorf("%w: provider needs an id and kind openai|anthropic", ErrInvalid)
+	if p.ID == "" || !ValidProviderKind(p.Kind) {
+		return fmt.Errorf("%w: provider needs an id and a supported kind", ErrInvalid)
 	}
-	_, err := s.db.Exec(`INSERT INTO providers(id,name,kind,base_url,api_key,has_key,enabled) VALUES(?,?,?,?,'',?,?)
+	if IsCLIKind(p.Kind) && (p.BaseURL != "" || p.APIKey != "" || p.HasKey) {
+		return fmt.Errorf("%w: CLI providers use their own authentication", ErrInvalid)
+	}
+	_, err := s.db.Exec(`INSERT INTO providers(id,name,kind,base_url,api_key,has_key,enabled,cli_path) VALUES(?,?,?,?,'',?,?,?)
 		ON CONFLICT(id) DO UPDATE SET name=excluded.name, kind=excluded.kind,
-		base_url=excluded.base_url, has_key=excluded.has_key, enabled=excluded.enabled`,
-		p.ID, p.Name, p.Kind, p.BaseURL, b2i(p.HasKey), b2i(p.Enabled))
+		base_url=excluded.base_url, has_key=excluded.has_key, enabled=excluded.enabled, cli_path=excluded.cli_path`,
+		p.ID, p.Name, p.Kind, p.BaseURL, b2i(p.HasKey), b2i(p.Enabled), p.CLIPath)
 	return wrapDB(err)
 }
 
 // Providers lists all providers ordered by name then ID.
 func (s *Store) Providers() ([]Provider, error) {
-	rows, err := s.db.Query(`SELECT id,name,kind,base_url,has_key,enabled FROM providers ORDER BY name, id`)
+	rows, err := s.db.Query(`SELECT id,name,kind,base_url,has_key,enabled,cli_path FROM providers ORDER BY name, id`)
 	if err != nil {
 		return nil, wrapDB(err)
 	}
@@ -345,7 +362,7 @@ func (s *Store) Providers() ([]Provider, error) {
 	for rows.Next() {
 		var p Provider
 		var hk, en int
-		if err := rows.Scan(&p.ID, &p.Name, &p.Kind, &p.BaseURL, &hk, &en); err != nil {
+		if err := rows.Scan(&p.ID, &p.Name, &p.Kind, &p.BaseURL, &hk, &en, &p.CLIPath); err != nil {
 			return nil, wrapDB(err)
 		}
 		p.HasKey = hk != 0

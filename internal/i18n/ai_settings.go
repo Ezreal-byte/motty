@@ -21,27 +21,51 @@ type AISettingsMessages struct {
 	ProviderKindClaude string
 
 	// The provider dialog.
-	FormAddTitle      string
-	FormEditTitle     string
-	FormDescription   string
-	FormName          string
-	FormNamePH        string
-	FormKind          string
-	FormPreset        string
-	FormPresetCustom  string
-	FormBaseURL       string
-	FormBaseURLOpenAI string // placeholder: the official default
-	FormBaseURLClaude string
-	FormKey           string
-	FormKeyPH         string
-	FormKeySaved      string
-	FormSave          string
-	FormAdd           string
-	ErrFormName       string
-	ErrFormBaseURL    string
-	ErrFormKey        string
-	ErrFormSaveFmt    string
-	ErrModelName      string
+	FormAddTitle       string
+	FormEditTitle      string
+	FormDescription    string
+	FormName           string
+	FormNamePH         string
+	FormKind           string
+	FormPreset         string
+	FormPresetCustom   string
+	FormBaseURL        string
+	FormBaseURLOpenAI  string // placeholder: the official default
+	FormBaseURLClaude  string
+	FormKey            string
+	FormKeyPH          string
+	FormKeySaved       string
+	FormSave           string
+	FormAdd            string
+	ErrFormName        string
+	ErrFormBaseURL     string
+	ErrFormKey         string
+	ErrFormSaveFmt     string
+	ErrModelName       string
+	CLIPath            string
+	CLIPathDefault     string
+	CLIFormDescription string
+	CLIDefaultModel    string
+	CLIModelsNote      string
+	CLIModelsCheck     string
+
+	CLIAuthTitle      string
+	CLIAuthLogin      string
+	CLIAuthDevice     string
+	CLIAuthRecheck    string
+	CLIAuthUnknown    string
+	CLIAuthSignedOut  string
+	CLIAuthConfigured string
+	CLIAuthChecking   string
+	CLIAuthSigningIn  string
+	CLIAuthFailed     string
+	CLIAuthCanceled   string
+	CLIAuthTimeout    string
+	CLIAuthSensitive  string
+	CLIErrInstall     string
+	CLIErrVersion     string
+	CLIErrLogin       string
+	CLIErrRunFmt      string
 
 	// Deleting a provider.
 	DeleteTitle   string
@@ -131,6 +155,24 @@ type AISettingsMessages struct {
 }
 
 var englishAISettings = AISettingsMessages{
+	CLIAuthTitle:      "CLI authentication",
+	CLIAuthLogin:      "Sign in",
+	CLIAuthDevice:     "Device code",
+	CLIAuthRecheck:    "Check status",
+	CLIAuthUnknown:    "Status unknown; environment keys and custom providers may still work.",
+	CLIAuthSignedOut:  "CLI reports no login; a configured third-party provider may still work.",
+	CLIAuthConfigured: "Credentials configured (model availability not verified).",
+	CLIAuthChecking:   "Checking authentication...",
+	CLIAuthSigningIn:  "Waiting for official CLI authorization...",
+	CLIAuthFailed:     "Login failed. Check the local login terminal and retry.",
+	CLIAuthCanceled:   "Login canceled; existing credentials are unchanged.",
+	CLIAuthTimeout:    "Login timed out. Start again when ready.",
+	CLIAuthSensitive:  "Sensitive local terminal: never sent to AI, recorded or synced. Complete the CLI prompts, then close and retry your request.",
+	CLIErrInstall:     "CLI not found or its launcher is unsupported. Install it separately or set its executable path.",
+	CLIErrVersion:     "This CLI cannot provide the required execution isolation. Check its version and configuration.",
+	CLIErrLogin:       "The CLI reported an authentication error. Check its third-party credentials or use Sign in if needed.",
+	CLIErrRunFmt:      "Local CLI failed (%s). Check its installation, authentication and model settings.",
+
 	Title:         "AI assistant",
 	Description:   "Models, safety limits and access for the built-in assistant.",
 	StoreErrorFmt: "The assistant's database could not be opened: %s",
@@ -147,27 +189,33 @@ var englishAISettings = AISettingsMessages{
 	ProviderKindOpenAI: "OpenAI-compatible",
 	ProviderKindClaude: "Anthropic",
 
-	FormAddTitle:      "Add provider",
-	FormEditTitle:     "Edit provider",
-	FormDescription:   "The key is stored on this computer and is never shown again.",
-	FormName:          "Name",
-	FormNamePH:        "My provider",
-	FormKind:          "API type",
-	FormPreset:        "Provider",
-	FormPresetCustom:  "Custom",
-	FormBaseURL:       "Base URL",
-	FormBaseURLOpenAI: "https://api.openai.com/v1 (default)",
-	FormBaseURLClaude: "https://api.anthropic.com (default)",
-	FormKey:           "API key",
-	FormKeyPH:         "Paste the key",
-	FormKeySaved:      "A key is saved. Leave empty to keep it.",
-	FormSave:          "Save",
-	FormAdd:           "Add",
-	ErrFormName:       "Give the provider a name.",
-	ErrFormBaseURL:    "The base URL must start with http:// or https://.",
-	ErrFormKey:        "The official endpoint needs an API key.",
-	ErrFormSaveFmt:    "Could not save: %s",
-	ErrModelName:      "A model name has no spaces.",
+	FormAddTitle:       "Add provider",
+	FormEditTitle:      "Edit provider",
+	FormDescription:    "The key is stored on this computer and is never shown again.",
+	FormName:           "Name",
+	FormNamePH:         "My provider",
+	FormKind:           "API type",
+	FormPreset:         "Provider",
+	FormPresetCustom:   "Custom",
+	FormBaseURL:        "Base URL",
+	FormBaseURLOpenAI:  "https://api.openai.com/v1 (default)",
+	FormBaseURLClaude:  "https://api.anthropic.com (default)",
+	FormKey:            "API key",
+	FormKeyPH:          "Paste the key",
+	FormKeySaved:       "A key is saved. Leave empty to keep it.",
+	FormSave:           "Save",
+	FormAdd:            "Add",
+	ErrFormName:        "Give the provider a name.",
+	ErrFormBaseURL:     "The base URL must start with http:// or https://.",
+	ErrFormKey:         "The official endpoint needs an API key.",
+	ErrFormSaveFmt:     "Could not save: %s",
+	ErrModelName:       "A model name has no spaces.",
+	CLIPath:            "CLI executable path",
+	CLIPathDefault:     "Automatic (local PATH)",
+	CLIFormDescription: "Use an installed local CLI and its existing provider credentials. Official sign-in is optional; Motty never copies credentials.",
+	CLIDefaultModel:    "CLI default model",
+	CLIModelsNote:      "Default/manual CLI models are configured locally, not remotely verified.",
+	CLIModelsCheck:     "Check CLI",
 
 	DeleteTitle:   "Delete provider?",
 	DeleteBodyFmt: "\"%s\", its models and its saved key will be removed.",
@@ -253,6 +301,24 @@ var englishAISettings = AISettingsMessages{
 }
 
 var chineseAISettings = AISettingsMessages{
+	CLIAuthTitle:      "CLI 认证",
+	CLIAuthLogin:      "去登录",
+	CLIAuthDevice:     "设备码登录",
+	CLIAuthRecheck:    "检查状态",
+	CLIAuthUnknown:    "状态未知；环境密钥或自定义服务商仍可能正常使用。",
+	CLIAuthSignedOut:  "CLI 报告未登录；已配置第三方平台时仍可直接尝试使用。",
+	CLIAuthConfigured: "已配置凭据（尚未验证模型可用性）。",
+	CLIAuthChecking:   "正在检查认证状态…",
+	CLIAuthSigningIn:  "等待 CLI 官方授权…",
+	CLIAuthFailed:     "登录失败，请检查本机登录终端后重试。",
+	CLIAuthCanceled:   "已取消登录，不会清除已有凭据。",
+	CLIAuthTimeout:    "登录超时，请准备好后重新发起。",
+	CLIAuthSensitive:  "敏感的本机登录终端：不会发送给 AI、录制或同步。完成 CLI 提示后关闭，再手动重试请求。",
+	CLIErrInstall:     "未找到 CLI 或不支持其启动器，请自行安装或设置可执行文件路径。",
+	CLIErrVersion:     "此 CLI 无法提供所需的执行隔离，请检查版本和配置。",
+	CLIErrLogin:       "CLI 返回认证错误。请检查第三方平台凭据，或按需使用「去登录」。",
+	CLIErrRunFmt:      "本机 CLI 执行失败（%s），请检查安装、认证和模型设置。",
+
 	Title:         "AI 助手",
 	Description:   "内置助手的模型、安全限制和对外访问。",
 	StoreErrorFmt: "无法打开助手的数据库：%s",
@@ -269,27 +335,33 @@ var chineseAISettings = AISettingsMessages{
 	ProviderKindOpenAI: "OpenAI 兼容",
 	ProviderKindClaude: "Anthropic",
 
-	FormAddTitle:      "添加服务商",
-	FormEditTitle:     "编辑服务商",
-	FormDescription:   "密钥只保存在这台电脑上，保存后不会再显示。",
-	FormName:          "名称",
-	FormNamePH:        "我的服务商",
-	FormKind:          "接口类型",
-	FormPreset:        "服务商",
-	FormPresetCustom:  "自定义",
-	FormBaseURL:       "基础地址",
-	FormBaseURLOpenAI: "https://api.openai.com/v1（默认）",
-	FormBaseURLClaude: "https://api.anthropic.com（默认）",
-	FormKey:           "API 密钥",
-	FormKeyPH:         "粘贴密钥",
-	FormKeySaved:      "已保存密钥，留空表示保持不变。",
-	FormSave:          "保存",
-	FormAdd:           "添加",
-	ErrFormName:       "请给服务商起个名字。",
-	ErrFormBaseURL:    "基础地址必须以 http:// 或 https:// 开头。",
-	ErrFormKey:        "使用官方地址需要填写 API 密钥。",
-	ErrFormSaveFmt:    "无法保存：%s",
-	ErrModelName:      "模型名称不能包含空格。",
+	FormAddTitle:       "添加服务商",
+	FormEditTitle:      "编辑服务商",
+	FormDescription:    "密钥只保存在这台电脑上，保存后不会再显示。",
+	FormName:           "名称",
+	FormNamePH:         "我的服务商",
+	FormKind:           "接口类型",
+	FormPreset:         "服务商",
+	FormPresetCustom:   "自定义",
+	FormBaseURL:        "基础地址",
+	FormBaseURLOpenAI:  "https://api.openai.com/v1（默认）",
+	FormBaseURLClaude:  "https://api.anthropic.com（默认）",
+	FormKey:            "API 密钥",
+	FormKeyPH:          "粘贴密钥",
+	FormKeySaved:       "已保存密钥，留空表示保持不变。",
+	FormSave:           "保存",
+	FormAdd:            "添加",
+	ErrFormName:        "请给服务商起个名字。",
+	ErrFormBaseURL:     "基础地址必须以 http:// 或 https:// 开头。",
+	ErrFormKey:         "使用官方地址需要填写 API 密钥。",
+	ErrFormSaveFmt:     "无法保存：%s",
+	ErrModelName:       "模型名称不能包含空格。",
+	CLIPath:            "CLI 可执行文件路径",
+	CLIPathDefault:     "自动查找（本机 PATH）",
+	CLIFormDescription: "使用本机已安装的 CLI，沿用其平台与凭据配置；官方登录可选，Motty 不复制凭据。",
+	CLIDefaultModel:    "CLI 默认模型",
+	CLIModelsNote:      "默认和手工 CLI 模型为本地配置，尚未做远端验证。",
+	CLIModelsCheck:     "检查 CLI",
 
 	DeleteTitle:   "删除服务商？",
 	DeleteBodyFmt: "将删除“%s”及其模型和已保存的密钥。",

@@ -78,8 +78,9 @@ type savedState struct {
 	Sync                       *savedSync          `json:"sync,omitempty"`
 	HostView                   string              `json:"host_view,omitempty"`
 	Background                 *savedBackground    `json:"background,omitempty"`
-	// AIProviders is nil while the assistant's database has not been read.
-	AIProviders *[]savedAIProvider `json:"ai_providers,omitempty"`
+	// Provider collections are nil while the assistant's database is unread.
+	AIProviders    *[]savedAIProvider `json:"ai_providers,omitempty"`
+	AICLIProviders *[]savedAIProvider `json:"ai_cli_providers,omitempty"`
 }
 
 type savedOutboundProxy struct {
@@ -421,6 +422,7 @@ func (state *State) snapshot() savedState {
 		}
 	}
 	saved.AIProviders = state.savedAIProviders()
+	saved.AICLIProviders = state.savedAICLIProviders()
 	saved.Sync = state.savedSyncValue()
 	saved.HostView = state.hostView.saved()
 	saved.Background = state.savedBackgroundValue()
@@ -624,8 +626,8 @@ func (state *State) restoreShared(saved savedState) {
 	}
 	state.restoreForwards(saved.Forwards)
 	state.restoreProxies(saved.Proxies)
-	if saved.AIProviders != nil && !state.starting {
-		state.importAIProviders(*saved.AIProviders)
+	if (saved.AIProviders != nil || saved.AICLIProviders != nil) && !state.starting {
+		state.importAIProviderCollections(saved.AIProviders, saved.AICLIProviders)
 	}
 }
 
