@@ -67,6 +67,7 @@ type AIPanelMessages struct {
 	HideOutput  string
 	CopyCode    string
 	CopyAnswer  string
+	AnswerText  string // the selectable body of an assistant answer
 
 	ToolListSessions     string
 	ToolTerminalRead     string

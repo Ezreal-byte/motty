@@ -69,6 +69,7 @@ var (
 	hitAIRenameField    = tree.ID(aiPanelHits, "ai-rename-field")
 	hitAIRows           = tree.Sub(aiPanelHits, tree.Name("ai-rows"))            // collapsible rows of the conversation
 	hitAICopies         = tree.Sub(aiPanelHits, tree.Name("ai-copies"))          // copy buttons of code blocks
+	hitAIAnswerText     = tree.Sub(aiPanelHits, tree.Name("ai-answer-text"))     // selectable body of each answer
 	hitAICopyAnswer     = tree.ID(aiPanelHits, "ai-copy-answer")                 // copy the last answer
 	hitAILinks          = tree.Sub(aiPanelHits, tree.Name("ai-links"))           // links in the assistant's answers
 	hitAIMentions       = tree.Sub(aiPanelHits, tree.Name("ai-mentions"))        // sessions an @ can name
@@ -103,6 +104,49 @@ const (
 
 // aiLinkRow is a message whose links were painted: its first hit number.
 type aiLinkRow struct{ base, row int }
+
+// aiTextSelection is the answer text the user has selected. It is ephemeral:
+// nothing here is saved, and it belongs to one row of the conversation. row is
+// the index into ai.items, or -1 when nothing is selected. Offsets are bytes of
+// the row's rendered Markdown, so they survive a repaint and a streamed append.
+type aiTextSelection struct {
+	row      int
+	sel      components.MarkdownSelection
+	dragging bool
+}
+
+// clearAITextSelection drops the selection, a drag in progress included.
+func (panel *aiPanel) clearAITextSelection() {
+	panel.textSelect = aiTextSelection{row: -1}
+}
+
+// selectionFor is the highlight to paint for one row, empty for every row but
+// the one that owns the selection.
+func (panel *aiPanel) selectionFor(index int) components.MarkdownSelection {
+	if panel.textSelect.row != index {
+		return components.MarkdownSelection{}
+	}
+	return panel.textSelect.sel
+}
+
+// hasAITextSelection reports whether there is text to copy.
+func (panel *aiPanel) hasAITextSelection() bool {
+	row := panel.textSelect.row
+	return row >= 0 && panel.textSelect.sel.Anchor != panel.textSelect.sel.Focus
+}
+
+// aiTextSelectionText is the selected rendered text, when it is still there.
+func (panel *aiPanel) aiTextSelectionText() (string, bool) {
+	if !panel.hasAITextSelection() || panel.textSelect.row >= len(panel.rows) {
+		return "", false
+	}
+	view := &panel.rows[panel.textSelect.row]
+	if view.kind != aiAssistant {
+		return "", false
+	}
+	text := view.md.SelectedText(panel.textSelect.sel)
+	return text, text != ""
+}
 
 // aiPanel is what the panel keeps beyond the conversation itself: layout caches,
 // the geometry of the last paint and small view state. It is all derived or
@@ -157,6 +201,10 @@ type aiPanel struct {
 	pointer    ui.Point
 	answer     ui.Rect
 	answerOver bool
+
+	// textSelect is the answer text selected with the pointer, and the drag that
+	// is extending it. It belongs to one message and is never saved.
+	textSelect aiTextSelection
 
 	// Dragging the panel's left edge or the message box's top edge.
 	drag      aiDragKind
@@ -278,6 +326,7 @@ func (state *State) setAIPanelOpen(open bool) {
 	if !open {
 		ai.panel.history = false
 		ai.panel.modelMenu = false
+		ai.panel.clearAITextSelection()
 	}
 	state.aiPanelSync()
 }
@@ -320,6 +369,7 @@ func (state *State) aiPanelReset() {
 	panel.rows = panel.rows[:0]
 	panel.history = false
 	panel.copied = ""
+	panel.clearAITextSelection()
 }
 
 func (state *State) aiPanelClick(id ui.ID) bool {
@@ -341,6 +391,7 @@ func (state *State) aiPanelClick(id ui.ID) bool {
 		}
 	case id == hitAIHistory:
 		panel.history = !panel.history
+		panel.clearAITextSelection()
 		if panel.history {
 			state.aiPanelLoadHistory()
 		}
@@ -521,13 +572,71 @@ func (state *State) aiTrackPointer(event ui.PointerEvent) (repaint bool) {
 	over := pointInRect(panel.pointer.X, panel.pointer.Y, panel.answer)
 	changed := over != panel.answerOver
 	panel.answerOver = over
+	if event.Kind == ui.PointerDown && (event.Button == ui.PointerButtonPrimary || event.Button == ui.PointerButtonNone) &&
+		panel.hasAITextSelection() {
+		if _, onAnswer := aiAnswerTextIndex(event.Target); !onAnswer {
+			panel.clearAITextSelection()
+			changed = true
+		}
+	}
 	return changed
+}
+
+// aiAnswerTextIndex resolves the answer-text hit back to the row it belongs to.
+func aiAnswerTextIndex(id ui.ID) (int, bool) {
+	if id.Scope() != hitAIAnswerText {
+		return 0, false
+	}
+	return id.In(hitAIAnswerText)
 }
 
 // aiPanelPointer moves the focus to the message box when an example is released,
 // and follows a drag of the panel's or the box's edge.
+//
+// It begins, extends and ends a selection of one answer's text. The
+// text hit is a focusable group outside the Tab order; links and copy buttons
+// are declared after it and still win the press.
 func (state *State) aiPanelPointer(event ui.PointerEvent) (ui.EventResult, bool) {
 	panel := &state.ai.panel
+	primary := event.Button == ui.PointerButtonPrimary || event.Button == ui.PointerButtonNone
+	if event.Kind == ui.PointerDown && primary {
+		if index, ok := aiAnswerTextIndex(event.Target); ok && index < len(panel.rows) && panel.rows[index].kind == aiAssistant {
+			if offset, painted := panel.rows[index].md.OffsetAt(ui.Point{X: event.X, Y: event.Y}); painted {
+				panel.textSelect = aiTextSelection{
+					row: index, sel: components.MarkdownSelection{Anchor: offset, Focus: offset}, dragging: true,
+				}
+				return ui.EventResult{Handled: true, Repaint: true, Focus: event.Target}, true
+			}
+		}
+	}
+	if panel.textSelect.dragging && event.Kind == ui.PointerMove && !event.Captured {
+		// A hovered move that does not belong to the press must not extend the
+		// selection, matching the terminal's drag.
+		return ui.EventResult{}, false
+	}
+	if panel.textSelect.dragging && event.Kind == ui.PointerExit {
+		// Leaving the window may mean no Up ever arrives; end the drag and keep
+		// what was selected.
+		panel.textSelect.dragging = false
+		return ui.EventResult{Handled: true, Repaint: true}, true
+	}
+	if panel.textSelect.dragging && (event.Kind == ui.PointerMove || event.Kind == ui.PointerUp) {
+		index := panel.textSelect.row
+		if index >= 0 && index < len(panel.rows) {
+			if offset, painted := panel.rows[index].md.OffsetAt(ui.Point{X: event.X, Y: event.Y}); painted {
+				changed := offset != panel.textSelect.sel.Focus
+				panel.textSelect.sel.Focus = offset
+				if event.Kind == ui.PointerUp {
+					panel.textSelect.dragging = false
+					if panel.textSelect.sel.Anchor == panel.textSelect.sel.Focus {
+						panel.clearAITextSelection()
+					}
+					return ui.EventResult{Handled: true, Repaint: true}, true
+				}
+				return ui.EventResult{Handled: true, Repaint: changed}, true
+			}
+		}
+	}
 	if event.Kind == ui.PointerUp && event.Target.Scope() == hitAIExamples && event.Button == ui.PointerButtonPrimary {
 		// The click that follows fills the prompt in; the box takes the focus so the
 		// user can edit it or press Enter.
@@ -675,6 +784,12 @@ func (state *State) aiPanelKey(event ui.KeyEvent) (ui.EventResult, bool) {
 			panel.history = false
 			return handled, true
 		}
+		if _, onAnswer := aiAnswerTextIndex(event.Target); onAnswer && panel.hasAITextSelection() {
+			// Approvals, history and menus have already had their chance above;
+			// at this point Escape belongs to the selected answer.
+			panel.clearAITextSelection()
+			return handled, true
+		}
 		if _, composing := ai.input.Composition(); composing && event.Target == hitAIInput {
 			return ui.EventResult{}, false // the input method owns Escape
 		}
@@ -734,8 +849,18 @@ func (state *State) aiPanelEnter() {
 // aiPanelShortcut handles the chords of the message box that the native text
 // system must not see first. Ctrl+J (Cmd+J on macOS) starts a new line too, for
 // keyboards and input methods where Shift+Enter is taken; Shift+Enter itself
-// reaches the native editor as app.TextInsertLineBreak (see aiPanelText).
+// reaches the native editor as app.TextInsertLineBreak (see aiPanelText). On
+// answer text it owns the copy chord, so a selected answer never falls through
+// to the terminal's copy.
 func (state *State) aiPanelShortcut(event ui.KeyEvent) (ui.EventResult, bool) {
+	if _, onAnswer := aiAnswerTextIndex(event.Target); onAnswer {
+		if chord, ok := shortcutChordFromEvent(event); ok && state.shortcuts.actionFor(chord) == shortcutCopy {
+			if !event.Repeat {
+				state.aiCopyTextSelection()
+			}
+			return ui.EventResult{Handled: true, Repaint: true}, true
+		}
+	}
 	if event.Target != hitAIInput || event.Text != "j" || event.Modifiers&(ui.ModifierControl|ui.ModifierMeta) == 0 ||
 		event.Modifiers&^(ui.ModifierControl|ui.ModifierMeta) != 0 {
 		return ui.EventResult{}, false
@@ -744,6 +869,20 @@ func (state *State) aiPanelShortcut(event ui.KeyEvent) (ui.EventResult, bool) {
 		state.ai.input.Insert("\n")
 	}
 	return ui.EventResult{Handled: true, Repaint: true}, true
+}
+
+// aiCopyTextSelection writes the selected rendered answer text to the clipboard.
+// With no selection it does nothing, and in particular never copies the whole
+// answer.
+func (state *State) aiCopyTextSelection() {
+	panel := &state.ai.panel
+	text, ok := panel.aiTextSelectionText()
+	if !ok {
+		return
+	}
+	if err := state.options.SetClipboardText(text); err != nil {
+		state.ai.notice = err.Error()
+	}
 }
 
 // aiPanelEditor serves the single-line fields of the panel: the word that a

@@ -690,6 +690,7 @@ var englishAIPanel = AIPanelMessages{
 	HideOutput:  "Hide output",
 	CopyCode:    "Copy code",
 	CopyAnswer:  "Copy answer",
+	AnswerText:  "Answer text",
 
 	ToolListSessions:     "List sessions",
 	ToolTerminalRead:     "Read terminal",

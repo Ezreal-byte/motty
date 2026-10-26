@@ -867,6 +867,7 @@ func (state *State) aiNewConversation() {
 	ai.answerOnly = false
 	ai.lastUsage, ai.totalUsage = llm.Usage{}, llm.Usage{}
 	ai.scroll.ScrollToEnd()
+	ai.panel.clearAITextSelection()
 }
 
 // aiOpenConversation shows a saved conversation and continues from it.
@@ -883,6 +884,7 @@ func (state *State) aiOpenConversation(id int64) {
 	ai.items, ai.history, ai.conv = nil, nil, id
 	ai.lastUsage, ai.totalUsage = llm.Usage{}, llm.Usage{}
 	ai.scroll.ScrollToEnd()
+	ai.panel.clearAITextSelection()
 	for _, row := range stored {
 		message := fromStored(row)
 		ai.history = append(ai.history, message)

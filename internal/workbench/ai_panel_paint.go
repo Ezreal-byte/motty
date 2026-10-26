@@ -54,8 +54,9 @@ type aiRowView struct {
 	expanded bool // chosen by the user: the reasoning or output is open
 	actions  bool // the last assistant message reserves room for copy and usage
 
-	top    float32 // below the top of the list, set by every paint
-	height float32
+	top      float32 // below the top of the list, set by every paint
+	height   float32
+	textRect ui.Rect // the painted Markdown body, for pointer selection
 	// lines are the wrapped lines of a user message, a reasoning or a notice; of a
 	// tool card the first commandLines are its command, the rest its output.
 	lines        []string
@@ -515,6 +516,9 @@ func (state *State) paintAIBody(canvas *ui.Canvas, bounds ui.Rect) {
 	list := body.list.Rect()
 	panel.list = list
 	panel.listing = panel.history
+	if row := panel.textSelect.row; row >= 0 && (row >= len(ai.items) || ai.items[row].kind != aiAssistant) {
+		panel.clearAITextSelection()
+	}
 	switch {
 	case panel.history:
 		state.paintAIHistory(canvas, list)
@@ -748,10 +752,36 @@ func (state *State) paintAIMessages(canvas *ui.Canvas, list ui.Rect) {
 		}
 		lastAnswer := index == len(state.ai.items)-1 && item.kind == aiAssistant
 		if !view.current(item, rowW, cell, title) || view.actions != lastAnswer {
+			// A selection indexes the rendered text, so it survives a rebuild only
+			// when the new rendering still begins with the old one. Comparing the
+			// Markdown sources instead would keep it across a structure change (an
+			// unclosed backtick closing, say) and point it at other characters.
+			// The old text is read only while this row holds the selection.
+			keepSelection := panel.textSelect.row == index
+			var rendered string
+			if keepSelection {
+				rendered = view.md.SelectedText(components.MarkdownSelection{Focus: view.md.TextLen()})
+			}
 			state.aiBuild(canvas, view, item, rowW, cell, cellHeight, title)
 			view.actions = lastAnswer
 			if lastAnswer {
 				view.height += aiAnswerAction
+			}
+			if keepSelection && (item.kind != aiAssistant ||
+				!strings.HasPrefix(view.md.SelectedText(components.MarkdownSelection{Focus: view.md.TextLen()}), rendered)) {
+				panel.clearAITextSelection()
+			}
+		}
+		if panel.textSelect.row == index && panel.textSelect.sel.Anchor != panel.textSelect.sel.Focus {
+			// Clamp each end without ordering them: Anchor must stay where the
+			// drag began, or dragging upward would move it on every repaint.
+			length := view.md.TextLen()
+			anchor := min(max(panel.textSelect.sel.Anchor, 0), length)
+			focus := min(max(panel.textSelect.sel.Focus, 0), length)
+			if anchor == focus {
+				panel.clearAITextSelection()
+			} else {
+				panel.textSelect.sel = components.MarkdownSelection{Anchor: anchor, Focus: focus}
 			}
 		}
 		view.top = y
@@ -980,6 +1010,11 @@ func (state *State) paintAIAssistant(canvas *ui.Canvas, bounds, list ui.Rect, vi
 	blue := pal.ansi[4] // the accent is nearly white; a link has to stand out from the text
 	look.Text, look.Muted, look.Link = pal.text, pal.muted, ui.RGB(blue[0], blue[1], blue[2])
 	look.CodeFill, look.InlineCodeFill, look.Line, look.Radius = pal.terminal, pal.surfaceSoft, pal.line, radius.control
+	// MarkdownLookFor tints a selection with theme.Primary at 50%, and this
+	// palette's accent is its text colour: on the dark palette that is a grey
+	// band the selected text barely stands out from. Use the terminal's
+	// selection recipe instead, so both places look the same.
+	look.Selection = withAlpha(pal.text, 0.25)
 	ansi := func(index int) ui.Color { return ui.RGB(pal.ansi[index][0], pal.ansi[index][1], pal.ansi[index][2]) }
 	look.Code = [components.MarkdownCodeClasses]ui.Color{
 		components.CodeComment: pal.faint, components.CodeString: ansi(2), components.CodeNumber: ansi(3),
@@ -990,8 +1025,14 @@ func (state *State) paintAIAssistant(canvas *ui.Canvas, bounds, list ui.Rect, vi
 		panel.linkTable[panel.linkRows] = aiLinkRow{base: panel.linkBase, row: index}
 		panel.linkRows++
 	}
+	text := ui.Rect{X: bounds.X, Y: bounds.Y, Width: bounds.Width, Height: min(bounds.Height, view.md.Height())}
+	view.textRect = text
+	if index < aiMaxRowHits {
+		canvas.HitWithOptions(hitAIAnswerText.At(index), text, m.AnswerText, ui.HitOptions{Role: ui.RoleGroup, SkipTab: true})
+	}
 	view.md.Paint(canvas, components.MarkdownPaint{
 		Look: look, X: bounds.X, Y: bounds.Y, Clip: list, Links: hitAILinks, Base: panel.linkBase,
+		Selection: panel.selectionFor(index),
 	})
 	panel.linkBase += view.md.LinkCount()
 	for _, copy := range panel.copies {

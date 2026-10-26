@@ -690,6 +690,7 @@ var chineseAIPanel = AIPanelMessages{
 	HideOutput:  "隐藏输出",
 	CopyCode:    "复制代码",
 	CopyAnswer:  "复制回答",
+	AnswerText:  "回答内容",
 
 	ToolListSessions:     "列出会话",
 	ToolTerminalRead:     "读取终端",
