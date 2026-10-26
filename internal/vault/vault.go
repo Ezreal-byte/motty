@@ -138,6 +138,14 @@ type Secret struct {
 	Deleted bool   `json:"deleted,omitempty"`
 }
 
+// Change is one local mutation in an atomic Apply call. Delete ignores Value;
+// otherwise Value replaces the secret under Name.
+type Change struct {
+	Name   string
+	Value  string
+	Delete bool
+}
+
 // SetStamper sets the source of version stamps. Stamps are opaque strings that
 // compare in time order as plain strings; the vault never makes one itself. With
 // a stamper, every change is stamped and Delete leaves a tombstone so the
@@ -347,58 +355,105 @@ func (vault *Vault) Get(name string) (string, bool, error) {
 // file. A secret that already holds exactly value is left alone, stamp included.
 // A deleted name comes back to life with a new stamp.
 func (vault *Vault) Set(name, value string) error {
+	return vault.Apply([]Change{{Name: name, Value: value}})
+}
+
+// Apply validates and seals every local change before writing the vault once.
+// If any change fails, none of them become visible.
+func (vault *Vault) Apply(changes []Change) error {
 	vault.mu.Lock()
 	defer vault.mu.Unlock()
-	if name == "" {
-		return errors.New("vault: a secret needs a name")
+	if len(changes) == 0 {
+		return nil
 	}
-	if err := vault.prepare(true); err != nil {
+	create := false
+	for _, change := range changes {
+		if change.Name == "" {
+			return errors.New("vault: a secret needs a name")
+		}
+		create = create || !change.Delete
+	}
+	if err := vault.prepare(create); err != nil {
 		return err
 	}
-	id := recordID(vault.key, name)
-	position := -1
-	revived := false
-	for index, entry := range vault.file.Records {
-		if !hmac.Equal(entry.ID, id) {
-			continue
-		}
-		plain, err := open(vault.key, entry)
-		if err != nil {
-			return err
-		}
-		if !plain.Deleted && plain.Value == value {
-			return nil
-		}
-		position, revived = index, plain.Deleted
+	if vault.key == nil {
+		return nil // deleting from an empty vault
 	}
-	if position < 0 || revived {
-		plains, err := vault.openAll()
-		if err != nil {
-			return err
-		}
-		live := 0
-		for _, plain := range plains {
-			if !plain.Deleted {
-				live++
-			}
-		}
-		if live >= maxRecords || (position < 0 && len(plains) >= maxFileRecords) {
-			return errors.New("vault: too many saved secrets")
-		}
-	}
-	stamp, err := vault.stamp()
-	if err != nil {
-		return err
-	}
-	sealed, err := seal(vault.key, plainRecord{Name: name, Value: value, Stamp: stamp})
+	plains, err := vault.openAll()
 	if err != nil {
 		return err
 	}
 	records := append([]record(nil), vault.file.Records...)
-	if position >= 0 {
-		records[position] = sealed
-	} else {
-		records = append(records, sealed)
+	positions := make(map[string]int, len(plains))
+	live := 0
+	for index, plain := range plains {
+		positions[plain.Name] = index
+		if !plain.Deleted {
+			live++
+		}
+	}
+	changed := false
+	for _, change := range changes {
+		position, known := positions[change.Name]
+		if change.Delete {
+			if !known || plains[position].Deleted {
+				continue
+			}
+			if vault.stamper == nil {
+				records = slices.Delete(records, position, position+1)
+				plains = slices.Delete(plains, position, position+1)
+				delete(positions, change.Name)
+				for name, at := range positions {
+					if at > position {
+						positions[name] = at - 1
+					}
+				}
+			} else {
+				stamp, err := vault.stamp()
+				if err != nil {
+					return err
+				}
+				plain := plainRecord{Name: change.Name, Deleted: true, Stamp: stamp}
+				sealed, err := seal(vault.key, plain)
+				if err != nil {
+					return err
+				}
+				records[position], plains[position] = sealed, plain
+			}
+			live--
+			changed = true
+			continue
+		}
+
+		if known && !plains[position].Deleted && plains[position].Value == change.Value {
+			continue
+		}
+		adding := !known || plains[position].Deleted
+		if adding && live >= maxRecords || !known && len(records) >= maxFileRecords {
+			return errors.New("vault: too many saved secrets")
+		}
+		stamp, err := vault.stamp()
+		if err != nil {
+			return err
+		}
+		plain := plainRecord{Name: change.Name, Value: change.Value, Stamp: stamp}
+		sealed, err := seal(vault.key, plain)
+		if err != nil {
+			return err
+		}
+		if known {
+			records[position], plains[position] = sealed, plain
+		} else {
+			positions[change.Name] = len(records)
+			records, plains = append(records, sealed), append(plains, plain)
+		}
+		if adding {
+			live++
+		}
+		changed = true
+	}
+	if !changed {
+		return nil
 	}
 	return vault.write(vault.file.KDF, vault.file.WrappedKey, records)
 }
@@ -407,44 +462,7 @@ func (vault *Vault) Set(name, value string) error {
 // With a stamper the record becomes a tombstone, so that the deletion can be
 // merged into other devices; deleting a tombstone does nothing.
 func (vault *Vault) Delete(name string) error {
-	vault.mu.Lock()
-	defer vault.mu.Unlock()
-	if err := vault.prepare(false); err != nil {
-		return err
-	}
-	if vault.key == nil {
-		return nil
-	}
-	id := recordID(vault.key, name)
-	position := -1
-	for index, entry := range vault.file.Records {
-		if hmac.Equal(entry.ID, id) {
-			position = index
-		}
-	}
-	if position < 0 {
-		return nil
-	}
-	plain, err := open(vault.key, vault.file.Records[position])
-	if err != nil {
-		return err
-	}
-	if plain.Deleted {
-		return nil
-	}
-	records := append([]record(nil), vault.file.Records...)
-	if vault.stamper == nil {
-		records = slices.Delete(records, position, position+1)
-	} else {
-		stamp, err := vault.stamper()
-		if err != nil {
-			return err
-		}
-		if records[position], err = seal(vault.key, plainRecord{Name: plain.Name, Deleted: true, Stamp: stamp}); err != nil {
-			return err
-		}
-	}
-	return vault.write(vault.file.KDF, vault.file.WrappedKey, records)
+	return vault.Apply([]Change{{Name: name, Delete: true}})
 }
 
 // Export returns every record, tombstones included, sorted by name. With a

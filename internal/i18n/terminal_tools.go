@@ -103,26 +103,36 @@ type ToolsMessages struct {
 	NotifyDescription string
 
 	// The outbound proxy.
-	ProxyRow                 string
-	ProxyConfigure           string
-	ProxyDescriptionNone     string
-	ProxyDescriptionFmt      string // the kind, then the address
-	ProxyNone                string
-	ProxySOCKS5              string
-	ProxyHTTP                string
-	ProxyDialogTitle         string
-	ProxyDialogDescription   string
-	ProxyAddress             string
-	ProxyUser                string
-	ProxyPassword            string
-	ProxyPasswordPlaceholder string
-	ProxyBypass              string
-	ProxySave                string
-	ProxyErrorAddress        string
-	ProxyErrorLogin          string
-	ProxyErrorBypassFmt      string
-	ProxyErrorNoVault        string
-	ProxyPasswordLocked      string
+	ProxyRow                    string
+	ProxyConfigure              string
+	ProxyDescriptionNone        string
+	ProxyDescriptionFmt         string // the kind, then the address
+	ProxyNone                   string
+	ProxySOCKS5                 string
+	ProxyHTTP                   string
+	ProxyDialogTitle            string
+	ProxyDialogDescription      string
+	ProxyAddress                string
+	ProxyUser                   string
+	ProxyPassword               string
+	ProxyPasswordPlaceholder    string
+	ProxyBypass                 string
+	ProxySave                   string
+	ProxyErrorAddress           string
+	ProxyErrorLogin             string
+	ProxyErrorBypassFmt         string
+	ProxyErrorNoVault           string
+	ProxyPasswordLocked         string
+	HostProxyRow                string
+	HostProxyInherit            string
+	HostProxyDirect             string
+	HostProxyDescriptionInherit string
+	HostProxyDescriptionDirect  string
+	HostProxyDescriptionFmt     string // the kind, then the address
+	HostProxyPasswordChanged    string
+	HostProxyDialogTitle        string
+	HostProxyDialogDescription  string
+	HostProxyPasswordNotCarried string
 
 	// Searching the settings.
 	SearchPlaceholder string
@@ -620,26 +630,36 @@ var englishTools = ToolsMessages{
 	NotifyRow:         "Desktop notifications",
 	NotifyDescription: "Show a system notification when a program in the terminal asks for one (OSC 9, 777 and 99). At most one a second per terminal.",
 
-	ProxyRow:                 "Outbound proxy",
-	ProxyConfigure:           "Configure",
-	ProxyDescriptionNone:     "Connect directly. A SOCKS5 or HTTP proxy can carry the first connection of every session.",
-	ProxyDescriptionFmt:      "%s at %s carries the first connection of every session.",
-	ProxyNone:                "None",
-	ProxySOCKS5:              "SOCKS5",
-	ProxyHTTP:                "HTTP CONNECT",
-	ProxyDialogTitle:         "Outbound proxy",
-	ProxyDialogDescription:   "The proxy resolves host names. Destinations on the direct list skip it.",
-	ProxyAddress:             "Proxy address (host:port)",
-	ProxyUser:                "User name (optional)",
-	ProxyPassword:            "Password (optional)",
-	ProxyPasswordPlaceholder: "Leave empty to keep the saved one",
-	ProxyBypass:              "Connect directly to",
-	ProxySave:                "Save",
-	ProxyErrorAddress:        "Enter the proxy as host:port, with a port from 1 to 65535.",
-	ProxyErrorLogin:          "The user name and password may be 255 characters at most.",
-	ProxyErrorBypassFmt:      "The direct list takes up to %d entries of 100 characters.",
-	ProxyErrorNoVault:        "Passwords cannot be saved here. Leave the password empty to connect without one.",
-	ProxyPasswordLocked:      "The saved proxy password is locked: unlock the saved passwords in Settings › Security first.",
+	ProxyRow:                    "Outbound proxy",
+	ProxyConfigure:              "Configure",
+	ProxyDescriptionNone:        "Connect directly. A SOCKS5 or HTTP proxy can carry the first connection of every session.",
+	ProxyDescriptionFmt:         "%s at %s carries the first connection of every session.",
+	ProxyNone:                   "None",
+	ProxySOCKS5:                 "SOCKS5",
+	ProxyHTTP:                   "HTTP CONNECT",
+	ProxyDialogTitle:            "Outbound proxy",
+	ProxyDialogDescription:      "The proxy resolves host names. Destinations on the direct list skip it.",
+	ProxyAddress:                "Proxy address (host:port)",
+	ProxyUser:                   "User name (optional)",
+	ProxyPassword:               "Password (optional)",
+	ProxyPasswordPlaceholder:    "Leave empty to keep the saved one",
+	ProxyBypass:                 "Connect directly to",
+	ProxySave:                   "Save",
+	ProxyErrorAddress:           "Enter the proxy as host:port, with a port from 1 to 65535.",
+	ProxyErrorLogin:             "The user name and password may be 255 characters at most.",
+	ProxyErrorBypassFmt:         "The direct list takes up to %d entries of 100 characters.",
+	ProxyErrorNoVault:           "Passwords cannot be saved here. Leave the password empty to connect without one.",
+	ProxyPasswordLocked:         "The saved proxy password is locked: unlock the saved passwords in Settings › Security first.",
+	HostProxyRow:                "Proxy forwarding",
+	HostProxyInherit:            "Inherit",
+	HostProxyDirect:             "Direct",
+	HostProxyDescriptionInherit: "Use the global outbound proxy setting.",
+	HostProxyDescriptionDirect:  "Always connect directly.",
+	HostProxyDescriptionFmt:     "%s at %s carries this host's first connection.",
+	HostProxyPasswordChanged:    "The proxy login changed. Enter the new proxy password to save this host.",
+	HostProxyDialogTitle:        "Host proxy forwarding",
+	HostProxyDialogDescription:  "Choose how this host reaches its first network endpoint.",
+	HostProxyPasswordNotCarried: "The saved proxy password was not copied because saved passwords are locked.",
 
 	SearchPlaceholder: "Search settings",
 	SearchTitle:       "Search results",
@@ -1131,26 +1151,36 @@ var chineseTools = ToolsMessages{
 	NotifyRow:         "桌面通知",
 	NotifyDescription: "终端里的程序请求通知时（OSC 9、777、99），显示系统通知。每个终端每秒最多一条。",
 
-	ProxyRow:                 "出站代理",
-	ProxyConfigure:           "配置",
-	ProxyDescriptionNone:     "直接连接。可以让 SOCKS5 或 HTTP 代理承载每个会话的第一条连接。",
-	ProxyDescriptionFmt:      "%s（%s）承载每个会话的第一条连接。",
-	ProxyNone:                "无",
-	ProxySOCKS5:              "SOCKS5",
-	ProxyHTTP:                "HTTP CONNECT",
-	ProxyDialogTitle:         "出站代理",
-	ProxyDialogDescription:   "主机名由代理解析。直连列表中的目标不走代理。",
-	ProxyAddress:             "代理地址（主机:端口）",
-	ProxyUser:                "用户名（可选）",
-	ProxyPassword:            "密码（可选）",
-	ProxyPasswordPlaceholder: "留空则保留已保存的密码",
-	ProxyBypass:              "直接连接的目标",
-	ProxySave:                "保存",
-	ProxyErrorAddress:        "请按 主机:端口 填写代理，端口为 1 到 65535。",
-	ProxyErrorLogin:          "用户名和密码最多 255 个字符。",
-	ProxyErrorBypassFmt:      "直连列表最多 %d 项，每项不超过 100 个字符。",
-	ProxyErrorNoVault:        "这里无法保存密码。密码留空则不带密码连接。",
-	ProxyPasswordLocked:      "已保存的代理密码被锁定：请先在 设置 › 安全 中解锁。",
+	ProxyRow:                    "出站代理",
+	ProxyConfigure:              "配置",
+	ProxyDescriptionNone:        "直接连接。可以让 SOCKS5 或 HTTP 代理承载每个会话的第一条连接。",
+	ProxyDescriptionFmt:         "%s（%s）承载每个会话的第一条连接。",
+	ProxyNone:                   "无",
+	ProxySOCKS5:                 "SOCKS5",
+	ProxyHTTP:                   "HTTP CONNECT",
+	ProxyDialogTitle:            "出站代理",
+	ProxyDialogDescription:      "主机名由代理解析。直连列表中的目标不走代理。",
+	ProxyAddress:                "代理地址（主机:端口）",
+	ProxyUser:                   "用户名（可选）",
+	ProxyPassword:               "密码（可选）",
+	ProxyPasswordPlaceholder:    "留空则保留已保存的密码",
+	ProxyBypass:                 "直接连接的目标",
+	ProxySave:                   "保存",
+	ProxyErrorAddress:           "请按 主机:端口 填写代理，端口为 1 到 65535。",
+	ProxyErrorLogin:             "用户名和密码最多 255 个字符。",
+	ProxyErrorBypassFmt:         "直连列表最多 %d 项，每项不超过 100 个字符。",
+	ProxyErrorNoVault:           "这里无法保存密码。密码留空则不带密码连接。",
+	ProxyPasswordLocked:         "已保存的代理密码被锁定：请先在 设置 › 安全 中解锁。",
+	HostProxyRow:                "代理转发",
+	HostProxyInherit:            "继承全局",
+	HostProxyDirect:             "直连",
+	HostProxyDescriptionInherit: "使用全局出站代理设置。",
+	HostProxyDescriptionDirect:  "始终直接连接。",
+	HostProxyDescriptionFmt:     "%s（%s）承载这台主机的第一条连接。",
+	HostProxyPasswordChanged:    "代理登录已改变，请重新输入新的代理密码后再保存主机。",
+	HostProxyDialogTitle:        "主机代理转发",
+	HostProxyDialogDescription:  "选择这台主机建立第一条网络连接的方式。",
+	HostProxyPasswordNotCarried: "已保存的代理密码未复制，因为密码保险库尚未解锁。",
 
 	SearchPlaceholder: "搜索设置",
 	SearchTitle:       "搜索结果",

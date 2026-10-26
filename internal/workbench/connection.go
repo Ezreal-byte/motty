@@ -437,6 +437,8 @@ func (state *State) startConnectionMode(session *Session, host Host, automatic b
 // session's path. valid is false when the route is broken, and the config then
 // has no host to dial.
 func (state *State) sshConfigFor(session *Session, host Host) (config sshconn.Config, valid bool) {
+	proxy := state.proxyForHost(session.host)
+	session.proxyRoute = proxyRouteKey(proxy)
 	config = sshconn.Config{
 		Host: host.Address, Port: host.Port, User: state.login(host),
 		KnownHostsPath:          state.options.KnownHostsPath,
@@ -444,7 +446,7 @@ func (state *State) sshConfigFor(session *Session, host Host) (config sshconn.Co
 		DialTimeout:             state.connectionTimeout,
 		AdditionalIdentityFiles: state.identityPaths(),
 		Notify:                  state.notifyFor(session),
-		Proxy:                   state.currentProxy(),
+		Proxy:                   proxy,
 	}
 	if state.connectionKeepAlive > 0 {
 		config.KeepAlive = sshconn.KeepAliveConfig{Interval: state.connectionKeepAlive, Timeout: 10 * time.Second}
@@ -480,7 +482,7 @@ func (state *State) shareFrom(session *Session, host Host) (Connection, *Session
 	for index := range state.sessions {
 		other := &state.sessions[index]
 		if other.ID == session.ID || other.conn == nil || other.host.Address != host.Address || other.host.Port != host.Port ||
-			state.login(other.host) != login || other.jumpPath != session.jumpPath {
+			state.login(other.host) != login || other.jumpPath != session.jumpPath || other.proxyRoute != session.proxyRoute {
 			continue
 		}
 		lender, ok := other.conn.(sharer)

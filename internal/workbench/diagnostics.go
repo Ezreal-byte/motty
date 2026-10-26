@@ -3,6 +3,7 @@ package workbench
 import (
 	"errors"
 	"fmt"
+	"net"
 	"os"
 	"runtime"
 	"runtime/debug"
@@ -67,21 +68,34 @@ func (state *State) diagnosticsRedactor() (*diag.Redactor, map[uint32]string) {
 			redactor.Hide(user, users[user])
 		}
 	}
+	hideProxy := func(proxy *outboundProxy) {
+		if proxy == nil || proxy.address == "" {
+			return
+		}
+		redactor.Hide(proxy.address, "outbound-proxy")
+		// A failed lookup can leave the bare host in the wrapped error after the
+		// host:port form is replaced, so hide the host on its own as well.
+		if host, _, err := net.SplitHostPort(proxy.address); err == nil && host != "" {
+			redactor.Hide(host, "outbound-proxy")
+		}
+		hide("", "", proxy.user)
+	}
 	for index, host := range state.hosts {
 		alias := fmt.Sprintf("host-%d", index+1)
 		aliases[host.ID] = alias
 		redactor.Hide(host.Address, alias)
 		redactor.Hide(host.Label, alias)
 		hide("", "", host.User)
+		hideProxy(host.Proxy)
 	}
 	for index := range state.sessions {
 		host := state.sessions[index].host
 		hide(host.Label, host.Address, host.User)
+		hideProxy(host.Proxy)
 		redactor.Hide(state.sessions[index].Title, "tab")
 	}
 	if state.proxy.address != "" {
-		redactor.Hide(state.proxy.address, "outbound-proxy")
-		hide("", "", state.proxy.user)
+		hideProxy(&state.proxy)
 	}
 	if name, err := os.Hostname(); err == nil {
 		redactor.Hide(name, "this-computer")

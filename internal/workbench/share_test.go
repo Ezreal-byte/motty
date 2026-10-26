@@ -101,6 +101,52 @@ func TestANewTabOnAConnectedHostSharesToo(t *testing.T) {
 	}
 }
 
+func TestAChangedEffectiveProxyPolicyNeverSharesTheOldConnection(t *testing.T) {
+	tests := []struct {
+		name        string
+		initialHost *outboundProxy
+		initial     outboundProxy
+		nextHost    *outboundProxy
+		next        outboundProxy
+	}{
+		{
+			name:     "proxied to direct",
+			initial:  outboundProxy{kind: sshconn.ProxySOCKS5, address: "global.proxy:1080"},
+			nextHost: &outboundProxy{},
+		},
+		{
+			name:        "direct to dedicated",
+			initialHost: &outboundProxy{},
+			nextHost:    &outboundProxy{kind: sshconn.ProxyHTTPConnect, address: "host.proxy:3128"},
+		},
+		{
+			name:    "inherited global proxy changed",
+			initial: outboundProxy{kind: sshconn.ProxySOCKS5, address: "first.proxy:1080"},
+			next:    outboundProxy{kind: sshconn.ProxySOCKS5, address: "second.proxy:1080"},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			world, options := newSharingWorld(t)
+			state := newTestState(t, options)
+			state.proxy = test.initial
+			state.hosts[0].Proxy = cloneOutboundProxy(test.initialHost)
+			world.connectFirst(t, state)
+
+			state.proxy = test.next
+			state.hosts[0].Proxy = cloneOutboundProxy(test.nextHost)
+			// Host editing updates open tabs for future reconnects, but it cannot
+			// change the transport their live connection already established.
+			state.sessions[0].host = state.hosts[0]
+			state.Click(hitHosts)
+			openHost(state)
+			if len(world.conns) != 2 || len(world.shared) != 0 {
+				t.Fatalf("dials=%d shares=%d", len(world.conns), len(world.shared))
+			}
+		})
+	}
+}
+
 func TestAnotherHostIsDialedNotShared(t *testing.T) {
 	world, options := newSharingWorld(t)
 	state := newTestState(t, options)

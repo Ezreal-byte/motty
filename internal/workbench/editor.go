@@ -46,6 +46,11 @@ type hostEditor struct {
 	agentForward bool
 	// noHistory is the host's "Don't record commands" switch.
 	noHistory bool
+	// proxy is nil to inherit the global proxy, ProxyNone to force a direct
+	// connection, or a dedicated proxy. proxyPassword is staged until the outer
+	// host form is saved.
+	proxy         *outboundProxy
+	proxyPassword string
 	// otp is a new one-time code secret to save with the host. A saved one is
 	// never shown again. Existing hosts stay unchecked while the vault is closed,
 	// so merely opening their editor does not ask the system secret store for its key.
@@ -192,6 +197,7 @@ func (editor *hostEditor) load(host Host) {
 	editor.forwardX11 = host.ForwardX11
 	editor.agentForward = host.AgentForward
 	editor.noHistory = host.NoHistory
+	editor.proxy, editor.proxyPassword = cloneOutboundProxy(host.Proxy), ""
 	editor.transfer = host.Transfer
 	editor.advancedOpen = host.isSSH() && (host.Algo != nil || host.ForwardX11 || host.AgentForward || host.NoHistory)
 	if host.Algo != nil {
@@ -245,6 +251,9 @@ func (editor *hostEditor) host(id uint32) Host {
 			host.Algo = &hostAlgo{mode: algoCustom, list: editor.value(fieldAlgorithms)}
 		}
 	}
+	if editor.protocol != protocolSerial {
+		host.Proxy = cloneOutboundProxy(editor.proxy)
+	}
 	host.normalizeEndpoint()
 	setHostTags(&host, tags)
 	host.finish()
@@ -264,6 +273,7 @@ func (editor *hostEditor) reset() {
 	editor.algorithms = text.Editor{}
 	editor.otp, editor.otpChecked, editor.otpSaved, editor.otpRemove = text.Editor{}, true, false, false
 	editor.algoMode, editor.forwardX11, editor.agentForward, editor.noHistory, editor.transfer = algoDefault, false, false, false, transferAuto
+	editor.proxy, editor.proxyPassword = nil, ""
 	editor.advancedOpen = false
 	editor.port.Insert(strconv.Itoa(defaultPort))
 	editor.protocol, editor.flow, editor.portsOpen = protocolSSH, serial.FlowNone, false

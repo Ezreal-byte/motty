@@ -193,6 +193,28 @@ func TestEditHostMovesItsSavedPasswordToAnEditedEndpoint(t *testing.T) {
 	}
 }
 
+func TestTypedMovedPasswordDeletesTheOldKeyWhenApplyOpensTheVault(t *testing.T) {
+	state := newTestState(t, testOptions(t))
+	if err := state.secrets.vault.Set(prodPasswordName, "source secret"); err != nil {
+		t.Fatal(err)
+	}
+	state.secrets.vault.Lock() // system-keystore mode: Apply may open it without user input
+	state.openEditHostID(state.hosts[0].ID)
+	state.editor.otpChecked = true // isolate host-password planning from OTP discovery
+	state.editor.address = *text.NewEditor("moved-while-locked.example.com")
+	typeInto(state, hitDialogPassword, "replacement")
+	state.Click(hitDialogSubmit)
+	if state.modal != modalNone || state.dialogError != "" {
+		t.Fatalf("edit modal=%d error=%q", state.modal, state.dialogError)
+	}
+	if value, found, err := state.secrets.vault.Get("password:deploy@moved-while-locked.example.com:22"); err != nil || !found || value != "replacement" {
+		t.Fatalf("moved password = %q found=%v err=%v", value, found, err)
+	}
+	if value, found, err := state.secrets.vault.Get(prodPasswordName); err != nil || found || value != "" {
+		t.Fatalf("old endpoint kept password = %q found=%v err=%v", value, found, err)
+	}
+}
+
 func TestHostPasswordFitsEveryHostDialogInAShortWindow(t *testing.T) {
 	tests := []struct {
 		name     string

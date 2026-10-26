@@ -1453,6 +1453,10 @@ func (state *State) clickHostDialog(id ui.ID) {
 		state.showNextPrompt()
 	case hitDialogSubmit:
 		state.submitHostDialog()
+	case hitHostProxyConfigure:
+		if state.editor.protocol != protocolSerial {
+			state.openHostProxyDialog()
+		}
 	default:
 		state.clickHostProtocol(id)
 	}

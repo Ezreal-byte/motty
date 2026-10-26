@@ -144,6 +144,18 @@ func TestHostCatalogExportImportRoundTripContainsNoSecrets(t *testing.T) {
 	}
 }
 
+func TestHostCatalogStillImportsVersionOneDocuments(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "motty-hosts-v1.json")
+	document := `{"format":"motty-host-catalog","version":1,"hosts":[{"id":"host_old","label":"Old","address":"old.example.com","port":22}]}`
+	if err := os.WriteFile(path, []byte(document), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	read, err := readHostCatalog(path)
+	if err != nil || len(read.Hosts) != 1 || read.Hosts[0].Label != "Old" {
+		t.Fatalf("version-one catalog = %+v, %v", read, err)
+	}
+}
+
 func TestHostCatalogExportsCheckedSubsetAndHandlesPickerErrors(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "selected.json")
 	options := testOptions(t)

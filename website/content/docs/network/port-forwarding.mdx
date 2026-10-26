@@ -21,7 +21,11 @@ own host key and credentials.
 
 ## Outbound proxy
 
-An outbound SOCKS5 or HTTP proxy carries the initial connection.
+A global outbound SOCKS5 or HTTP CONNECT proxy can carry the initial connection.
+In **New Host** or **Edit Host**, a network host can inherit that setting, force a
+direct connection, or define its own proxy address, optional login and bypass
+list. A host-specific password stays in the encrypted password vault and is not
+included in host catalog exports.
 
 ## X11 forwarding
 

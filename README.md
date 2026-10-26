@@ -105,9 +105,11 @@ built-in SCP fallback.
 
 Local, remote, SOCKS5 and HTTP CONNECT rules are loopback-only, persisted and
 started explicitly. Tunnels stop with the SSH tab that owns them. Jump routes
-verify and authenticate every hop independently. An outbound SOCKS5/HTTP proxy
-carries the initial connection, and X11 forwarding validates a per-session fake
-cookie before replacing it with the local Xauthority cookie.
+verify and authenticate every hop independently. A global outbound SOCKS5/HTTP
+proxy can carry the initial connection; each saved network host can inherit it,
+force a direct connection, or use its own SOCKS5/HTTP proxy. X11 forwarding
+validates a per-session fake cookie before replacing it with the local Xauthority
+cookie.
 
 <p align="center">
   <a href="assets/readme-forward.png"><img src="assets/readme-forward.png" width="620" alt="New port forward dialog" /></a>

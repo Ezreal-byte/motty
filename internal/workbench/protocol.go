@@ -85,6 +85,9 @@ type savedTransport struct {
 	Protocol string `json:"protocol,omitempty"` // "telnet", "serial", "vnc" or "rdp"
 	Line     string `json:"line,omitempty"`     // serial: "115200 8N1"
 	Flow     string `json:"flow,omitempty"`     // serial: "rtscts" or "xonxoff"
+	// Proxy is nil when this host inherits the global outbound proxy. An entry
+	// whose kind is "direct" explicitly bypasses it.
+	Proxy *savedOutboundProxy `json:"proxy,omitempty"`
 	// Algorithms is "compatible" or "custom" for an SSH host that does not use
 	// the default algorithms; AlgorithmList is the custom list.
 	Algorithms    string `json:"algorithms,omitempty"`
@@ -108,15 +111,19 @@ type savedTransport struct {
 }
 
 func (host Host) transport() savedTransport {
+	transport := savedTransport{Proxy: savedHostProxy(host.Proxy)}
 	switch host.Protocol {
 	case protocolTelnet:
-		return savedTransport{Protocol: "telnet"}
+		transport.Protocol = "telnet"
+		return transport
 	case protocolVNC:
-		return savedTransport{Protocol: "vnc", ViaSSH: host.ViaSSH, Clipboard: host.Clipboard}
+		transport.Protocol, transport.ViaSSH, transport.Clipboard = "vnc", host.ViaSSH, host.Clipboard
+		return transport
 	case protocolRDP:
-		return savedTransport{Protocol: "rdp", ViaSSH: host.ViaSSH, Clipboard: host.Clipboard}
+		transport.Protocol, transport.ViaSSH, transport.Clipboard = "rdp", host.ViaSSH, host.Clipboard
+		return transport
 	case protocolSerial:
-		transport := savedTransport{Protocol: "serial", Line: host.Line.String()}
+		transport.Proxy, transport.Protocol, transport.Line = nil, "serial", host.Line.String()
 		switch host.Line.Flow {
 		case serial.FlowHardware:
 			transport.Flow = "rtscts"
@@ -126,13 +133,16 @@ func (host Host) transport() savedTransport {
 		return transport
 	}
 	mode, list := host.savedAlgo()
-	return savedTransport{Algorithms: mode, AlgorithmList: list, ForwardX11: host.ForwardX11, AgentForward: host.AgentForward, NoHistory: host.NoHistory, Transfer: host.savedTransfer()}
+	transport.Algorithms, transport.AlgorithmList = mode, list
+	transport.ForwardX11, transport.AgentForward, transport.NoHistory, transport.Transfer = host.ForwardX11, host.AgentForward, host.NoHistory, host.savedTransfer()
+	return transport
 }
 
 // applyTransport reads a saved transport into the host. It reports false for a
 // serial line that cannot be used, so a damaged entry is dropped rather than
 // opened with a guess.
 func (host *Host) applyTransport(transport savedTransport) bool {
+	host.Proxy = restoredHostProxy(transport.Proxy)
 	switch transport.Protocol {
 	case "", "ssh":
 		host.Protocol = protocolSSH
@@ -147,6 +157,7 @@ func (host *Host) applyTransport(transport savedTransport) bool {
 	case "rdp":
 		host.Protocol, host.ViaSSH, host.Clipboard = protocolRDP, transport.ViaSSH, transport.Clipboard
 	case "serial":
+		host.Proxy = nil
 		flow := serial.FlowNone
 		switch transport.Flow {
 		case "rtscts":
@@ -253,7 +264,7 @@ func (state *State) newStreamConn(host Host, notify func()) *streamConn {
 		conn.method = "serial"
 	}
 	conn.status = sshconn.Status{Version: 1, Phase: sshconn.PhaseConnecting}
-	request := streamRequest{Host: host, Timeout: state.connectionTimeout, Proxy: state.currentProxy(), Notify: notify}
+	request := streamRequest{Host: host, Timeout: state.connectionTimeout, Proxy: state.proxyForHost(host), Notify: notify}
 	open := state.openStream
 	if open == nil {
 		open = openStream

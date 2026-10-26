@@ -539,7 +539,7 @@ func (state *State) newDesktopConn(session *Session, host Host) *desktopConn {
 	if state.options.KnownHostsPath != "" {
 		certs = rdp.NewPins(filepath.Join(filepath.Dir(state.options.KnownHostsPath), rdpCertificatesFile))
 	}
-	conn := newDesktopConn(host, notify, open, state.connectionTimeout, state.currentProxy(), certs)
+	conn := newDesktopConn(host, notify, open, state.connectionTimeout, state.proxyForHost(host), certs)
 	if !host.tunneled() {
 		conn.startDirect()
 		return conn

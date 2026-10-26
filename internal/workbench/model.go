@@ -38,6 +38,9 @@ type Host struct {
 	NoHistory bool
 	// Transfer is the file protocol of the host's file panel.
 	Transfer transferMode
+	// Proxy overrides the global outbound proxy for this host. Nil inherits the
+	// global proxy; an explicit ProxyNone forces a direct connection.
+	Proxy *outboundProxy
 	// ViaSSH and Clipboard are a VNC host's: its server is reached through an SSH
 	// connection to Address (User is then the SSH account), and the clipboard is
 	// shared with the remote desktop.
@@ -72,10 +75,13 @@ type Session struct {
 
 	host     Host // what was dialed, to dial again
 	jumpPath string
-	endpoint sshconn.Endpoint
-	role     sshconn.EndpointRole
-	conn     Connection
-	shared   bool // conn is a tab on another tab's connection
+	// proxyRoute is the effective outbound proxy frozen when this connection
+	// was dialed. Editing the host updates host, but not the live transport.
+	proxyRoute string
+	endpoint   sshconn.Endpoint
+	role       sshconn.EndpointRole
+	conn       Connection
+	shared     bool // conn is a tab on another tab's connection
 	// avoidShare makes the next connection a fresh one: the server refused one
 	// more channel on the shared connection.
 	avoidShare bool

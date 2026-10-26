@@ -34,7 +34,7 @@ import (
 // when it saved the record, a value it would reject) raises it; a build refuses a
 // store or a synced file with a higher number than its own, so that it never
 // saves over data it only half understands.
-const configFormat = 1
+const configFormat = 2
 
 const (
 	kindSetting = "setting"

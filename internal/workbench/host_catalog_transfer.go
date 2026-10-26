@@ -128,7 +128,7 @@ func readHostCatalog(path string) (hostCatalogDocument, error) {
 	if document.Format != hostCatalogFormat {
 		return hostCatalogDocument{}, fmt.Errorf("unsupported format %q", document.Format)
 	}
-	if document.Version != hostCatalogSchemaVersion {
+	if document.Version < 1 || document.Version > hostCatalogSchemaVersion {
 		return hostCatalogDocument{}, fmt.Errorf("unsupported catalog version %d", document.Version)
 	}
 	return document, nil

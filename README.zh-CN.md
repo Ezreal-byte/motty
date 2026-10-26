@@ -89,9 +89,10 @@ SFTP 支持多选、递归上传/下载、受限传输队列、续传、取消/�
 ### 🔀 转发与跳板链
 
 本地、远程、SOCKS5 和 HTTP CONNECT 规则只监听 loopback，持久保存并显式启动，
-随所属 SSH 标签页一起停止。跳板链的每一跳单独验证主机密钥和认证。出站
-SOCKS5/HTTP 代理承载第一条连接；X11 转发先校验每个会话的假 cookie，再替换为
-本机 Xauthority 中的真 cookie。
+随所属 SSH 标签页一起停止。跳板链的每一跳单独验证主机密钥和认证。全局出站
+SOCKS5/HTTP 代理可以承载第一条连接；每台已保存的网络主机也可以继承全局设置、
+强制直连，或使用自己的 SOCKS5/HTTP 代理。X11 转发先校验每个会话的假 cookie，
+再替换为本机 Xauthority 中的真 cookie。
 
 <p align="center">
   <a href="assets/readme-forward.png"><img src="assets/readme-forward.png" width="620" alt="新建端口转发" /></a>

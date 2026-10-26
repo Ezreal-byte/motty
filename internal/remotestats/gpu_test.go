@@ -146,13 +146,31 @@ func FuzzParseGPULine(f *testing.F) {
 func TestWorkerAttachesTheGPULinesBeforeACountersLineToThatSample(t *testing.T) {
 	lines := []string{reading(1)}
 	lines = append(lines, strings.SplitAfter(string(nvidiaLines(nvidiaTwoGPUs)), "\n")[:2]...)
-	lines = append(lines, "gop-gpu-nvidia NVIDIA-SMI has failed\n", reading(2), reading(3))
-	worker := start(feed(lines...), nil, time.Second, time.Second)
+	lines = append(lines, "gop-gpu-nvidia NVIDIA-SMI has failed\n", reading(2))
+	next := make(chan struct{})
+	worker := start(streamFunc(func(ctx context.Context, _ string, _ int, line func([]byte) bool) error {
+		for _, text := range lines {
+			if !line([]byte(text)) {
+				return nil
+			}
+		}
+		select {
+		case <-next:
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+		if !line([]byte(reading(3))) {
+			return nil
+		}
+		<-ctx.Done()
+		return ctx.Err()
+	}), nil, time.Second, time.Second)
 	defer worker.Close()
 	first := nextResult(t, worker)
 	if first.Err != nil || len(first.Sample.GPUs) != 2 {
 		t.Fatalf("first = %+v", first)
 	}
+	close(next)
 	if second := nextResult(t, worker); second.Err != nil || len(second.Sample.GPUs) != 0 {
 		t.Fatalf("a reading without GPU lines carried %+v", second.Sample.GPUs)
 	}

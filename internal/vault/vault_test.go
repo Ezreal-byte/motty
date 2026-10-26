@@ -154,6 +154,45 @@ func TestSetReplacesAndDeleteForgets(t *testing.T) {
 	}
 }
 
+func TestApplyChangesAllSecretsOrNone(t *testing.T) {
+	vault, _ := openVault(t, &memoryKeystore{})
+	if err := vault.Apply([]Change{{Name: "a", Value: "old-a"}, {Name: "b", Value: "old-b"}}); err != nil {
+		t.Fatal(err)
+	}
+	calls := 0
+	vault.SetStamper(func() (string, error) {
+		calls++
+		if calls == 2 {
+			return "", errors.New("stamp failed")
+		}
+		return fmt.Sprintf("s%04d", calls), nil
+	})
+	if err := vault.Apply([]Change{{Name: "a", Value: "new-a"}, {Name: "b", Delete: true}}); err == nil {
+		t.Fatal("a batch with a failed second change succeeded")
+	}
+	if got, found, err := vault.Get("a"); err != nil || !found || got != "old-a" {
+		t.Fatalf("a after failed batch = %q, %t, %v", got, found, err)
+	}
+	if got, found, err := vault.Get("b"); err != nil || !found || got != "old-b" {
+		t.Fatalf("b after failed batch = %q, %t, %v", got, found, err)
+	}
+
+	stamps := &counter{calls: 10}
+	vault.SetStamper(stamps.next)
+	if err := vault.Apply([]Change{{Name: "a", Value: "new-a"}, {Name: "b", Delete: true}, {Name: "c", Value: "see"}}); err != nil {
+		t.Fatal(err)
+	}
+	if got, found, _ := vault.Get("a"); !found || got != "new-a" {
+		t.Fatalf("a after batch = %q, %t", got, found)
+	}
+	if _, found, _ := vault.Get("b"); found {
+		t.Fatal("b survived batch deletion")
+	}
+	if got, found, _ := vault.Get("c"); !found || got != "see" {
+		t.Fatalf("c after batch = %q, %t", got, found)
+	}
+}
+
 func TestNothingCanBeSavedWithoutAStoreOrAMasterPassword(t *testing.T) {
 	keys := &memoryKeystore{unavailable: true}
 	vault, path := openVault(t, keys)
