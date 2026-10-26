@@ -127,16 +127,21 @@ Object layout:
 
 | Key | Cache | What |
 | --- | --- | --- |
+| `latest.json` | five minutes | version, tag, and every file's name, size and SHA-256; the only file at the bucket root besides `robots.txt` |
 | `releases/<tag>/<asset>` | a year, immutable | the exact release asset |
-| `latest/<stable>` | five minutes | the same bytes, version out of the name (`motty-0.1.2-darwin-arm64.dmg` → `motty-darwin-arm64.dmg`) |
-| `latest.json` | five minutes | version, tag, and every file's name, size and SHA-256 |
+| `releases/latest/<stable>` | five minutes | the same bytes, version out of the name (`motty-0.1.2-darwin-arm64.dmg` → `motty-darwin-arm64.dmg`) |
 
-The website's download page links at `/latest/<stable>`, so it needs no rebuild
-per version; `latest.json` is what a script should read. The page also lists only
-what `latest.json` holds, so adding or dropping a package format with a release
-shows up on the next site build without editing the page. The uploader runs
-`sha256sum -c SHA256SUMS` first and refuses to mirror a release whose files do
-not match it.
+Everything a release is made of lives under `releases/`; the root only carries
+the feed and `robots.txt`. `releases/latest` is not a tag: it is the projection
+of `latest.json`, and the uploader deletes the alias of a name the new release no
+longer ships, so an old format cannot keep serving stale bytes.
+
+The website's download page links at `/releases/latest/<stable>`, so it needs no
+rebuild per version; `latest.json` is what a script should read. The page also
+lists only what `latest.json` holds, so adding or dropping a package format with
+a release shows up on the next site build without editing the page. The uploader
+runs `sha256sum -c SHA256SUMS` first and refuses to mirror a release whose files
+do not match it.
 
 The workflow needs `CLOUDFLARE_API_TOKEN` with *Workers R2 Storage: Edit* (the
 Pages token from docs/website.md covers the site only) and `CLOUDFLARE_ACCOUNT_ID`
