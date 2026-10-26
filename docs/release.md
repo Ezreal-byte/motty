@@ -18,13 +18,28 @@ gh release edit v0.1.2 --draft=false
 
 | Job | Runs on | Builds |
 | --- | --- | --- |
+| Pin viva | Ubuntu | resolves `vivaui/viva` main to one commit |
 | Draft release | Ubuntu | creates the draft if there is none |
-| macOS | macOS 15 (arm64) | `.zip` and `.dmg` for arm64 and amd64; signed, notarized and stapled |
-| Linux and Windows | Ubuntu | `.tar.gz` and `.deb` (amd64, arm64), Windows `.zip` (amd64, arm64) and the amd64 installer; the Windows programs and the installer signed |
+| macOS | macOS 15 (arm64) | `.dmg` for arm64 and amd64; signed, notarized and stapled |
+| Linux and Windows | Ubuntu | `.tar.gz` and `.deb` (amd64, arm64), and an NSIS installer for Windows amd64 and arm64; the Windows programs and the installers signed |
 | Checksums | Ubuntu | `SHA256SUMS` of everything the release then holds |
 
 The two build jobs run at the same time and upload to the same draft. Re-running
 a failed job replaces its files. The Linux packages are not signed.
+
+## The framework commit
+
+Motty is built against the sibling Viva checkout, so a release has to name which
+frame it was built on. The *Pin viva* job runs first and asks GitHub for
+`vivaui/viva` main's commit; both build jobs then check out that exact commit and
+pass it to `tools/release.sh --viva-ref`, and the checksums job writes a
+`Built against vivaui/viva <sha>.` line into the release notes. Main's tip at the
+start of the release is what gets used: a push to Viva while the release runs
+cannot hand the Mac job and the Linux job different frames, and the commit stays
+readable from the release afterwards.
+
+A local run uses whatever `../viva` holds unless told otherwise, so pass the same
+commit to compare with CI: `tools/release.sh --platforms linux --viva-ref <sha>`.
 
 The macOS runner's architecture does not decide the output architecture: the
 release script builds both arm64 and amd64, and Viva cross-builds the cgo/Metal
@@ -117,7 +132,9 @@ Object layout:
 | `latest.json` | five minutes | version, tag, and every file's name, size and SHA-256 |
 
 The website's download page links at `/latest/<stable>`, so it needs no rebuild
-per version; `latest.json` is what a script should read. The uploader runs
+per version; `latest.json` is what a script should read. The page also lists only
+what `latest.json` holds, so adding or dropping a package format with a release
+shows up on the next site build without editing the page. The uploader runs
 `sha256sum -c SHA256SUMS` first and refuses to mirror a release whose files do
 not match it.
 
@@ -125,6 +142,21 @@ The workflow needs `CLOUDFLARE_API_TOKEN` with *Workers R2 Storage: Edit* (the
 Pages token from docs/website.md covers the site only) and `CLOUDFLARE_ACCOUNT_ID`
 (the same value the website workflow uses). Re-run a mirror from *Actions →
 Mirror release → Run workflow* with the tag.
+
+## The package matrix
+
+Every release carries one native package per platform and architecture:
+
+| Platform | arm64 | amd64 |
+| --- | --- | --- |
+| macOS | `.dmg` | `.dmg` |
+| Windows | `.exe` installer | `.exe` installer |
+| Linux | `.deb`, `.tar.gz` | `.deb`, `.tar.gz` |
+
+`tools/release.sh` refuses to upload when one of those is missing, so a run with
+a broken makensis stops instead of publishing a release with a hole in it. The
+installers are built on Linux; makensis on Apple Silicon crashes (NSIS issue
+#1333), which is why `--platforms windows` on a Mac only warns.
 
 ## What has been checked
 
