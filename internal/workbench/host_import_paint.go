@@ -15,8 +15,12 @@ func (state *State) paintHostImportResult(canvas *ui.Canvas, viewport ui.Rect) {
 		InitialFocusID: hitHostImportDone,
 		ContentSize:    ui.Size{Width: 640}, FitBody: true, BodyHeight: state.hostImportBody(),
 	})
-	layout := dialog.Begin(messages.SSHConfigResultTitle, state.hostImportResult.summary)
 	result := &state.hostImportResult
+	title := messages.SSHConfigResultTitle
+	if result.title != "" {
+		title = result.title
+	}
+	layout := dialog.Begin(title, result.summary)
 	f := state.importLayout.Begin(canvas, state.Theme(), layout.Body)
 	f.Column().Fill().Children(func() {
 		if result.visible == 0 {

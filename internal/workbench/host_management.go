@@ -327,6 +327,23 @@ func (state *State) updateHostFromEditor(updated Host, previous Host, notes ...s
 		state.modal = modalNone
 		return
 	}
+	state.replaceHost(index, previous, updated)
+	state.modal = modalNone
+	state.dialogError = ""
+	state.status = state.messages.HostUpdated + updated.Label
+	state.commitOTP(updated, &previous)
+	for _, note := range notes {
+		state.appendStatusNote(note)
+	}
+	state.hostDataChanged()
+	state.save()
+	state.showNextPrompt()
+}
+
+// replaceHost puts updated in the place of previous, the host at index, and
+// brings what kept a copy of it in step: the tabs open on it, its forwards and
+// the lists that show it.
+func (state *State) replaceHost(index int, previous, updated Host) {
 	state.hosts[index] = updated
 	for index := range state.sessions {
 		session := &state.sessions[index]
@@ -350,16 +367,6 @@ func (state *State) updateHostFromEditor(updated Host, previous Host, notes ...s
 	state.rebuildTabOptions()
 	state.refreshForwards()
 	state.refreshProxies()
-	state.modal = modalNone
-	state.dialogError = ""
-	state.status = state.messages.HostUpdated + updated.Label
-	state.commitOTP(updated, &previous)
-	for _, note := range notes {
-		state.appendStatusNote(note)
-	}
-	state.hostDataChanged()
-	state.save()
-	state.showNextPrompt()
 }
 
 // hostPasswordSecretName maps a host to the same vault key its connection uses.
@@ -623,6 +630,7 @@ func (state *State) applyHostGroup(group string) {
 }
 
 func (state *State) hostDataChanged() {
+	state.sshSyncMark()
 	state.visible = nil
 	state.refreshHostGroups()
 	state.pruneHostSelections()

@@ -438,6 +438,7 @@ func (state *State) snapshot() savedState {
 // started from a file of a newer build never saves, so that file stays as it is;
 // the dialog that says so comes back each time the user changes something.
 func (state *State) save() {
+	defer state.sshSyncFlush()
 	if state.saveBlocked {
 		if state.modal == modalNone {
 			state.modal = modalStateNotice

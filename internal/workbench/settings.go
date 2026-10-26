@@ -294,6 +294,8 @@ func (state *State) clickSettings(id ui.ID) bool {
 		} else {
 			changed = state.setShareConnections(shareConnectionsOff)
 		}
+	case hitSettingsSSHSyncToggle, hitSettingsSSHSyncFile, hitSettingsSSHSyncReset, hitSettingsSSHSyncNow:
+		state.clickSSHSync(id)
 	default:
 		return state.clickVaultSettings(id)
 	}

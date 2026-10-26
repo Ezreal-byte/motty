@@ -15,6 +15,9 @@ import (
 const maxVisibleHostImportWarnings = 7
 
 type hostImportResult struct {
+	// title replaces the dialog's own when set: the sync with the SSH config
+	// reports in the same dialog.
+	title         string
 	summary       string
 	warningsTitle string
 	warnings      [maxVisibleHostImportWarnings]string
@@ -289,6 +292,7 @@ func (state *State) applyHostImportSummary(plan hostImportPlan, summary string) 
 }
 
 func (result *hostImportResult) set(messages i18n.Messages, summary string, warnings []string) {
+	result.title = ""
 	result.summary = summary
 	result.warningsTitle = ""
 	result.more = ""

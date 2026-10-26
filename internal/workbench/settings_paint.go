@@ -326,6 +326,7 @@ func (state *State) paintConnectionSettings(page *settingsPage) {
 			page.row(messages.SettingsRestore, messages.SettingsRestoreDescription, restore[:], selectedRestore)
 			state.paintOutboundProxyRow(page)
 		})
+		state.paintSSHSyncSettings(page)
 	})
 }
 

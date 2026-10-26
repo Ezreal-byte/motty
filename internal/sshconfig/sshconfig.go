@@ -3,8 +3,8 @@
 package sshconfig
 
 import (
-	"bufio"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"path/filepath"
@@ -73,7 +73,11 @@ type directive struct {
 }
 
 type parser struct {
-	home        string
+	home string
+	// docs holds every file read, by canonical path, in the order they were met.
+	// A caller that edits them re-evaluates over the same documents.
+	docs        map[string]*doc
+	order       *[]string
 	directives  []directive
 	warnings    []Warning
 	warningSeen map[warningKey]struct{}
@@ -98,27 +102,65 @@ func ParseFile(path string) (Result, error) {
 	if err != nil {
 		return Result{}, fmt.Errorf("resolve SSH config: %w", err)
 	}
+	p := newParser(make(map[string]*doc), new([]string))
+	return p.run(absolute)
+}
+
+func newParser(docs map[string]*doc, order *[]string) *parser {
 	home := os.Getenv("HOME")
 	if home == "" {
 		home, _ = os.UserHomeDir()
 	}
-	p := parser{
+	return &parser{
 		home:        home,
+		docs:        docs,
+		order:       order,
 		warningSeen: make(map[warningKey]struct{}),
 		aliasSeen:   make(map[string]struct{}),
 		stack:       make(map[string]struct{}),
 	}
+}
+
+// run reads the configuration graph from path and evaluates every alias in it.
+func (p *parser) run(path string) (Result, error) {
 	inMatch := false
-	if err := p.readFile(absolute, 0, &inMatch); err != nil {
+	if err := p.readFile(path, 0, &inMatch); err != nil {
 		return Result{}, fmt.Errorf("read SSH config: %w", err)
 	}
-	result := Result{Warnings: p.warnings}
-	result.Hosts = make([]Host, 0, len(p.aliases))
+	result := Result{Hosts: make([]Host, 0, len(p.aliases))}
 	for _, alias := range p.aliases {
 		result.Hosts = append(result.Hosts, p.evaluate(alias))
 	}
 	result.Warnings = p.warnings
 	return result, nil
+}
+
+// document is the file at a canonical path: the one already held (which may
+// carry edits), or the one on disk.
+func (p *parser) document(canonical string) (*doc, error) {
+	if held, ok := p.docs[canonical]; ok {
+		return held, nil
+	}
+	file, err := os.Open(canonical)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+	info, err := file.Stat()
+	if err != nil {
+		return nil, err
+	}
+	if !info.Mode().IsRegular() {
+		return nil, fmt.Errorf("%s is not a regular file", canonical)
+	}
+	data, err := io.ReadAll(file)
+	if err != nil {
+		return nil, err
+	}
+	loaded := newDoc(canonical, data, true, info.Mode().Perm())
+	p.docs[canonical] = loaded
+	*p.order = append(*p.order, canonical)
+	return loaded, nil
 }
 
 func (p *parser) readFile(path string, depth int, inMatch *bool) error {
@@ -129,25 +171,16 @@ func (p *parser) readFile(path string, depth int, inMatch *bool) error {
 	if _, exists := p.stack[canonical]; exists {
 		return fmt.Errorf("include cycle through %s", canonical)
 	}
-	file, err := os.Open(canonical)
+	held, err := p.document(canonical)
 	if err != nil {
 		return err
-	}
-	defer file.Close()
-	info, err := file.Stat()
-	if err != nil {
-		return err
-	}
-	if !info.Mode().IsRegular() {
-		return fmt.Errorf("%s is not a regular file", canonical)
 	}
 	p.stack[canonical] = struct{}{}
 	defer delete(p.stack, canonical)
 
-	scanner := bufio.NewScanner(file)
-	scanner.Buffer(make([]byte, 4096), 1<<20)
-	for lineNumber := 1; scanner.Scan(); lineNumber++ {
-		name, args, err := parseLine(scanner.Text())
+	for index, line := range held.lines {
+		lineNumber := index + 1
+		name, args, err := parseLine(line.text)
 		if err != nil {
 			p.warn(WarningInvalidSyntax, canonical, lineNumber, "", err.Error())
 			continue
@@ -183,9 +216,6 @@ func (p *parser) readFile(path string, depth int, inMatch *bool) error {
 			code = WarningDynamicValue
 		}
 		p.warn(code, canonical, lineNumber, name, "directive is not safe or supported by offline import")
-	}
-	if err := scanner.Err(); err != nil {
-		return err
 	}
 	return nil
 }

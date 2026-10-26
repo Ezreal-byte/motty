@@ -50,6 +50,31 @@ Motty reads the saved sessions of other clients:
 - WindTerm
 - Electerm
 
+## Syncing with your SSH config
+
+Importing reads a file once. To keep `~/.ssh/config` and Motty in step both ways,
+turn on **Settings > Connection > Sync with SSH config**.
+
+- A `Host` you add or change in the file shows up in Motty, and a host you add or
+  change in Motty is written to the file. The host, user, port and `ProxyJump`
+  travel both ways; `IdentityFile` is added to the Keychain once.
+- Hosts made in Motty go in a block fenced by `# --- motty: begin synced hosts`
+  and `# --- motty: end synced hosts`, placed before your general `Host *` blocks.
+  Everything else in the file, comments and settings Motty does not know included,
+  is left as it is. A host you wrote is edited in place, and only if its block
+  names that host alone.
+- When one field was changed on both sides since the last sync, the file's value
+  is kept. Taking a host out of the file stops syncing it and keeps it in Motty;
+  deleting a host in Motty removes the block Motty wrote, and leaves one you wrote.
+- The first time Motty rewrites a file it keeps a copy beside it, named with
+  `.motty-backup`. A file that changed while Motty was writing is never overwritten.
+- It syncs at start, when hosts change, and when you click in the window after the
+  file changed. Nothing polls the file. **Sync now** runs it on request and lists
+  what could not be mapped.
+
+The links between hosts and aliases are kept on this computer only, so they do not
+travel with [cloud sync](/en/docs/data/backup-and-sync).
+
 ## The vault
 
 Saved passwords and key passphrases go into an AES-256-GCM vault. The vault key

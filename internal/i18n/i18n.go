@@ -38,6 +38,8 @@ type Messages struct {
 	Autofill AutofillMessages
 	// History holds the command history's texts; see history.go.
 	History HistoryMessages
+	// SSHSync holds the texts of the sync with the OpenSSH config; see ssh_sync.go.
+	SSHSync SSHSyncMessages
 	// Desktop holds the remote-desktop tabs' texts; see desktop.go.
 	Desktop DesktopMessages
 
@@ -719,6 +721,7 @@ func For(language Language) Messages {
 		messages.AIPanel, messages.AISettings, messages.Tools = chineseAIPanel, chineseAISettings, chineseTools
 		messages.Autofill = chineseAutofill
 		messages.History = chineseHistory
+		messages.SSHSync = chineseSSHSync
 		messages.Desktop = chineseDesktop
 		return messages
 	default:
@@ -726,6 +729,7 @@ func For(language Language) Messages {
 		messages.AIPanel, messages.AISettings, messages.Tools = englishAIPanel, englishAISettings, englishTools
 		messages.Autofill = englishAutofill
 		messages.History = englishHistory
+		messages.SSHSync = englishSSHSync
 		messages.Desktop = englishDesktop
 		return messages
 	}

@@ -573,6 +573,7 @@ type State struct {
 	formSerial     uint32
 	closeAsked     bool
 	sync           syncState
+	sshSync        sshSyncState
 	remote         remoteToolsView
 	edits          externalEdits
 	// fontSizeText is the font size as the settings page shows it, for fontSizeShown.
@@ -795,6 +796,7 @@ func New(options Options) *State {
 	if state.options.Group != nil {
 		state.options.Group.join(state)
 	}
+	state.sshSyncStart()
 	return state
 }
 
@@ -1035,6 +1037,7 @@ func (state *State) WindowControlsStyle() app.WindowControlsStyle {
 // Click applies one stable hit action.
 func (state *State) Click(id ui.ID) {
 	defer state.runLaunches()
+	defer state.sshSyncCheck()
 	if session, local, ok := state.decodePaneHit(id); ok {
 		if state.activeSessionID != session.ID && state.ActivatePane(session.ID) {
 			state.save()

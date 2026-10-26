@@ -127,6 +127,9 @@ type Options struct {
 	// KnownHostsPath is where trusted host keys are remembered. Empty means
 	// motty/known_hosts under the user's config directory.
 	KnownHostsPath string
+	// SSHConfigPath is the OpenSSH config the sync with it reads and writes. Empty
+	// means .ssh/config under the user's home directory.
+	SSHConfigPath string
 	// StatePath is the configuration store: the saved hosts and settings. Empty
 	// means config.db next to the known-hosts file.
 	StatePath string

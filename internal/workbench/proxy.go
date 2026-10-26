@@ -181,6 +181,7 @@ func (state *State) submitProxyDialog() {
 	state.nextProxyID++
 	state.proxies = append(state.proxies, route)
 	state.selectedProxyID = route.ID
+	state.sshSyncMark()
 	state.refreshProxies()
 	state.status = state.messages.ProxyAdded + state.proxies[len(state.proxies)-1].label
 	state.closeProxyDialog()
@@ -225,6 +226,7 @@ func (state *State) removeSelectedProxy() {
 		if len(state.proxies) > 0 {
 			state.selectedProxyID = state.proxies[min(index, len(state.proxies)-1)].ID
 		}
+		state.sshSyncMark()
 		state.refreshProxies()
 		state.status = state.messages.ProxyRemoved + state.proxyLabel(removed)
 		state.save()
