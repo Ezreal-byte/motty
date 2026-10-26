@@ -280,6 +280,7 @@ type ToolsMessages struct {
 	UpdateWhyNotUserInstall         string
 	UpdateWhyNotWritable            string
 	UpdateWhyTranslocated           string
+	UpdateWhySystemInstall          string
 	UpdateWhyNoPackage              string
 	UpdateWhyUnsigned               string
 	GeneralUpdateInstall            string
@@ -819,6 +820,7 @@ var englishTools = ToolsMessages{
 	UpdateWhyNotUserInstall:         "This copy was not installed the way Motty's own packages install it, so it cannot update itself.",
 	UpdateWhyNotWritable:            "Motty cannot write to where it is installed.",
 	UpdateWhyTranslocated:           "macOS is running Motty from a temporary place. Move it to Applications first.",
+	UpdateWhySystemInstall:          "This copy was installed system-wide, so Motty cannot replace it. Update it with your package manager, or run the new installer.",
 	UpdateWhyNoPackage:              "This release has no package for this system.",
 	UpdateWhyUnsigned:               "This release is not signed for in-place installation; download it from the release page.",
 	GeneralUpdateInstall:            "Update",
@@ -1358,6 +1360,7 @@ var chineseTools = ToolsMessages{
 	UpdateWhyNotUserInstall:         "这份 Motty 不是按官方安装包的方式安装的，无法自行更新。",
 	UpdateWhyNotWritable:            "没有权限写入 Motty 的安装位置。",
 	UpdateWhyTranslocated:           "macOS 正从临时位置运行 Motty，请先把它移到“应用程序”文件夹。",
+	UpdateWhySystemInstall:          "这份 Motty 是系统级安装的，无法自行替换；请用包管理器更新，或重新运行安装程序。",
 	UpdateWhyNoPackage:              "此版本没有适用于当前系统的安装包。",
 	UpdateWhyUnsigned:               "此版本没有用于自更新的签名，请从下载页安装。",
 	GeneralUpdateInstall:            "更新",

@@ -136,6 +136,7 @@ func (tray *Tray) Menu() []app.MenuItem {
 		app.MenuItem{Separator: true},
 		app.MenuItem{Title: messages.TrayLocalTerminal, OnSelect: tray.openLocalTerminal},
 		app.MenuItem{Title: messages.TrayShowWindow, OnSelect: tray.ShowWindow},
+		app.MenuItem{Title: messages.TrayCheckUpdates, OnSelect: tray.checkForUpdates, Disabled: tray.checkingForUpdates()},
 		app.MenuItem{Separator: true},
 		app.MenuItem{Title: messages.TrayQuit, OnSelect: tray.quit},
 	)
@@ -225,4 +226,26 @@ func (tray *Tray) ShowWindow() {
 	if member, ok := tray.visibleMember(); ok {
 		member.window.Show()
 	}
+}
+
+// checkingForUpdates reports whether any window is already asking the feed, so
+// the menu can disable the entry instead of queueing a second request.
+func (tray *Tray) checkingForUpdates() bool {
+	for _, member := range tray.members {
+		if member.state.update.checking {
+			return true
+		}
+	}
+	return false
+}
+
+// checkForUpdates asks the feed from the window the user can see, bringing it
+// forward first: a release is offered in that window's update dialog.
+func (tray *Tray) checkForUpdates() {
+	member, ok := tray.visibleMember()
+	if !ok {
+		return
+	}
+	member.window.Show()
+	member.state.checkForUpdates(true)
 }

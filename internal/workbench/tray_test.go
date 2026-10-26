@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/vivaui/viva/app"
+	"motty/internal/update"
 	layoutcore "motty/internal/workspace"
 )
 
@@ -79,7 +80,7 @@ func TestTrayMenuListsEverySessionOfEveryWindowGroupingSplitWorkspaces(t *testin
 	// A split workspace is a submenu of its sessions; a workspace of one session
 	// is a single entry; windows keep the order they were added in. The status
 	// of each session follows its name.
-	if len(lines) != 10 || lines[0] != "Sessions · 3" || lines[1] != "Production (2)" || !strings.HasPrefix(lines[4], "Router · ") {
+	if len(lines) != 11 || lines[0] != "Sessions · 3" || lines[1] != "Production (2)" || !strings.HasPrefix(lines[4], "Router · ") {
 		t.Fatalf("menu = %q", lines)
 	}
 	if !menu[0].Disabled || menu[1].Disabled || len(menu[1].Submenu) != 2 {
@@ -91,7 +92,7 @@ func TestTrayMenuListsEverySessionOfEveryWindowGroupingSplitWorkspaces(t *testin
 		}
 	}
 	tail := lines[5:]
-	want := []string{"---", "New local terminal", "Show Motty", "---", "Quit Motty"}
+	want := []string{"---", "New local terminal", "Show Motty", "Check for Updates…", "---", "Quit Motty"}
 	for index := range want {
 		if tail[index] != want[index] {
 			t.Fatalf("footer = %q, want %q", tail, want)
@@ -120,7 +121,7 @@ func TestTrayMenuOfNoSessionsSaysSoAndOfNoWindowsIsEmpty(t *testing.T) {
 	}
 	tray.Add(state, &fakeTrayWindow{})
 	lines := menuTitles(tray.Menu(), "")
-	if lines[0] != "No open sessions" || len(lines) != 6 {
+	if lines[0] != "No open sessions" || len(lines) != 7 {
 		t.Fatalf("menu = %q", lines)
 	}
 }
@@ -175,6 +176,25 @@ func TestChoosingASessionBringsItsWindowToThatSession(t *testing.T) {
 	stale.OnSelect()
 	if fixture.secondView.shows != 0 {
 		t.Fatal("an entry for a closed session brought its window forward")
+	}
+}
+
+func TestChoosingCheckForUpdatesAsksInAVisibleWindowAndOffersTheRelease(t *testing.T) {
+	fixture := newTrayFixture(t)
+	fixture.firstView.hidden, fixture.secondView.hidden = true, true
+	release := update.Release{Version: "99.0.0", URL: "https://example.com/release"}
+	fixture.first.options.CheckUpdate = func() (update.Release, error) { return release, nil }
+	item := findItem(fixture.tray.Menu(), "Check for Updates…")
+	if item == nil || item.OnSelect == nil || item.Disabled {
+		t.Fatalf("item = %+v", item)
+	}
+	item.OnSelect()
+	if fixture.firstView.shows != 1 {
+		t.Fatalf("shows = %d, want the hidden window brought forward", fixture.firstView.shows)
+	}
+	waitUpdate(t, fixture.first, func() bool { return fixture.first.update.available })
+	if fixture.first.update.release.Version != "99.0.0" {
+		t.Fatalf("release = %+v", fixture.first.update.release)
 	}
 }
 

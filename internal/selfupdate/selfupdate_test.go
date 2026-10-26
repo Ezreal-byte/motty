@@ -209,8 +209,9 @@ func TestOnlyAStandardUserInstallationReplacesItself(t *testing.T) {
 		{"mac read only", "/Applications/Motty.app/Contents/MacOS/motty", Env{GOOS: "darwin", Writable: func(string) bool { return false }}, KindNone, ReasonNotWritable},
 		{"mac translocated", "/private/var/folders/x/AppTranslocation/ABC/d/Motty.app/Contents/MacOS/motty", Env{GOOS: "darwin", Writable: writable}, KindNone, ReasonTranslocated},
 		{"linux user prefix", "/home/me/.local/bin/motty", Env{GOOS: "linux", Writable: writable, Exists: existing("/home/me/.local/share/applications/motty.desktop")}, KindLinuxPrefix, ReasonNone},
-		{"linux deb", "/usr/bin/motty", Env{GOOS: "linux", Writable: func(string) bool { return false }, Exists: existing()}, KindNone, ReasonNotUserInstall},
+		{"linux deb", "/usr/bin/motty", Env{GOOS: "linux", Writable: func(string) bool { return false }, Exists: existing()}, KindNone, ReasonSystemInstall},
 		{"linux prefix with a space", "/home/my user/.local/bin/motty", Env{GOOS: "linux", Writable: writable, Exists: existing("/home/my user/.local/share/applications/motty.desktop")}, KindNone, ReasonNotUserInstall},
+		{"linux system package", "/usr/bin/motty", Env{GOOS: "linux", Writable: writable}, KindNone, ReasonSystemInstall},
 		{"other system", "/x/motty", Env{GOOS: "plan9"}, KindNone, ReasonNotUserInstall},
 	} {
 		install, why := Detect(test.exe, test.env)
@@ -230,6 +231,10 @@ func TestWindowsInstallsAreRecognisedByTheirInstallerDirectory(t *testing.T) {
 	}
 	if _, why := Detect(`C:\Tools\motty.exe`, env); why != ReasonNotUserInstall {
 		t.Errorf("portable: %v", why)
+	}
+	env.ProgramFiles = []string{`C:\Program Files`}
+	if _, why := Detect(`C:\Program Files\Motty\motty.exe`, env); why != ReasonSystemInstall {
+		t.Errorf("Program Files: %v", why)
 	}
 }
 

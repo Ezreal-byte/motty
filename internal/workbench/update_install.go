@@ -78,6 +78,8 @@ func (state *State) whyNoInstall() string {
 		return m.UpdateWhyNotWritable
 	case selfupdate.ReasonTranslocated:
 		return m.UpdateWhyTranslocated
+	case selfupdate.ReasonSystemInstall:
+		return m.UpdateWhySystemInstall
 	}
 	if !state.update.release.Asset.Has() {
 		return m.UpdateWhyNoPackage

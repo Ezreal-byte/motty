@@ -61,6 +61,10 @@ const (
 	// ReasonTranslocated is a macOS app running from the temporary place the
 	// system copies a downloaded, never moved app to.
 	ReasonTranslocated
+	// ReasonSystemInstall is an installation the system owns: a package manager's
+	// package, or a program installed for every user. The package manager or the
+	// installer has to replace it, not the app.
+	ReasonSystemInstall
 )
 
 // Install is where the running program lives and how it is replaced.
@@ -76,14 +80,33 @@ type Install struct {
 // Env is what Detect asks of the system, so a test can describe any machine.
 type Env struct {
 	GOOS         string
-	LocalAppData string // %LOCALAPPDATA% on Windows
+	LocalAppData string   // %LOCALAPPDATA% on Windows
+	ProgramFiles []string // %ProgramFiles% and its variants
 	Writable     func(dir string) bool
 	Exists       func(path string) bool
 }
 
 // SystemEnv describes the machine this runs on.
 func SystemEnv() Env {
-	return Env{GOOS: runtime.GOOS, LocalAppData: os.Getenv("LOCALAPPDATA"), Writable: writable, Exists: exists}
+	var programFiles []string
+	for _, name := range []string{"ProgramFiles", "ProgramFiles(x86)", "ProgramW6432"} {
+		if dir := os.Getenv(name); dir != "" {
+			programFiles = append(programFiles, dir)
+		}
+	}
+	return Env{
+		GOOS: runtime.GOOS, LocalAppData: os.Getenv("LOCALAPPDATA"), ProgramFiles: programFiles,
+		Writable: writable, Exists: exists,
+	}
+}
+
+// under reports whether path is inside dir.
+func under(path, dir string) bool {
+	relative, err := filepath.Rel(dir, path)
+	if err != nil {
+		return false
+	}
+	return relative != "." && relative != ".." && !strings.HasPrefix(relative, ".."+string(filepath.Separator))
 }
 
 func exists(path string) bool {
@@ -126,6 +149,11 @@ func Detect(exe string, env Env) (Install, Reason) {
 		}
 		install.Kind, install.Root = KindMacApp, bundle
 	case "windows":
+		for _, root := range env.ProgramFiles {
+			if root != "" && under(exe, root) {
+				return install, ReasonSystemInstall
+			}
+		}
 		// %LOCALAPPDATA%\Programs\<Name>\<exe>, with the installer's uninstaller beside it.
 		dir := filepath.Dir(exe)
 		programs := filepath.Join(env.LocalAppData, "Programs")
@@ -137,6 +165,11 @@ func Detect(exe string, env Env) (Install, Reason) {
 		}
 		install.Kind, install.Root = KindWindowsSetup, dir
 	case "linux":
+		for _, root := range []string{"/usr", "/opt", "/snap", "/var/lib/flatpak"} {
+			if under(exe, root) {
+				return install, ReasonSystemInstall
+			}
+		}
 		// <prefix>/bin/<exe>, with the menu entry install.sh makes under the prefix.
 		bin := filepath.Dir(exe)
 		prefix := filepath.Dir(bin)

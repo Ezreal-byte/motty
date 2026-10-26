@@ -123,6 +123,16 @@ func TestAnUpdateThatCannotBeInstalledSaysWhyAndKeepsTheDownloadPage(t *testing.
 	}
 }
 
+func TestASystemInstalledCopyPointsAtThePackageManager(t *testing.T) {
+	updater, quits, opened := &fakeUpdater{reason: selfupdate.ReasonSystemInstall}, 0, []string(nil)
+	state := updateWindow(t, updater, &quits, &opened)
+	_, texts := paintedTexts(state)
+	m := state.messages.Tools
+	if contains(texts, m.UpdateInstall) || !strings.Contains(strings.Join(texts, " "), "installed system-wide") {
+		t.Fatalf("texts %q", texts)
+	}
+}
+
 func TestAnInstallThatFailsStaysOnTheDialogWithItsReasonAndTheReleasePage(t *testing.T) {
 	updater, quits, opened := &fakeUpdater{}, 0, []string(nil)
 	updater.prepare = func(context.Context, func(selfupdate.Progress), func(selfupdate.Phase)) (selfupdate.Staged, error) {

@@ -87,6 +87,7 @@ type Messages struct {
 	TrayQuit          string
 	TrayLocalTerminal string
 	TrayShowWindow    string
+	TrayCheckUpdates  string
 	TrayTooltipFmt    string
 	TrayTooltipEmpty  string
 
@@ -748,6 +749,7 @@ var EnglishMessages = Messages{
 	TrayQuit:               "Quit Motty",
 	TrayLocalTerminal:      "New local terminal",
 	TrayShowWindow:         "Show Motty",
+	TrayCheckUpdates:       "Check for Updates…",
 	TrayTooltipFmt:         "Motty (%d open)",
 	TrayTooltipEmpty:       "Motty",
 
@@ -1377,6 +1379,7 @@ var ChineseMessages = Messages{
 	TrayQuit:               "退出 Motty",
 	TrayLocalTerminal:      "新建本地终端",
 	TrayShowWindow:         "显示 Motty",
+	TrayCheckUpdates:       "检查更新…",
 	TrayTooltipFmt:         "Motty · %d 个打开的会话",
 	TrayTooltipEmpty:       "Motty",
 
