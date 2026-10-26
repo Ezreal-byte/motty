@@ -2,8 +2,8 @@ import { site } from '@/lib/seo';
 
 /**
  * The /download page. The packages live on the R2 mirror (tools/mirror-release.sh
- * publishes `latest/<version-less name>` for every release), so a link never
- * needs a site rebuild per version.
+ * publishes `releases/latest/<version-less name>` for every release), so a link
+ * never needs a site rebuild per version.
  *
  * `catalog` lists the packages a release may contain and `latest.json` says which
  * ones this release actually has, so a format that is added or dropped with a
@@ -15,7 +15,7 @@ export type Platform = 'macos' | 'windows' | 'linux';
 export type FileKind = 'dmg' | 'zip' | 'exe' | 'deb' | 'targz';
 
 export type DownloadFile = {
-  /** `latest/<key>` under the mirror host. */
+  /** `releases/latest/<key>` under the mirror host. */
   key: string;
   label: string;
   /** The file extension, shown as a badge before the label. */
@@ -134,5 +134,5 @@ export async function downloadGroups(lang: 'en' | 'zh'): Promise<DownloadGroup[]
 
 /** Resolve a file to its mirrored URL; the page never builds URLs itself. */
 export function downloadHref(file: DownloadFile): string {
-  return `${site.download}/latest/${file.key}`;
+  return `${site.download}/releases/latest/${file.key}`;
 }

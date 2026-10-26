@@ -1,5 +1,5 @@
 import { changelog, versionLabel } from '@/lib/changelog';
-import { downloadGroups } from '@/lib/download-content';
+import { downloadGroups, downloadHref } from '@/lib/download-content';
 import { landing } from '@/lib/landing-content';
 import { docsPath, source } from '@/lib/source';
 import { absolute, copy, localePath, site } from '@/lib/seo';
@@ -39,7 +39,7 @@ export async function GET() {
     '',
     ...groups.flatMap((group) => [
       `**${group.platform}**`,
-      ...group.files.map((file) => `- ${file.label} (${file.kind}): ${site.download}/latest/${file.key}`),
+      ...group.files.map((file) => `- ${file.label} (${file.kind}): ${downloadHref(file)}`),
       '',
     ]),
     `- Every file, with its size and SHA-256: ${site.download}/latest.json`,
