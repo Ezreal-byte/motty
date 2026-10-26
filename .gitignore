@@ -3,6 +3,8 @@
 /build/
 /motty
 /.private/
+/.agents/
+/.claude/
 /docs/competitors*.md
 .DS_Store
 /tmp/
