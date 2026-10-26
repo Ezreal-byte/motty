@@ -2,6 +2,7 @@ package sessionimport
 
 import (
 	"archive/zip"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -165,6 +166,97 @@ func TestWindTermSessionsFileKeepsGroupsAndSkipsOtherProtocols(t *testing.T) {
 	}
 }
 
+func TestElectermBookmarksKeepTheirFoldersAndSkipOtherKinds(t *testing.T) {
+	const export = `{
+	"bookmarkGroups": [
+		{"id": "default", "title": "default", "bookmarkIds": ["free"], "bookmarkGroupIds": ["clients"]},
+		{"id": "clients", "title": "Clients", "bookmarkIds": [], "bookmarkGroupIds": ["acme"]},
+		{"id": "acme", "title": "Acme", "bookmarkIds": ["web"], "bookmarkGroupIds": ["prod"]},
+		{"id": "prod", "title": "Prod", "bookmarkIds": ["db", "tel"], "bookmarkGroupIds": []},
+		{"id": "ring-a", "title": "RingA", "bookmarkIds": ["box"], "bookmarkGroupIds": ["ring-b"]},
+		{"id": "ring-b", "title": "RingB", "bookmarkIds": [], "bookmarkGroupIds": ["ring-a"]},
+		{"id": "", "title": "nameless", "bookmarkIds": [], "bookmarkGroupIds": []}
+	],
+	"bookmarks": [
+		{"id": "web", "title": "Web", "host": "web.acme.test", "port": "2222", "username": "root", "type": "ssh", "authType": "password", "password": "hunter2"},
+		{"id": "db", "title": "", "host": "db.acme.test", "username": "deploy", "authType": "privateKey", "privateKey": "-----BEGIN KEY-----"},
+		{"id": "tel", "title": "Switch", "host": "sw.lab", "port": 23, "type": "telnet", "username": "admin"},
+		{"id": "box", "title": "Box", "host": "box.lab", "passphrase": "open sesame"},
+		{"id": "free", "title": "Free", "host": "free.lab"},
+		{"id": "bad", "title": "Bad", "host": "has space", "password": "never imported or counted"},
+		{"id": "desk", "title": "Desktop", "host": "win.lab", "port": 3389, "type": "rdp"}
+	]
+}`
+	dir := t.TempDir()
+	result, err := Parse(Electerm, []string{write(t, dir, "bookmarks-2026-10-26.json", []byte(export))})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Entries) != 5 || result.Skipped != 1 || result.Keys != 1 || result.PlainSecrets != 3 {
+		t.Fatalf("%+v", result)
+	}
+	byName := map[string]Entry{}
+	for _, entry := range result.Entries {
+		byName[entry.Name] = entry
+	}
+	if got := byName["Web"]; got.Group != "Clients/Acme" || got.Host != "web.acme.test" || got.Port != 2222 || got.User != "root" {
+		t.Fatalf("web = %+v", got)
+	}
+	// A bookmark with no title of its own is named after its address.
+	if got := byName["db.acme.test"]; got.Group != "Clients/Acme/Prod" || got.User != "deploy" {
+		t.Fatalf("db = %+v", got)
+	}
+	if got := byName["Switch"]; got.Protocol != Telnet || got.Port != 23 || got.User != "" || got.Group != "Clients/Acme/Prod" {
+		t.Fatalf("telnet = %+v", got)
+	}
+	// Two groups that each sit in the other do not make a folder that runs on for
+	// ever.
+	if got := byName["Box"]; got.Group != "RingB/RingA" || got.Port != 0 || got.Protocol != SSH {
+		t.Fatalf("box = %+v", got)
+	}
+	// Electerm's own "default" group holds what was never filed; it is not a folder.
+	if got := byName["Free"]; got.Group != "" {
+		t.Fatalf("free = %+v", got)
+	}
+
+	for _, notAnExport := range []string{`[{"id": "web"}]`, `{}`, `not json`} {
+		if _, err := ParseElecterm(write(t, dir, "other.json", []byte(notAnExport))); err == nil {
+			t.Fatalf("%s was accepted as an export", notAnExport)
+		}
+	}
+	_, err = ParseElecterm(write(t, dir, "array.json", []byte(`[{"id": "web"}]`)))
+	if err == nil || !strings.Contains(err.Error(), "JSON array") {
+		t.Fatalf("an array export was refused with %v", err)
+	}
+}
+
+func TestElectermGroupNestingIsBoundedAndKeepsTheInnermostFolders(t *testing.T) {
+	const levels = 5000
+	groups := make([]string, 0, levels)
+	for level := range levels {
+		members, children := `""`, `""`
+		if level == levels-1 {
+			members = `"deep"`
+		} else {
+			children = fmt.Sprintf(`"g%d"`, level+1)
+		}
+		groups = append(groups, fmt.Sprintf(`{"id": "g%d", "title": "G%d", "bookmarkIds": [%s], "bookmarkGroupIds": [%s]}`,
+			level, level, members, children))
+	}
+	export := `{"bookmarkGroups": [` + strings.Join(groups, ",") + `], "bookmarks": [{"id": "deep", "title": "Deep", "host": "deep.lab"}]}`
+	result, err := Parse(Electerm, []string{write(t, t.TempDir(), "deep.json", []byte(export))})
+	if err != nil || len(result.Entries) != 1 {
+		t.Fatalf("%v %+v", err, result)
+	}
+	folders := strings.Split(result.Entries[0].Group, "/")
+	if len(folders) != maxGroupDepth || folders[len(folders)-1] != fmt.Sprintf("G%d", levels-1) {
+		t.Fatalf("%d folders, last %q", len(folders), folders[len(folders)-1])
+	}
+	if len(result.Warnings) != 1 || !strings.Contains(result.Warnings[0], "shortened") {
+		t.Fatalf("warnings = %q", result.Warnings)
+	}
+}
+
 func TestAnEntryWithNoUsableAddressIsWarnedAbout(t *testing.T) {
 	dir := t.TempDir()
 	path := write(t, dir, "s.mxtsessions", []byte("[Bookmarks]\nBad=#109#0%has space%22%u%\nAlso=#109#0%%22%u%\n"))
@@ -208,13 +300,14 @@ func FuzzParsers(f *testing.F) {
 	f.Add([]byte("Windows Registry Editor Version 5.00\n\n[HKEY_CURRENT_USER\\Software\\SimonTatham\\PuTTY\\Sessions\\x]\n\"HostName\"=\"h\"\n"))
 	f.Add(utf16le(xshellSession))
 	f.Add([]byte(`[{"session.label":"a","session.target":"h","session.port":22,"session.protocol":"SSH"}]`))
+	f.Add([]byte(`{"bookmarks":[{"id":"a","title":"t","host":"h","port":22,"type":"telnet"}],"bookmarkGroups":[{"id":"g","title":"G","bookmarkIds":["a"],"bookmarkGroupIds":["g"]}]}`))
 	dir := f.TempDir()
 	f.Fuzz(func(t *testing.T, data []byte) {
 		path := filepath.Join(dir, "fuzz.in")
 		if err := os.WriteFile(path, data, 0o600); err != nil {
 			t.Fatal(err)
 		}
-		for _, client := range []Client{PuTTY, Xshell, MobaXterm, WindTerm} {
+		for _, client := range []Client{PuTTY, Xshell, MobaXterm, WindTerm, Electerm} {
 			result, _ := Parse(client, []string{path})
 			for _, entry := range result.Entries {
 				if entry.Host == "" || entry.Port < 0 || entry.Port > 65535 || strings.ContainsAny(entry.Name+entry.Host, "\x00\x1b\n") {
