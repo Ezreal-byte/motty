@@ -62,7 +62,7 @@ func TestSettingsEntriesOpenARealWorkspace(t *testing.T) {
 func TestSettingsCategoriesAreChosenFromTheListAndStartAtTheTop(t *testing.T) {
 	state := newTestState(t, testOptions(t))
 	state.Click(hitSettings)
-	size := ui.Size{Width: 1000, Height: 520}
+	size := ui.Size{Width: 1000, Height: 640}
 	var canvas ui.Canvas
 	state.Paint(&canvas, size)
 	for category := settingsCategory(0); category < settingsCategoryCount; category++ {

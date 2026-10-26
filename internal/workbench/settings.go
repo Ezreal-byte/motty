@@ -134,6 +134,9 @@ func (state *State) openSettings() {
 	}
 	state.activeSection = sectionSettings
 	state.settingsScroll = 0
+	state.settings.navScroll = 0
+	state.settings.aboutCopied = false
+	state.revealSettingsCategory()
 	state.aiSettingsOpened()
 	state.save()
 }
@@ -147,6 +150,13 @@ func (state *State) scrollSettings(event ui.ScrollEvent) ui.EventResult {
 		step = 24
 	} else if !event.Precise && step < 0 && step > -24 {
 		step = -24
+	}
+	view := &state.settings
+	nav := view.navRect
+	if nav.Width > 0 && event.X >= nav.X && event.X < nav.X+nav.Width && event.Y >= nav.Y && event.Y < nav.Y+nav.Height {
+		before := view.navScroll
+		view.navScroll = min(max(before+step, 0), max(view.navContent-nav.Height, 0))
+		return ui.EventResult{Handled: true, Repaint: view.navScroll != before}
 	}
 	before := state.settingsScroll
 	state.settingsScroll = min(max(before+step, 0), max(state.settingsContent-state.viewport.Height+windowBarHeight+7, 0))
@@ -297,6 +307,9 @@ func (state *State) clickSettings(id ui.ID) bool {
 	case hitSettingsSSHSyncToggle, hitSettingsSSHSyncFile, hitSettingsSSHSyncReset, hitSettingsSSHSyncNow:
 		state.clickSSHSync(id)
 	default:
+		if state.clickAboutSettings(id) {
+			return true
+		}
 		return state.clickVaultSettings(id)
 	}
 	if changed {

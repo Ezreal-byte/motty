@@ -42,6 +42,8 @@ type Messages struct {
 	SSHSync SSHSyncMessages
 	// Desktop holds the remote-desktop tabs' texts; see desktop.go.
 	Desktop DesktopMessages
+	// About holds the About page's texts; see about.go.
+	About AboutMessages
 
 	// Window and sections.
 
@@ -723,6 +725,7 @@ func For(language Language) Messages {
 		messages.History = chineseHistory
 		messages.SSHSync = chineseSSHSync
 		messages.Desktop = chineseDesktop
+		messages.About = chineseAbout
 		return messages
 	default:
 		messages := EnglishMessages
@@ -731,6 +734,7 @@ func For(language Language) Messages {
 		messages.History = englishHistory
 		messages.SSHSync = englishSSHSync
 		messages.Desktop = englishDesktop
+		messages.About = englishAbout
 		return messages
 	}
 }

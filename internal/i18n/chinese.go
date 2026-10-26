@@ -1532,3 +1532,36 @@ var chineseDesktop = DesktopMessages{
 	StatusCaptured:  "键盘交给远程桌面。",
 	ErrNoDesktop:    "该连接没有远程桌面。",
 }
+var chineseAbout = AboutMessages{
+	Title:   "关于",
+	Tagline: "SSH、SFTP、端口转发、远程桌面和 AI 助手，都在一个原生窗口里。",
+
+	InfoTitle:        "版本信息",
+	Platform:         "运行平台",
+	Build:            "构建",
+	BuildDevelopment: "本地开发构建",
+	Runtime:          "运行时",
+
+	CopyRow:         "复制版本信息",
+	CopyDescription: "版本、平台和提交号，方便写进 Issue。",
+	CopyAction:      "复制",
+	CopiedAction:    "已复制",
+	Copied:          "版本信息已复制，可直接粘贴到 Issue 里。",
+
+	CommunityTitle:     "加入交流",
+	QQ:                 "QQ 群",
+	QQDescription:      "群号 1131573299：提问、反馈和闲聊。",
+	WeChat:             "微信群",
+	WeChatDescription:  "点开腾讯文档，扫码加入。",
+	Discord:            "Discord 服务器",
+	DiscordDescription: "和开发者、用户实时聊天。",
+	Issues:             "问题反馈",
+	IssuesDescription:  "在 GitHub 上报告 Bug 或提功能建议。",
+	ProjectTitle:       "项目",
+	Repo:               "开源仓库",
+	RepoDescription:    "源码、发布版本和讨论都在 GitHub。",
+	Docs:               "官网与文档",
+	DocsDescription:    "安装、使用和开发说明在 motty.page。",
+	Join:               "加入",
+	Open:               "打开",
+}

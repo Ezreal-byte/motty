@@ -1,0 +1,82 @@
+package workbench
+
+import (
+	"strings"
+	"testing"
+
+	"github.com/vivaui/viva/ui"
+)
+
+func TestAboutShowsTheBuildAndOpensTheCommunityLinks(t *testing.T) {
+	state := newTestState(t, testOptions(t))
+	var copied string
+	state.options.SetClipboardText = func(value string) error { copied = value; return nil }
+	var opened []string
+	state.options.OpenURL = func(url string) error { opened = append(opened, url); return nil }
+
+	state.Click(hitSettings)
+	state.selectSettingsCategory(settingsAbout)
+	var canvas ui.Canvas
+	state.Paint(&canvas, ui.Size{Width: 1400, Height: 1200})
+	var texts []string
+	for _, text := range canvas.Texts() {
+		texts = append(texts, text.Value)
+	}
+
+	about := state.messages.About
+	if state.settingsCategoryName(settingsAbout) != about.Title {
+		t.Fatalf("the category is named %q", state.settingsCategoryName(settingsAbout))
+	}
+	facts := aboutFacts()
+	for _, want := range []string{about.Tagline, about.InfoTitle, about.CommunityTitle, about.ProjectTitle, about.QQ, about.WeChat, about.Discord, facts.platform, facts.runtime} {
+		if !contains(texts, want) {
+			t.Errorf("the About page does not paint %q", want)
+		}
+	}
+	for _, id := range []ui.ID{hitAboutCopyInfo, hitAboutQQ, hitAboutWeChat, hitAboutDiscord, hitAboutIssues, hitAboutRepo, hitAboutDocs} {
+		if _, ok := hitByID(&canvas, id); !ok {
+			t.Errorf("the About page does not paint %d", id)
+		}
+	}
+
+	state.Click(hitAboutCopyInfo)
+	for _, want := range []string{"Motty " + facts.version, "platform: " + facts.platform, "runtime: " + facts.runtime} {
+		if !strings.Contains(copied, want) {
+			t.Errorf("the copied version info %q does not name %q", copied, want)
+		}
+	}
+	if state.status != about.Copied {
+		t.Errorf("copy status = %q", state.status)
+	}
+	canvas = ui.Canvas{}
+	state.Paint(&canvas, ui.Size{Width: 1400, Height: 1200})
+	if hit, ok := hitByID(&canvas, hitAboutCopyInfo); !ok || hit.Label != about.CopiedAction {
+		t.Errorf("the copy button says %q after copying, want %q", hit.Label, about.CopiedAction)
+	}
+	// A new visit to the page asks again with the plain label.
+	state.selectSettingsCategory(settingsGeneral)
+	state.selectSettingsCategory(settingsAbout)
+	canvas = ui.Canvas{}
+	state.Paint(&canvas, ui.Size{Width: 1400, Height: 1200})
+	if hit, ok := hitByID(&canvas, hitAboutCopyInfo); !ok || hit.Label != about.CopyAction {
+		t.Errorf("the copy button says %q on a new visit, want %q", hit.Label, about.CopyAction)
+	}
+
+	for _, link := range []struct {
+		id  ui.ID
+		url string
+	}{
+		{hitAboutQQ, aboutQQURL},
+		{hitAboutWeChat, aboutWeChatURL},
+		{hitAboutDiscord, aboutDiscordURL},
+		{hitAboutIssues, aboutIssuesURL},
+		{hitAboutRepo, aboutRepoURL},
+		{hitAboutDocs, aboutDocsURL},
+	} {
+		opened = nil
+		state.Click(link.id)
+		if len(opened) != 1 || opened[0] != link.url {
+			t.Errorf("%d opened %v, want %q", link.id, opened, link.url)
+		}
+	}
+}

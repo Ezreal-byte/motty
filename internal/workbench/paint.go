@@ -76,6 +76,7 @@ const (
 	iconSparkles
 	iconTransfer
 	iconBug
+	iconInfo
 )
 
 // Paint renders the application from state using stable hit identities.
@@ -1415,6 +1416,7 @@ var lucideIcons = [...]ui.Icon{
 	iconSparkles:     icons.Sparkles,
 	iconTransfer:     icons.ArrowUpDown,
 	iconBug:          icons.Bug,
+	iconInfo:         icons.Info,
 }
 
 func paintIcon(canvas *ui.Canvas, kind uint8, bounds ui.Rect, foreground ui.Color) {

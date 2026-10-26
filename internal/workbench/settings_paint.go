@@ -32,6 +32,7 @@ const (
 	controlSwatches                              // a strip of round color dots
 	controlLabel                                 // the words of a row, which label the control beside them
 	controlMCPSelect                             // client configuration select
+	controlLogo                                  // the product wordmark in a slot
 )
 
 // settingsControl is one control of the page, recorded while the page is
@@ -68,6 +69,9 @@ type settingsPage struct {
 	controlWidth float32
 	rows         int // rows declared in the current card
 	opened       int // groups declared so far
+	// navList is the scrolling column of categories, whose height and content
+	// say how far the list can be scrolled.
+	navList flex.Box
 
 	// anchor is what the search result being opened asked to scroll to, once the
 	// declaration has met it; anchorShift is the room above it that the scroll
@@ -91,6 +95,9 @@ func (state *State) paintSettingsWorkspace(canvas *ui.Canvas, bounds ui.Rect) {
 	maxScroll := max(state.settingsContent-bounds.Height, 0)
 	state.settingsScroll = min(max(state.settingsScroll, 0), maxScroll)
 	offset := state.settingsScroll
+	// The category list keeps its own offset, clamped to what the last paint
+	// said it could hold.
+	view.navScroll = min(max(view.navScroll, 0), max(view.navContent-view.navView, 0))
 
 	title := state.settingsCategoryName(state.settingsCategory)
 	searching := state.settingsSearching()
@@ -118,6 +125,12 @@ func (state *State) paintSettingsWorkspace(canvas *ui.Canvas, bounds ui.Rect) {
 	})
 	f.End()
 	state.settingsContent = scroll.Content()
+	view.navContent, view.navView = page.navList.Content(), page.navList.Rect().Height
+	view.navRect = page.navList.Rect()
+	if clamped := min(max(view.navScroll, 0), max(view.navContent-view.navView, 0)); clamped != view.navScroll {
+		view.navScroll = clamped
+		canvas.RequestFrame()
+	}
 	state.paintSettingsControls(canvas)
 
 	if page.anchored {
@@ -168,6 +181,8 @@ func (state *State) paintSettingsControls(canvas *ui.Canvas) {
 			for slot, color := range state.settings.colors[control.first : control.first+control.count] {
 				canvas.Rounded(ui.Rect{X: rect.X + float32(slot)*swatchPitch, Y: rect.Y, Width: swatchSize, Height: swatchSize}, swatchSize/2, color)
 			}
+		case controlLogo:
+			state.paintLockup(canvas, rect)
 		}
 	}
 }
@@ -192,6 +207,8 @@ func (state *State) paintSettingsCategory(page *settingsPage) {
 		state.paintMCPSettings(page)
 	case settingsShortcuts:
 		state.paintShortcutSettings(page)
+	case settingsAbout:
+		state.paintAboutSettings(page)
 	}
 }
 

@@ -1532,3 +1532,36 @@ var englishDesktop = DesktopMessages{
 	StatusCaptured:  "Keyboard goes to the remote desktop.",
 	ErrNoDesktop:    "The connection has no remote desktop.",
 }
+var englishAbout = AboutMessages{
+	Title:   "About",
+	Tagline: "SSH, SFTP, port forwarding, remote desktop and an AI assistant, in one native window.",
+
+	InfoTitle:        "Version",
+	Platform:         "Platform",
+	Build:            "Build",
+	BuildDevelopment: "Development build",
+	Runtime:          "Runtime",
+
+	CopyRow:         "Copy version info",
+	CopyDescription: "Version, platform and commit for a bug report.",
+	CopyAction:      "Copy",
+	CopiedAction:    "Copied",
+	Copied:          "Version info copied. Paste it into an issue.",
+
+	CommunityTitle:     "Community",
+	QQ:                 "QQ group",
+	QQDescription:      "Group 1131573299: questions, feedback and chat.",
+	WeChat:             "WeChat group",
+	WeChatDescription:  "Open the Tencent Doc and scan the QR code to join.",
+	Discord:            "Discord server",
+	DiscordDescription: "Real-time chat with the people building and using Motty.",
+	Issues:             "Report an issue",
+	IssuesDescription:  "Bug reports and feature requests on GitHub.",
+	ProjectTitle:       "Project",
+	Repo:               "Source repository",
+	RepoDescription:    "Source, releases and discussions on GitHub.",
+	Docs:               "Website and docs",
+	DocsDescription:    "Install, use and development guides on motty.page.",
+	Join:               "Join",
+	Open:               "Open",
+}

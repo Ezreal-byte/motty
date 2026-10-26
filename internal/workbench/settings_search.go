@@ -21,9 +21,9 @@ var (
 	hitSettingsResultList = tree.Sub(settingsSearchHits, tree.Name("settings-result"))
 )
 
-// maxSettingsEntries bounds the index: the settings, the assistant's groups and
-// one entry per keyboard shortcut.
-const maxSettingsEntries = 80
+// maxSettingsEntries bounds the index: the settings, the assistant's groups,
+// one entry per keyboard shortcut and what the About page holds.
+const maxSettingsEntries = 96
 
 // settingsEntry is one thing a user may look for.
 type settingsEntry struct {
@@ -52,6 +52,19 @@ type settingsUI struct {
 	// more paint follows.
 	jump   string
 	jumped bool
+
+	// The category list scrolls on its own when there are more categories than
+	// the window can show: navScroll is its offset, navContent and navView how
+	// tall its rows and its window were when last painted, and navRect where the
+	// pointer has to be for the wheel to move it rather than the page.
+	navScroll  float32
+	navContent float32
+	navView    float32
+	navRect    ui.Rect
+
+	// aboutCopied says the About page's build facts have been put on the
+	// clipboard in this visit, so its button says so.
+	aboutCopied bool
 
 	// controls are the page's controls, recorded while it is declared and
 	// painted once it is laid out.
@@ -173,6 +186,19 @@ func (state *State) eachSettingsEntry(add func(settingsEntry)) {
 	for action := shortcutAction(1); action < shortcutActionCount; action++ {
 		row(settingsShortcuts, state.shortcutActionLabel(action), state.shortcuts.labels[action])
 	}
+
+	about := m.About
+	facts := aboutFacts()
+	row(settingsAbout, about.Platform, facts.platform)
+	row(settingsAbout, about.Build, facts.buildText(about))
+	row(settingsAbout, about.Runtime, facts.runtime)
+	row(settingsAbout, about.CopyRow, about.CopyDescription)
+	row(settingsAbout, about.QQ, about.QQDescription)
+	row(settingsAbout, about.WeChat, about.WeChatDescription)
+	row(settingsAbout, about.Discord, about.DiscordDescription)
+	row(settingsAbout, about.Issues, about.IssuesDescription)
+	row(settingsAbout, about.Repo, about.RepoDescription)
+	row(settingsAbout, about.Docs, about.DocsDescription)
 }
 
 // openSettingsResult leaves the search and opens the category of a result,
