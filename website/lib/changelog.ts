@@ -21,6 +21,65 @@ export type ChangelogEntry = {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '0.1.2',
+    date: '2026-10-27',
+    sections: [
+      {
+        title: { en: 'New', zh: '新功能' },
+        items: [
+          {
+            en: 'An About page in Settings shows this copy\'s version, platform, build commit and runtime, with one button that copies them for a bug report, and links to the community, the repository, the issue tracker and motty.page.',
+            zh: '设置里新增「关于」，显示这一份 Motty 的版本、平台、构建 commit 和运行时，一个按钮把它们复制下来贴进 issue，并提供社区、仓库、issue 和 motty.page 的入口。',
+          },
+          {
+            en: 'Hosts now sync both ways with ~/.ssh/config: host, user, port and ProxyJump travel either direction and IdentityFile lands in Keys. The file keeps its comments and unknown directives, a block naming several hosts is left alone, and when both sides changed the file wins.',
+            zh: '主机与 ~/.ssh/config 双向同步：host、user、port、ProxyJump 两个方向都同步，IdentityFile 落到 Keys。文件保留注释和未知指令，一条 Host 行带多个主机名的块不动，两边都改时以文件为准。',
+          },
+          {
+            en: 'Select text inside an AI answer and copy it; a fenced block keeps its own line breaks and indentation.',
+            zh: 'AI 回答里的文字可以选中并复制，代码块保留原有的换行和缩进。',
+          },
+          {
+            en: 'Command/Control+Shift+T opens a local terminal.',
+            zh: 'Command/Control+Shift+T 打开本地终端。',
+          },
+          { en: 'Check for Updates… in the status-area menu.', zh: '状态栏菜单里的「检查更新…」。' },
+        ],
+      },
+      {
+        title: { en: 'Improved', zh: '改进' },
+        items: [
+          {
+            en: 'Updates are checked five seconds after a window wakes and then once an hour, on by default.',
+            zh: '窗口唤醒 5 秒后检查一次更新，之后每小时一次，默认开启。',
+          },
+          {
+            en: 'An install the system owns (a distribution package, /snap, Flatpak, Program Files) is told to update through its package manager or the new installer, and is still never replaced by the app with elevation.',
+            zh: '系统持有的安装（发行版包、/snap、Flatpak、Program Files）会被告知用包管理器或新安装包更新，应用仍然不会提权替换它。',
+          },
+          {
+            en: 'Every package carries a minisign update signature that names its version and file, and the app verifies it before replacing anything. Windows can now update in place without a code-signing certificate; macOS still checks the Developer ID team.',
+            zh: '每个包都带 minisign 更新签名，签名里写明版本和文件名，应用在替换任何东西之前先校验。Windows 不再需要代码签名证书也能原地更新；macOS 仍校验 Developer ID 团队。',
+          },
+          {
+            en: 'The component gallery is a development-only surface and no longer appears in release builds.',
+            zh: '组件画廊只在开发构建里出现，发布构建不再包含它。',
+          },
+        ],
+      },
+      {
+        title: { en: 'Fixed', zh: '修复' },
+        items: [
+          {
+            en: 'A UTF-8 control string could leak its continuation bytes into the input line as text. Raw eight-bit C1 DCS/ST/OSC/APC are no longer interpreted as controls; use their seven-bit ESC forms.',
+            zh: 'UTF-8 控制字符串里的续字节此前会漏进输入行变成文字。原始的八位 C1 DCS/ST/OSC/APC 现在不再被当作控制符解释，请改用七位 ESC 形式。',
+          },
+          { en: 'The MCP configuration preview names itself in its header.', zh: 'MCP 配置预览的头部写明它的名称。' },
+        ],
+      },
+    ],
+  },
+  {
     version: '0.1.1',
     date: '2026-10-26',
     sections: [
