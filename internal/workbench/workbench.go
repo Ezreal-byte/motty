@@ -1130,6 +1130,9 @@ func (state *State) Click(id ui.ID) {
 	case modalStateNotice:
 		state.clickStateNotice(id)
 		return
+	case modalUpdate:
+		state.clickUpdateDialog(id)
+		return
 	case modalCommandPalette:
 		state.clickCommandPalette(id)
 		return
@@ -1744,6 +1747,9 @@ func (state *State) key(event ui.KeyEvent) ui.EventResult {
 		return result
 	}
 	if result, handled := state.knownHostsKey(event); handled {
+		return result
+	}
+	if result, handled := state.updateKey(event); handled {
 		return result
 	}
 	if result, handled := state.launchKey(event); handled {

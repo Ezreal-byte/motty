@@ -54,6 +54,7 @@ type savedState struct {
 	SFTPKeepTimes              string              `json:"sftp_keep_times,omitempty"`
 	SFTPFollow                 string              `json:"sftp_follow,omitempty"`
 	UpdateCheck                string              `json:"update_check,omitempty"`
+	UpdateSkipped              string              `json:"update_skipped,omitempty"`
 	SFTPBookmarks              []savedBookmark     `json:"sftp_bookmarks,omitempty"`
 	OutboundProxy              *savedOutboundProxy `json:"outbound_proxy,omitempty"`
 	HighlightBuiltin           string              `json:"highlight_builtin,omitempty"`
@@ -326,6 +327,7 @@ func (state *State) snapshot() savedState {
 		SFTPKeepTimes:              notifyString(state.sftpKeepTimesOff),
 		SFTPFollow:                 notifyString(state.sftpFollowOff),
 		UpdateCheck:                updateCheckString(state.updateAtStart),
+		UpdateSkipped:              state.update.skipped,
 		ShortcutVersion:            shortcutSchemaVersion,
 		Shortcuts:                  make([]savedShortcut, 0, shortcutActionCount-1),
 		Workspace:                  state.workspaceName(),

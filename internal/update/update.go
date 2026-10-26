@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 )
 
 // Current is the version of this build. A test keeps it equal to viva.toml's.
@@ -29,9 +30,13 @@ var ErrNoRelease = errors.New("update: no published release was found")
 type Release struct {
 	Version string // without a leading v
 	URL     string // the page to download it from
+	Notes   string // the release notes as published (Markdown), possibly cut short
 }
 
-const maxFeedBytes = 1 << 20
+const (
+	maxFeedBytes  = 1 << 20
+	maxNotesBytes = 16 << 10
+)
 
 // Latest reads the feed. The client decides timeouts and proxies; nil uses one
 // with a 15 second timeout and the environment's proxy.
@@ -59,6 +64,7 @@ func Latest(ctx context.Context, client *http.Client, feed string) (Release, err
 	var body struct {
 		Tag        string `json:"tag_name"`
 		URL        string `json:"html_url"`
+		Notes      string `json:"body"`
 		Draft      bool   `json:"draft"`
 		Prerelease bool   `json:"prerelease"`
 	}
@@ -73,8 +79,63 @@ func Latest(ctx context.Context, client *http.Client, feed string) (Release, err
 	if !strings.HasPrefix(body.URL, "https://") {
 		return Release{}, errors.New("update: the release page is not an https address")
 	}
-	return Release{Version: version, URL: body.URL}, nil
+	return Release{Version: version, URL: body.URL, Notes: cutUTF8(body.Notes, maxNotesBytes)}, nil
 }
+
+// cutUTF8 keeps at most limit bytes of text, never splitting a character.
+func cutUTF8(text string, limit int) string {
+	if len(text) <= limit {
+		return text
+	}
+	for limit > 0 && !utf8.RuneStart(text[limit]) {
+		limit--
+	}
+	return text[:limit]
+}
+
+// PlainNotes turns release notes written in Markdown into plain lines for a
+// dialog: headings lose their marks, bullets become dots, emphasis and code
+// marks go, and rules, HTML comments and runs of blank lines disappear.
+func PlainNotes(markdown string) string {
+	var out []string
+	blank := true // no blank line at the start, and none twice in a row
+	inComment := false
+	for _, line := range strings.Split(strings.ReplaceAll(markdown, "\r\n", "\n"), "\n") {
+		line = strings.TrimRight(line, " \t\r")
+		trimmed := strings.TrimSpace(line)
+		switch {
+		case inComment:
+			inComment = !strings.Contains(trimmed, "-->")
+			continue
+		case strings.HasPrefix(trimmed, "<!--"):
+			inComment = !strings.Contains(trimmed, "-->")
+			continue
+		case trimmed == "" || strings.Trim(trimmed, "-*_ ") == "" && len(trimmed) >= 3:
+			if !blank {
+				out = append(out, "")
+			}
+			blank = true
+			continue
+		}
+		indent := ""
+		switch {
+		case strings.HasPrefix(trimmed, "#"):
+			trimmed = strings.TrimSpace(strings.TrimLeft(trimmed, "#"))
+		case strings.HasPrefix(trimmed, "- "), strings.HasPrefix(trimmed, "* "), strings.HasPrefix(trimmed, "+ "):
+			indent = "• "
+			trimmed = strings.TrimSpace(trimmed[2:])
+		}
+		trimmed = markdownMarks.Replace(trimmed)
+		out = append(out, indent+trimmed)
+		blank = false
+	}
+	for len(out) > 0 && out[len(out)-1] == "" {
+		out = out[:len(out)-1]
+	}
+	return strings.Join(out, "\n")
+}
+
+var markdownMarks = strings.NewReplacer("**", "", "__", "", "`", "")
 
 // Newer reports whether latest is a later version than current. Either that is
 // not a plain dotted number is "no".

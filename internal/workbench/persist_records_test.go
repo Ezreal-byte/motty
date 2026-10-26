@@ -17,7 +17,7 @@ import (
 func TestEverySavedStateFieldIsSharedOrKeptOnThisDevice(t *testing.T) {
 	ownDevice := map[string]bool{
 		"language": true, "theme": true, "terminal_font_size": true, "terminal_font_face": true, "terminal_font_family": true,
-		"restore_connect": true, "share_connections": true, "update_check": true, "ai_panel_width": true,
+		"restore_connect": true, "share_connections": true, "update_check": true, "update_skipped": true, "ai_panel_width": true,
 		"workspace": true, "active_session": true, "shortcuts": true, "identity_files": true, "sessions": true, "deck": true, "sync": true,
 		"host_view": true, "background": true,
 		"window_x": true, "window_y": true, "window_width": true, "window_height": true,

@@ -337,6 +337,7 @@ const (
 	modalAutofillRule
 	modalAutofillConfirm
 	modalHistory
+	modalUpdate
 )
 
 // tone colors a session's headline.
@@ -904,6 +905,11 @@ func (state *State) showNextPrompt() {
 	if state.transfer.phase == transferOffered {
 		state.modal = modalFileTransfer
 		state.modalSession = state.transfer.sessionID
+		return
+	}
+	if state.update.offer {
+		state.update.offer = false
+		state.modal = modalUpdate
 	}
 }
 

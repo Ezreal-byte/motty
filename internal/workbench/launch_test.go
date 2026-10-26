@@ -171,7 +171,11 @@ func TestCheckingForUpdatesOffersTheDownloadOfANewerVersion(t *testing.T) {
 		t.Fatal("a download button before any check")
 	}
 	state.Click(hitSettingsUpdateCheck)
-	waitUpdate(t, state, func() bool { return state.update.available })
+	waitUpdate(t, state, func() bool { return state.modal == modalUpdate })
+	state.Click(hitUpdateLater)
+	if state.modal != modalNone {
+		t.Fatal("Later left the dialog open")
+	}
 	_, texts = paintedTexts(state)
 	if !contains(texts, "99.0.0") || !contains(texts, state.messages.Tools.GeneralUpdateDownload) {
 		t.Fatalf("the result is not shown: %q", texts)
@@ -180,6 +184,56 @@ func TestCheckingForUpdatesOffersTheDownloadOfANewerVersion(t *testing.T) {
 	if !reflect.DeepEqual(opened, []string{"https://example.com/release"}) {
 		t.Fatalf("opened %q", opened)
 	}
+}
+
+func TestANewVersionIsOfferedInADialogWithItsNotes(t *testing.T) {
+	_, options := newWorld(t)
+	options.Invalidate = func() {}
+	options.CheckUpdate = func() (update.Release, error) {
+		return update.Release{Version: "99.0.0", URL: "https://example.com/release", Notes: "## Fixed\n- the **thing**"}, nil
+	}
+	var opened []string
+	options.OpenURL = func(url string) error { opened = append(opened, url); return nil }
+	state := newTestState(t, options)
+	state.Click(hitSettingsUpdateCheck)
+	waitUpdate(t, state, func() bool { return state.modal == modalUpdate })
+	_, texts := paintedTexts(state)
+	if !contains(texts, "99.0.0") || !contains(texts, "• the thing") {
+		t.Fatalf("the dialog does not show the version and its notes: %q", texts)
+	}
+	state.Click(hitUpdateDownload)
+	if state.modal != modalNone || !reflect.DeepEqual(opened, []string{"https://example.com/release"}) {
+		t.Fatalf("modal %d, opened %q", state.modal, opened)
+	}
+}
+
+func TestASkippedVersionStaysQuietAtStartupButNotWhenAsked(t *testing.T) {
+	_, options := newWorld(t)
+	options.Invalidate = func() {}
+	version := "99.0.0"
+	options.CheckUpdate = func() (update.Release, error) {
+		return update.Release{Version: version, URL: "https://example.com/r"}, nil
+	}
+	state := New(options)
+	state.Click(hitSettingsUpdateStartToggle)
+	state.Click(hitSettingsUpdateCheck)
+	waitUpdate(t, state, func() bool { return state.modal == modalUpdate })
+	state.Click(hitUpdateSkip)
+	state.Close()
+
+	again := New(options)
+	waitUpdate(t, again, func() bool { return again.update.available })
+	if again.modal == modalUpdate || again.update.offer {
+		t.Fatal("a skipped version was offered again at startup")
+	}
+	again.Click(hitSettingsUpdateCheck)
+	waitUpdate(t, again, func() bool { return again.modal == modalUpdate })
+	again.Close()
+
+	version = "99.1.0"
+	newer := New(options)
+	defer newer.Close()
+	waitUpdate(t, newer, func() bool { return newer.modal == modalUpdate })
 }
 
 func TestCheckingForUpdatesSaysSoWhenCurrentOrFailed(t *testing.T) {

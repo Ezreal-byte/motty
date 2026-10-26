@@ -574,6 +574,7 @@ func (state *State) restoreSFTPSettings(saved savedState) {
 	state.sftpKeepTimesOff = saved.SFTPKeepTimes == "off"
 	state.sftpFollowOff = saved.SFTPFollow == "off"
 	state.updateAtStart = saved.UpdateCheck == "on"
+	state.update.skipped = saved.UpdateSkipped
 	clear(state.sftpBookmarks)
 	state.sftpBookmarks = state.sftpBookmarks[:0]
 	perHost := map[string]int{}

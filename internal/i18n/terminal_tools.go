@@ -259,6 +259,11 @@ type ToolsMessages struct {
 	UpdateChecking                  string
 	UpdateLatestFmt                 string
 	UpdateAvailableFmt              string
+	UpdateDialogTitleFmt            string
+	UpdateDialogDescriptionFmt      string
+	UpdateNotesEmpty                string
+	UpdateLater                     string
+	UpdateSkip                      string
 	UpdateNoReleaseText             string
 	ActionSSHFmt                    string
 	ActionBrowserFmt                string
@@ -765,6 +770,11 @@ var englishTools = ToolsMessages{
 	UpdateChecking:                  "Checking for updates…",
 	UpdateLatestFmt:                 "Motty %s is the newest version.",
 	UpdateAvailableFmt:              "Motty %s is available.",
+	UpdateDialogTitleFmt:            "Motty %s is available",
+	UpdateDialogDescriptionFmt:      "You are on %s. Downloading opens the release page in your browser.",
+	UpdateNotesEmpty:                "This release came without notes.",
+	UpdateLater:                     "Later",
+	UpdateSkip:                      "Skip this version",
 	UpdateNoReleaseText:             "No published release was found yet.",
 	ActionSSHFmt:                    "SSH to %s",
 	ActionBrowserFmt:                "Open %s in browser",
@@ -1271,6 +1281,11 @@ var chineseTools = ToolsMessages{
 	UpdateChecking:                  "正在检查更新…",
 	UpdateLatestFmt:                 "Motty %s 已是最新版本。",
 	UpdateAvailableFmt:              "Motty %s 可更新。",
+	UpdateDialogTitleFmt:            "Motty %s 可更新",
+	UpdateDialogDescriptionFmt:      "当前版本 %s。点击下载会在浏览器中打开发布页。",
+	UpdateNotesEmpty:                "此版本没有附带更新说明。",
+	UpdateLater:                     "稍后",
+	UpdateSkip:                      "跳过此版本",
 	UpdateNoReleaseText:             "还没有找到已发布的版本。",
 	ActionSSHFmt:                    "SSH 连接 %s",
 	ActionBrowserFmt:                "在浏览器中打开 %s",
