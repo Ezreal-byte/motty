@@ -373,7 +373,9 @@ const (
 // Paint reads it synchronously and never starts work or allocates background
 // resources.
 type State struct {
-	closed bool
+	fileWindows fileWindowManager
+	fileNotices fileNotices
+	closed      bool
 	// saveBlocked is set when the state file came from a newer build: nothing is
 	// ever written over it. stateNotice is the dialog that tells the user why a
 	// state file was not loaded as it was.
@@ -658,6 +660,7 @@ func (state *State) Close() {
 		return
 	}
 	state.closed = true
+	state.closeFileWindows()
 	if state.update.install.cancel != nil {
 		state.update.install.cancel()
 		state.update.install.cancel = nil
@@ -1025,6 +1028,9 @@ func (state *State) WindowControlsStyle() app.WindowControlsStyle {
 
 // Click applies one stable hit action.
 func (state *State) Click(id ui.ID) {
+	if state.fileNotices.click(id) {
+		return
+	}
 	defer state.runLaunches()
 	defer state.sshSyncCheck()
 	if session, local, ok := state.decodePaneHit(id); ok {
