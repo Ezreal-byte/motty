@@ -21,6 +21,93 @@ export type ChangelogEntry = {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '0.1.3',
+    date: '2026-10-27',
+    sections: [
+      {
+        title: { en: 'New', zh: '新功能' },
+        items: [
+          {
+            en: 'SFTP opens in its own window with the local and remote panes side by side; rows sort, drop onto each other, and a pane can connect straight to a host.',
+            zh: 'SFTP 可以在自己的窗口里并排打开本地和远程两栏，行可排序、互相拖放，也能从主机直连。',
+          },
+          {
+            en: 'A global transfer center lists every upload and download with its progress and lifetime, and keeps going after the window that started it closes. The file panel shows the transfer list by default and docks left or right, and its path bar is editable with a choice of style.',
+            zh: '全局传输中心列出每个上传下载的进度和生命周期，发起它的窗口关掉后任务照常走完。文件面板默认显示传输列表，可停靠左侧或右侧，路径栏可编辑并能切换样式。',
+          },
+          {
+            en: 'Compress a remote folder into a zip on the server itself, and extract more archive formats with a notice of how it went.',
+            zh: '远程文件夹直接在服务器上打包成 zip，解压支持更多归档格式，并给出结果提示。',
+          },
+          {
+            en: 'Preview images and edit text in a native window: the encoding is detected, and the main window stays free.',
+            zh: '图片在独立窗口里预览，文本按识别出的编码编辑，主窗口不被占用。',
+          },
+          {
+            en: 'Remote tools open in their own native window and run alongside the main window; legacy Docker and ps output is understood, and a container gets its own terminal.',
+            zh: '远程工具开在自己的原生窗口里，和主窗口并行；兼容旧版 Docker 和 ps 的输出，进入容器时用它自己的终端。',
+          },
+          {
+            en: 'Each host can choose its own authentication methods and its own SOCKS5 or HTTP CONNECT proxy, credentials included.',
+            zh: '每台主机可以单独选择认证方式，也可以单独配 SOCKS5 或 HTTP CONNECT 代理，含用户名密码。',
+          },
+          {
+            en: 'A connection can carry its own color into the terminal header and tool buttons, picked with a round eyedropper in the form; the host form rows got roomier.',
+            zh: '每个连接可以带一种颜色，出现在终端顶栏和工具按钮上，表单里用圆形吸管取色；主机表单的行距也调宽了。',
+          },
+          {
+            en: 'Host tags are a searchable multi-select that can create an entry on the spot.',
+            zh: '主机标签改成可搜索、可现场新建条目的多选框。',
+          },
+          {
+            en: 'Import model providers from magpie and cc-switch, drawn with their official marks.',
+            zh: '可以从 magpie 和 cc-switch 导入模型供应商，并使用它们的官方标识。',
+          },
+          {
+            en: 'Close a split pane from the terminal menu and the keyboard follows the pane you enter; the command palette keeps the highlighted row under the pointer and takes arrow keys in its search field.',
+            zh: '终端菜单里可以关闭分屏，键盘跟着你进入的分栏走；命令面板在鼠标悬浮时保留选中项，搜索框里可以用方向键移动。',
+          },
+        ],
+      },
+      {
+        title: { en: 'Improved', zh: '改进' },
+        items: [
+          {
+            en: 'Every pull request runs the full Go checks, and the race detector is sharded with cached builds so the gate finishes sooner.',
+            zh: '每个 PR 都跑完整的 Go 检查，race 检测拆成分片并缓存构建，门禁更快也更稳。',
+          },
+          { en: 'The debug gallery gained a color swatch.', zh: '调试画廊里加了颜色样本。' },
+        ],
+      },
+      {
+        title: { en: 'Fixed', zh: '修复' },
+        items: [
+          {
+            en: 'The local file panel no longer reports an SFTP EOF when it enters an empty directory.',
+            zh: '本地文件面板进入空目录时不再误报 SFTP EOF。',
+          },
+          {
+            en: 'A restored tab starts disconnected instead of reconnecting on its own.',
+            zh: '恢复的标签页默认不再自动重连。',
+          },
+          { en: 'Set Model in the AI panel opens the AI settings page.', zh: 'AI 面板里的「设置模型」跳到 AI 设置页。' },
+          {
+            en: 'The command palette, overlay close buttons and the new-tab picker take their clicks and keys where they are drawn.',
+            zh: '命令面板、overlay 关闭按钮和新标签页选择器的点击与按键落在它画出来的位置。',
+          },
+          {
+            en: 'An RDP server can no longer make the client hold unbounded pixel memory.',
+            zh: 'RDP 服务端不能再让客户端持有无上限的像素内存。',
+          },
+          {
+            en: 'The macOS update helper runs from a full copy of the bundle, so the replacement lands reliably.',
+            zh: 'macOS 更新助手从完整的 bundle 副本运行，替换更可靠。',
+          },
+        ],
+      },
+    ],
+  },
+  {
     version: '0.1.2',
     date: '2026-10-27',
     sections: [
