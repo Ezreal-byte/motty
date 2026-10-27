@@ -4,8 +4,20 @@
 #
 #   tools/release.sh [--ref REF] [--out DIR] [--platforms mac,linux,windows]
 #                    [--installer FILE] [--viva-ref REF]
-#                    [--upload TAG [--notes FILE] [--publish]]
-#   tools/release.sh --sums TAG
+#                    [--upload TAG [--notes FILE]]
+#   tools/release.sh --sums TAG --expect-viva SHA
+#   tools/release.sh --verify TAG --expect-viva SHA
+#   tools/release.sh --check-dir DIR --version V [--pubkey KEY]
+#
+# --sums is the last step of a release, and the gate in front of publishing it:
+# it signs the whole matrix, writes SHA256SUMS, and then refuses the release
+# unless it carries exactly the twelve assets of the matrix, SHA256SUMS matches
+# the files, every signature verifies against the key compiled into the app, the
+# title is "Motty <tag>", the release is still a draft, and its notes name the
+# expected Viva commit. --verify runs the same checks on a release without
+# touching it, which is what the workflow runs before it publishes. --check-dir
+# runs the file checks on a directory, for tests and for looking at a build
+# before it is uploaded.
 #
 # The packages come from REF (default HEAD), built in a temporary worktree so
 # uncommitted changes never leak in, with the sibling ../viva at its main branch
@@ -24,11 +36,12 @@
 #
 # --upload TAG puts the packages on release TAG of the repository's origin; TAG
 # must be v plus the version in viva.toml, and the run refuses to upload unless
-# every package of the platforms it built is there. A release that does not exist yet is
-# created as a DRAFT pointing at the commit that was built; --publish then
-# publishes it. The commit must already be pushed. SHA256SUMS is written when all
+# every package of the platforms it built is there. A release that does not exist
+# yet is created as a DRAFT pointing at the commit that was built, with the notes
+# from --notes. The commit must already be pushed. SHA256SUMS is written when all
 # three platforms were built in this run; otherwise run --sums TAG once they are
-# all uploaded, which signs and checksums what the release holds.
+# all uploaded. Nothing published from here: publishing belongs to the workflow,
+# after --sums has verified the release.
 #
 # The packages of a release are signed with the update key in
 # MOTTY_UPDATE_SIGNING_KEY (the minisign private key itself, not a path), and the
@@ -51,7 +64,8 @@
 set -euo pipefail
 
 here=$(cd "$(dirname "$0")/.." && pwd)
-ref=HEAD viva_ref=main out="" installer="" tag="" notes="" publish=0 sums_tag="" platforms=""
+ref=HEAD viva_ref=main out="" installer="" tag="" notes="" sums_tag="" platforms=""
+verify_tag="" check_dir="" check_version="" pubkey="" expect_viva=""
 while [ $# -gt 0 ]; do
 	case "$1" in
 	--ref) ref=$2; shift 2 ;;
@@ -61,8 +75,12 @@ while [ $# -gt 0 ]; do
 	--installer) installer=$2; shift 2 ;;
 	--upload) tag=$2; shift 2 ;;
 	--notes) notes=$2; shift 2 ;;
-	--publish) publish=1; shift ;;
 	--sums) sums_tag=$2; shift 2 ;;
+	--verify) verify_tag=$2; shift 2 ;;
+	--check-dir) check_dir=$2; shift 2 ;;
+	--version) check_version=$2; shift 2 ;;
+	--pubkey) pubkey=$2; shift 2 ;;
+	--expect-viva) expect_viva=$2; shift 2 ;;
 	-h|--help) sed -n '2,/^set -euo/p' "$0" | sed '$d' | sed 's/^# \{0,1\}//'; exit 0 ;;
 	*) echo "unknown argument: $1" >&2; exit 2 ;;
 	esac
@@ -71,16 +89,132 @@ done
 sums() { if command -v sha256sum >/dev/null 2>&1; then sha256sum "$@"; else shasum -a 256 "$@"; fi; }
 sums_packages() { if [ -f SIGNATURES ]; then sums motty* SIGNATURES; else sums motty*; fi; }
 
+manifest_version() { sed -n 's/^version *= *"\([^"]*\)".*/\1/p' "$here/viva.toml" | head -1; }
+
+# The matrix of a release: ten packages and two manifests. Keep this in one
+# place; --sums verifies a release against it and the build jobs check the
+# platforms they were asked for.
+release_assets() {
+	cat <<-EOF
+	motty-$1-darwin-arm64.dmg
+	motty-$1-darwin-amd64.dmg
+	motty-$1-darwin-arm64.zip
+	motty-$1-darwin-amd64.zip
+	motty-$1-linux-arm64.tar.gz
+	motty-$1-linux-amd64.tar.gz
+	motty-$1-windows-arm64-setup.exe
+	motty-$1-windows-amd64-setup.exe
+	motty_$1_arm64.deb
+	motty_$1_amd64.deb
+	SHA256SUMS
+	SIGNATURES
+	EOF
+}
+
+# check_release_dir DIR VERSION [PUBKEY] refuses a directory that is not the
+# whole matrix, whose SHA256SUMS does not match its files, or whose package
+# signatures do not verify against the release key (or PUBKEY, for tests).
+check_release_dir() {
+	local dir=$1 version=$2 key=${3:-}
+	local expected present name missing=0 extra=0
+	expected=$(release_assets "$version" | sort)
+	present=$(cd "$dir" && ls -1 | sort)
+	if [ "$expected" != "$present" ]; then
+		missing=$(comm -23 <(printf '%s\n' "$expected") <(printf '%s\n' "$present"))
+		extra=$(comm -13 <(printf '%s\n' "$expected") <(printf '%s\n' "$present"))
+		[ -z "$missing" ] || echo "   missing from the release: $(echo $missing)" >&2
+		[ -z "$extra" ] || echo "   not part of the release matrix: $(echo $extra)" >&2
+		return 1
+	fi
+	# SHA256SUMS must cover every package and SIGNATURES, not just some of them.
+	local listed
+	listed=$(awk '{print $2}' "$dir/SHA256SUMS" | sort)
+	if [ "$listed" != "$(printf '%s\n' "$expected" | grep -v '^SHA256SUMS$' | sort)" ]; then
+		echo "   SHA256SUMS does not list exactly the packages of the release" >&2
+		return 1
+	fi
+	if command -v sha256sum >/dev/null 2>&1; then
+		(cd "$dir" && sha256sum -c --quiet SHA256SUMS) || { echo "   SHA256SUMS does not match the files" >&2; return 1; }
+	else
+		(cd "$dir" && shasum -a 256 -c SHA256SUMS >/dev/null) || { echo "   SHA256SUMS does not match the files" >&2; return 1; }
+	fi
+	local sigs
+	sigs=$(wc -l <"$dir/SIGNATURES" | tr -d ' ')
+	[ "$sigs" = 10 ] || { echo "   SIGNATURES has $sigs entries, not one per package" >&2; return 1; }
+	local args=(-version "$version" -dir "$dir")
+	[ -z "$key" ] || args+=(-pubkey "$key")
+	(cd "$here" && go run ./tools/updatesign verify "${args[@]}") || {
+		echo "   a package signature does not verify against the release key" >&2
+		return 1
+	}
+	echo "   $dir is the complete, signed matrix of $version"
+}
+
+# check_release_body TAG EXPECT_VIVA refuses a release whose title or notes are
+# not what the workflow promises to publish.
+check_release_body() {
+	local tag=$1 want_viva=$2 body built
+	if [ "$tag" != "v$(manifest_version)" ]; then
+		echo "the release tag is $tag but viva.toml says version $(manifest_version): the tag must be v$(manifest_version)" >&2
+		return 1
+	fi
+	body=$(gh release view "$tag" --json body --jq .body)
+	if [ "$(gh release view "$tag" --json title --jq .title)" != "Motty $tag" ]; then
+		echo "the release title is not \"Motty $tag\"" >&2
+		return 1
+	fi
+	built=$(printf '%s\n' "$body" | sed -n 's/^Built against vivaui\/viva `\([0-9a-f]*\)`\.$/\1/p' | wc -l | tr -d ' ')
+	if [ "$built" != 1 ]; then
+		echo "the notes name $built Viva commits; exactly one \"Built against vivaui/viva <sha>.\" line belongs there" >&2
+		return 1
+	fi
+	if [ "$(printf '%s\n' "$body" | sed -n 's/^Built against vivaui\/viva `\([0-9a-f]*\)`\.$/\1/p')" != "$want_viva" ]; then
+		echo "the notes say this release was built against $(printf '%s\n' "$body" | sed -n 's/^Built against vivaui\/viva `\([0-9a-f]*\)`\.$/\1/p'), not $want_viva" >&2
+		return 1
+	fi
+}
+
 # A run that is going to upload must produce the whole matrix: a missing package
 # would otherwise be published as a release nobody can install from.
 strict=0
 [ -z "$tag" ] || strict=1
 
-if [ -n "$sums_tag" ]; then
-	version=$(sed -n 's/^version *= *"\([^"]*\)".*/\1/p' "$here/viva.toml" | head -1)
+if [ -n "$check_dir" ]; then
+	[ -n "$check_version" ] || { echo "--check-dir needs --version" >&2; exit 2; }
+	check_release_dir "$check_dir" "$check_version" "$pubkey"
+	exit 0
+fi
+
+if [ -n "$verify_tag" ]; then
+	[ -n "$expect_viva" ] || { echo "--verify needs --expect-viva <sha>: the notes and the build must name the same frame" >&2; exit 2; }
+	version=$(manifest_version)
 	[ -n "$version" ] || { echo "no version in viva.toml" >&2; exit 1; }
 	scratch=$(mktemp -d)
 	trap 'rm -rf "$scratch"' EXIT
+	gh release download "$verify_tag" --dir "$scratch"
+	check_release_body "$verify_tag" "$expect_viva"
+	check_release_dir "$scratch" "$version"
+	if [ "$(gh release view "$verify_tag" --json isDraft --jq .isDraft)" = true ]; then
+		echo "== draft $verify_tag verified; publishing it is the last step"
+	else
+		echo "== published $verify_tag verified against the matrix"
+	fi
+	exit 0
+fi
+
+if [ -n "$sums_tag" ]; then
+	[ -n "$expect_viva" ] || { echo "--sums needs --expect-viva <sha>: the notes and the build must name the same frame" >&2; exit 2; }
+	version=$(manifest_version)
+	[ -n "$version" ] || { echo "no version in viva.toml" >&2; exit 1; }
+	# A published release is final: its assets are what installed copies already
+	# downloaded, and rewriting them would break the signatures the feed carries.
+	[ "$(gh release view "$sums_tag" --json isDraft --jq .isDraft)" = true ] || {
+		echo "$sums_tag is already published: a published release is never rewritten" >&2
+		exit 1
+	}
+	scratch=$(mktemp -d)
+	workdir=$(mktemp -d)
+	trap 'rm -rf "$scratch" "$workdir"' EXIT
 	gh release download "$sums_tag" --dir "$scratch" --pattern 'motty*'
 	# Sign here, once, with the whole matrix in hand: a build job only sees the
 	# packages of its own platform, so a manifest written there is overwritten by
@@ -89,11 +223,14 @@ if [ -n "$sums_tag" ]; then
 		echo "MOTTY_UPDATE_SIGNING_KEY is not set: refusing to finalize a release that cannot be updated in place" >&2
 		exit 1
 	}
-	key=$scratch/update.key
+	key=$workdir/update.key
 	(umask 077 && printf '%s\n' "$MOTTY_UPDATE_SIGNING_KEY" >"$key")
 	(cd "$here" && go run ./tools/updatesign sign -key "$key" -version "$version" -dir "$scratch")
-	(cd "$here" && go run ./tools/updatesign verify -version "$version" -dir "$scratch")
 	(cd "$scratch" && sums_packages > SHA256SUMS && cat SHA256SUMS)
+	# Nothing is uploaded until the whole thing is provably the matrix we mean
+	# to publish: a half-signed or wrongly named release stays a draft.
+	check_release_body "$sums_tag" "$expect_viva"
+	check_release_dir "$scratch" "$version"
 	gh release upload "$sums_tag" --clobber "$scratch/SIGNATURES" "$scratch/SHA256SUMS"
 	exit 0
 fi
@@ -240,13 +377,7 @@ else
 		echo "commit $short is not on any remote branch; push it first" >&2
 		exit 1
 	fi
-	args=(--draft --title "Motty $version" --target "$commit")
-	[ -z "$notes" ] || args+=(--notes-file "$notes")
-	[ -n "$notes" ] || args+=(--generate-notes)
-	gh release create "$tag" "${args[@]}" "${assets[@]}"
+	[ -n "$notes" ] || { echo "a release needs notes: pass --notes FILE (docs/releases/<version>.md)" >&2; exit 1; }
+	gh release create "$tag" --draft --title "Motty $tag" --target "$commit" --notes-file "$notes" "${assets[@]}"
 fi
-if [ "$publish" = 1 ]; then
-	gh release edit "$tag" --draft=false
-else
-	echo "   still a draft; publish with: gh release edit $tag --draft=false"
-fi
+echo "   still a draft: the workflow publishes it after --sums verified the release"

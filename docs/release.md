@@ -1,28 +1,32 @@
 # Releasing Motty
 
-A release is a version tag. Pushing `v0.1.2` runs `.github/workflows/release.yml`,
-which builds every package, signs what it has the secrets to sign, and uploads
-everything to a **draft** release. You read the draft and publish it.
+A release is a version tag. The commit the tag points at carries the version bump
+and the release notes in `docs/releases/<version>.md`; pushing `v<version>` builds
+every package, signs what it has the secrets to sign, verifies the finished
+matrix, and publishes it. The tag is the approval — the notes were read in the
+commit, and the workflow checks the artifacts before anything goes public.
 
 ```sh
-# 1. bump version in viva.toml, commit, push the branch
+# 1. bump viva.toml and internal/update/update.go, write
+#    docs/releases/<version>.md, commit and push
 # 2. tag exactly v<version> and push the tag
-git tag v0.1.2 && git push origin v0.1.2
-# 3. when the workflow is green, review the draft on GitHub and publish it
-gh release edit v0.1.2 --draft=false
+git tag v0.1.3 && git push origin v0.1.3
+# 3. when the workflow is green the release is published and the mirror serves it
 ```
 
-`tools/release.sh` refuses a tag that is not `v` plus the version in `viva.toml`.
+`tools/release.sh` refuses a tag that is not `v` plus the version in `viva.toml`,
+and the draft job refuses a tag whose commit has no notes file.
 
 ## What each job does
 
-| Job | Runs on | Builds |
+| Job | Runs on | Does |
 | --- | --- | --- |
 | Pin viva | Ubuntu | resolves `vivaui/viva` main to one commit |
-| Draft release | Ubuntu | creates the draft if there is none |
+| Draft release | Ubuntu | creates the draft with the notes from `docs/releases/<version>.md` |
 | macOS | macOS 15 (arm64) | `.dmg` and `.zip` for arm64 and amd64; signed, notarized and stapled |
 | Linux and Windows | Ubuntu | `.tar.gz` and `.deb` (amd64, arm64), and an NSIS installer for Windows amd64 and arm64; the Windows programs and the installers signed |
-| Checksums | Ubuntu | signs every package of the release and writes `SIGNATURES` and `SHA256SUMS` |
+| Checksums | Ubuntu | signs every package of the release, writes `SIGNATURES` and `SHA256SUMS`, and verifies the whole release |
+| Publish | Ubuntu | publishes the verified draft, which triggers the mirror |
 
 The two build jobs run at the same time and upload to the same draft. Re-running
 a failed job replaces its files. The *Checksums* job is the only one that sees
@@ -30,6 +34,39 @@ the whole matrix, so it is where the packages are signed into one `SIGNATURES`
 and where `SHA256SUMS` is written: a build job that signed only its own platform
 would have its manifest replaced by the other job's upload. The Linux packages
 are not code-signed.
+
+## What the gate checks
+
+The tag is a promise that the artifacts are right, so the *Checksums* job proves
+it before *Publish* runs. `tools/release.sh --sums TAG --expect-viva SHA` stops
+the release unless
+
+- the draft holds exactly the twelve assets of the matrix and nothing else;
+- `SHA256SUMS` lists every package and matches the uploaded bytes;
+- `SIGNATURES` has one line per package and each signature verifies against the
+  key compiled into the app, bound to that file name and version;
+- the title is `Motty <tag>` and the notes name the Viva commit that was built;
+- the release is still a draft (a published release is never rewritten).
+
+`--verify TAG --expect-viva SHA` runs the same checks on a release without
+signing or uploading anything, and `--check-dir DIR --version V` runs the file
+checks on a build directory. What the gate cannot see is the app itself: tests
+and, when a change touches windows, input or updates, a headless run are still
+what keeps a release worth publishing.
+
+If a job fails, the draft stays and nothing is published. Fix the cause, delete
+the draft and the tag, and tag again; once *Publish* has run the release is
+public and a fix is a new patch version, not an edit.
+
+## The release notes
+
+`docs/releases/<version>.md` is the text of the GitHub release, in the same
+commit as the version bump and the tag. The draft job copies it in, and the
+checksums job appends the `Built against vivaui/viva <sha>.` line, so the file
+itself never carries that line. Write it for the people who read the update
+dialog — what they can do now that they could not before — in Chinese, with the
+`## 新功能 / 改进 / 修复 / 安装` sections the earlier releases use. The notes in
+the update dialog are the `notes` field of `latest.json`, copied from this body.
 
 ## The framework commit
 
@@ -69,7 +106,7 @@ the secret. It is the trust root for every 0.1.2-or-later installation: if it is
 lost, those installations can no longer update in place. Rotating it is a
 migration — the release that carries the new public key has to be signed with the
 old key — not a quiet secret replacement. The decision is
-[0001](decisions/0001-updater-signing.md).
+0001 (`.private/decisions/0001-updater-signing.md`, not in the repository).
 
 **macOS**
 
@@ -111,6 +148,11 @@ APPLE_SIGNING_IDENTITY="Developer ID Application: Name (TEAMID)" \
 APPLE_NOTARY_PROFILE=motty tools/release.sh --platforms mac
 ```
 
+A by-hand run only ever leaves a draft. Sign and verify it with
+`tools/release.sh --sums v<version> --expect-viva <sha>` when every platform is
+uploaded, and check a release at any time — including one that shipped — with
+`tools/release.sh --verify v<version> --expect-viva <sha>`.
+
 On a Mac that is signed in to a keychain with the certificate, `APPLE_SIGNING_IDENTITY`
 and a profile made once with `xcrun notarytool store-credentials motty` are enough;
 no `.p12` is needed. See `viva help package` for every variable.
@@ -119,17 +161,18 @@ no `.p12` is needed. See `viva help package` for every variable.
 
 `website/lib/changelog.ts` holds one entry per release, newest first, with the
 English and Chinese text side by side. The website's `/en/changelog` and
-`/zh/changelog` render it, and the nav links to it. When a release is published,
-add its entry there and push: the site rebuilds and the entry goes live. The
-entry is the release notes written for readers, not the generated changelog, so
-keep it to what a user notices.
+`/zh/changelog` render it, and the nav links to it. Once a release is published,
+add its entry there with the publish date and push: the site rebuilds and the
+entry goes live. The entry is the release notes written for readers, in both
+languages, so keep it to what a user notices.
 
 The release title carries the tag as-is (`Motty v0.1.2`, not `Motty 0.1.2`), so
 the version on GitHub reads the same as in the app and in the changelog.
 
 ## The Cloudflare mirror
 
-Publishing the draft (`gh release edit v0.1.2 --draft=false`) also triggers
+Publishing the draft — the *Publish* job does it, and
+`gh release edit v0.1.2 --draft=false` does the same by hand — triggers
 `.github/workflows/mirror.yml`, which copies every asset to the `motty` R2 bucket
 on Cloudflare. The bucket answers on `https://dl.motty.page`; the GitHub release
 stays the source of record and the copy is only a faster path to the same bytes.

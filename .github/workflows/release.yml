@@ -1,9 +1,17 @@
-# Builds the release packages when a version tag is pushed and uploads them to a
-# DRAFT release, which you review and publish. The macOS packages are built on a
-# Mac and signed, notarized and stapled when the secrets below are set; the Linux
-# and Windows ones are cross-built on Ubuntu, with the Windows programs and
-# installer signed when a certificate is set. Without a secret the matching step
-# simply does not sign.
+# Builds the release packages when a version tag is pushed, verifies the whole
+# matrix, and publishes it. The notes come from docs/releases/<version>.md, which
+# is written and reviewed in the commit the tag points at; the macOS packages are
+# built on a Mac and signed, notarized and stapled when the secrets below are set;
+# the Linux and Windows ones are cross-built on Ubuntu, with the Windows programs
+# and installer signed when a certificate is set. Without a secret the matching
+# step simply does not sign.
+#
+# The tag is the approval: *Checksums* refuses the release unless it is exactly
+# the twelve assets, its SHA256SUMS matches the files, every signature verifies
+# against the key compiled into the app, and the notes name the Viva frame that
+# was built. *Publish* then publishes that verified draft, which triggers the
+# mirror every installed copy updates from; it refuses to run without the
+# mirror's secrets, because a release nobody can download is not a release.
 #
 # The framework is vivaui/viva main as it stands when the release starts: one job
 # resolves the commit, every build job checks out that same commit, and the commit
@@ -43,14 +51,43 @@ jobs:
     name: Draft release
     runs-on: ubuntu-latest
     steps:
-      - name: Create the draft release
+      - uses: actions/checkout@v7
+
+      # The notes live in the release commit, so they are written and reviewed
+      # before the build instead of typed into a draft afterwards. A tag whose
+      # commit has no notes stops here.
+      - name: Check the version and the notes
+        run: |
+          version=$(sed -n 's/^version *= *"\([^"]*\)".*/\1/p' viva.toml | head -1)
+          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::the tag is $GITHUB_REF_NAME but viva.toml says version $version"
+            exit 1
+          fi
+          notes="docs/releases/$version.md"
+          if [ ! -f "$notes" ]; then
+            echo "::error::$notes is missing: the release notes belong in the release commit"
+            exit 1
+          fi
+          cp "$notes" "$RUNNER_TEMP/notes.md"
+
+      - name: Create or update the draft release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if ! gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+          state=$(gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft 2>/dev/null || true)
+          case "$state" in
+          true)
+            gh release edit "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --notes-file "$RUNNER_TEMP/notes.md"
+            ;;
+          false)
+            echo "::error::$GITHUB_REF_NAME is already published; a published release is never rewritten"
+            exit 1
+            ;;
+          *)
             gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" \
-              --draft --verify-tag --title "Motty $GITHUB_REF_NAME" --generate-notes
-          fi
+              --draft --verify-tag --title "Motty $GITHUB_REF_NAME" --notes-file "$RUNNER_TEMP/notes.md"
+            ;;
+          esac
 
   build:
     name: ${{ matrix.name }}
@@ -159,22 +196,50 @@ jobs:
 
       # A release names the framework commit it was built against, so a package
       # can be traced back to the frame that produced it. Re-running replaces the
-      # line instead of adding another one.
+      # line instead of adding another one; a published release is left alone.
       - name: Note the framework commit
         env:
           GH_TOKEN: ${{ github.token }}
           VIVA: ${{ needs.viva.outputs.commit }}
         run: |
+          state=$(gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft)
+          if [ "$state" != true ]; then
+            echo "::error::$GITHUB_REF_NAME is already published; a published release is never rewritten"
+            exit 1
+          fi
           gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --json body --jq .body \
             | sed '/^Built against vivaui\/viva /d' > "$RUNNER_TEMP/notes.md"
           printf '\nBuilt against vivaui/viva `%s`.\n' "$VIVA" >> "$RUNNER_TEMP/notes.md"
           gh release edit "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --notes-file "$RUNNER_TEMP/notes.md"
 
-      - name: Sign and checksum what the release holds
+      - name: Sign, checksum and verify what the release holds
         env:
           GH_TOKEN: ${{ github.token }}
           # Signing happens here rather than in the build jobs: this is the only
           # step that has every platform's packages at once, so the manifest
-          # cannot be left partial by whichever build job uploaded last.
+          # cannot be left partial by whichever build job uploaded last. It is
+          # also the gate in front of publishing: the run stops unless the
+          # release is the whole matrix, signed with the release key.
           MOTTY_UPDATE_SIGNING_KEY: ${{ secrets.MOTTY_UPDATE_SIGNING_KEY }}
-        run: tools/release.sh --sums "$GITHUB_REF_NAME"
+        run: tools/release.sh --sums "$GITHUB_REF_NAME" --expect-viva "${{ needs.viva.outputs.commit }}"
+
+  publish:
+    name: Publish
+    needs: checksums
+    runs-on: ubuntu-latest
+    steps:
+      # Publishing is the point of no return: the app's update feed starts
+      # announcing this version. It happens only after the checksums job has
+      # verified the release, and only when the mirror is configured, because
+      # the mirror is what an installed copy updates from.
+      - name: Publish the verified release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            echo "::error::publishing needs CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID: the mirror is the update feed"
+            exit 1
+          fi
+          gh release edit "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --draft=false --latest
