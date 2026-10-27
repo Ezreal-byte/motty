@@ -75,7 +75,6 @@ var (
 	hitDialogGroup             = tree.ID(shellHits, "dialog-group")
 	hitDialogPort              = tree.ID(shellHits, "dialog-port")
 	hitDialogTags              = tree.ID(shellHits, "dialog-tags")
-	hitDialogColor             = tree.ID(shellHits, "dialog-color")
 	hitDialogIcon              = tree.ID(shellHits, "dialog-icon")
 	hitHostKeyTrust            = tree.ID(shellHits, "host-key-trust")
 	hitHostKeyOnce             = tree.ID(shellHits, "host-key-once")
@@ -926,7 +925,13 @@ func (state *State) EditorFor(hit ui.ID) *text.Editor {
 		}
 	case modalNewHost:
 		if isDialogField(hit) {
+			if state.editor.colorPicker.open {
+				return nil
+			}
 			return state.editor.field(fieldForDialogHit(hit))
+		}
+		if state.editor.colorPicker.open && hit == hostPickerIDs.Hex {
+			return &state.editor.colorPicker.hex
 		}
 		if hit == hitDialogAlgorithms && state.editor.protocol == protocolSSH && state.editor.algoMode == algoCustom {
 			return &state.editor.algorithms
@@ -1472,6 +1477,12 @@ func (state *State) reconnect(session *Session) {
 // clickHostDialog handles the New Host dialog. Clicks on its fields only move
 // focus, which the runtime already did; clicks anywhere else are swallowed.
 func (state *State) clickHostDialog(id ui.ID) {
+	if state.clickHostColorPicker(id) {
+		return
+	}
+	if state.editor.colorPicker.open {
+		return
+	}
 	switch id {
 	case hitDialogDismiss, hitDialogClose, hitDialogCancel:
 		state.editor.password = text.Editor{}
@@ -1705,6 +1716,12 @@ func (state *State) Pointer(event ui.PointerEvent) (outcome ui.EventResult) {
 }
 
 func (state *State) pointer(event ui.PointerEvent) ui.EventResult {
+	if result := state.hostFormPointer(event); result.Handled {
+		return result
+	}
+	if result := state.hostPickerPointer(event); result.Handled {
+		return result
+	}
 	if result, handled := state.terminalFindPointer(event); handled {
 		return result
 	}
@@ -1726,7 +1743,7 @@ func (state *State) pointer(event ui.PointerEvent) ui.EventResult {
 // isDialogField reports whether a hit is one of the New Host dialog's text fields.
 func isDialogField(id ui.ID) bool {
 	switch id {
-	case hitDialogLabel, hitDialogAddress, hitDialogUser, hitDialogPassword, hitDialogGroup, hitDialogPort, hitDialogTags, hitDialogColor:
+	case hitDialogLabel, hitDialogAddress, hitDialogUser, hitDialogPassword, hitDialogGroup, hitDialogPort, hitDialogTags:
 		return true
 	}
 	return false
@@ -1747,8 +1764,6 @@ func fieldForDialogHit(id ui.ID) hostField {
 		return fieldGroup
 	case hitDialogTags:
 		return fieldTags
-	case hitDialogColor:
-		return fieldColor
 	default:
 		return fieldPort
 	}
@@ -1773,6 +1788,12 @@ func (state *State) Key(event ui.KeyEvent) (outcome ui.EventResult) {
 }
 
 func (state *State) key(event ui.KeyEvent) ui.EventResult {
+	if result := state.hostPickerKey(event); result.Handled {
+		return result
+	}
+	if result := state.hostFormKey(event); result.Handled {
+		return result
+	}
 	if result, handled := state.transferCenterKey(event); handled {
 		return result
 	}
