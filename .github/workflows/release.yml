@@ -64,17 +64,17 @@ jobs:
           - { name: Linux and Windows, os: ubuntu-24.04, platforms: "linux,windows" }
     steps:
       # Motty builds against the Viva checkout beside it (replace viva => ../viva).
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           path: motty
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           repository: vivaui/viva
           ref: ${{ needs.viva.outputs.commit }}
           path: viva
           # A private Viva needs a token that can read it; a public one does not.
           token: ${{ secrets.REED_REPO_TOKEN || github.token }}
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v7
         with:
           go-version-file: motty/go.mod
           cache-dependency-path: motty/go.sum
@@ -155,7 +155,7 @@ jobs:
     needs: [build, viva]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # A release names the framework commit it was built against, so a package
       # can be traced back to the frame that produced it. Re-running replaces the

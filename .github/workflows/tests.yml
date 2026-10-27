@@ -20,14 +20,14 @@ jobs:
     timeout-minutes: 20
     steps:
       # Motty's go.mod replaces Viva with the sibling ../viva checkout.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           path: motty
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           repository: vivaui/viva
           path: viva
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v7
         with:
           go-version-file: motty/go.mod
           cache-dependency-path: motty/go.sum
@@ -46,14 +46,14 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           path: motty
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           repository: vivaui/viva
           path: viva
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v7
         with:
           go-version-file: motty/go.mod
           cache-dependency-path: motty/go.sum
@@ -64,22 +64,61 @@ jobs:
         working-directory: motty
         run: go test -tags dev ./internal/workbench -run '^TestDebug' -count=1
 
+  # The race detector is the long pole: it runs one package at a time, and it
+  # multiplies the memory the tests hold. CI therefore spreads the package list
+  # over four jobs (`make race` still runs the whole list for the merge gate),
+  # and a growing list keeps being covered because `make race-rest` takes every
+  # package the other jobs do not name.
   race:
-    name: Race detector
+    name: Race (${{ matrix.name }})
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: 30
+    strategy:
+      # Every shard reports, so one failure does not hide the others.
+      fail-fast: false
+      matrix:
+        include:
+          - { name: workbench 1/2, target: race-workbench, shard: 0, cache: workbench-0 }
+          - { name: workbench 2/2, target: race-workbench, shard: 1, cache: workbench-1 }
+          - { name: heavy packages, target: race-heavy, cache: heavy }
+          - { name: other packages, target: race-rest, cache: rest }
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           path: motty
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           repository: vivaui/viva
           path: viva
-      - uses: actions/setup-go@v5
+      # The race jobs keep a build cache of their own below: setup-go's key is
+      # the go.sum hash alone, so the first job to save claims it and the race
+      # artifacts, which take the longest to rebuild, would never be stored.
+      - uses: actions/setup-go@v7
         with:
           go-version-file: motty/go.mod
-          cache-dependency-path: motty/go.sum
+          cache: false
+      - name: Restore the Go module cache
+        uses: actions/cache@v6
+        with:
+          path: ~/go/pkg/mod
+          # Modules for a given go.sum never change, so this key never does.
+          key: go-mod-${{ runner.os }}-${{ hashFiles('motty/go.sum') }}
+      - name: Restore this shard's race build cache
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/go-build
+          # A key per run so the cache follows the source instead of freezing at
+          # the first save, and restore keys that fall back to this shard's own
+          # previous run, then to any shard for the race-instrumented standard
+          # library they all share.
+          key: go-race-${{ matrix.cache }}-${{ hashFiles('motty/go.sum') }}-${{ github.run_id }}
+          restore-keys: |
+            go-race-${{ matrix.cache }}-${{ hashFiles('motty/go.sum') }}-
+            go-race-${{ matrix.cache }}-
+            go-race-
       - name: Run the race detector
         working-directory: motty
-        run: make race
+        env:
+          SHARD: ${{ matrix.shard }}
+          SHARDS: 2
+        run: make ${{ matrix.target }}
