@@ -372,10 +372,12 @@ const (
 // Paint reads it synchronously and never starts work or allocates background
 // resources.
 type State struct {
-	fileWindows fileWindowManager
-	sftpWindows map[uint32]*sftpWindow
-	fileNotices fileNotices
-	closed      bool
+	fileWindows   fileWindowManager
+	fileNotices   fileNotices
+	sftpWindows   map[uint32]*sftpWindow
+	remoteWindows []*remoteToolsWindow
+	remoteWindow  *remoteToolsWindow // set only on a native tool window's isolated presenter
+	closed        bool
 	// saveBlocked is set when the state file came from a newer build: nothing is
 	// ever written over it. stateNotice is the dialog that tells the user why a
 	// state file was not loaded as it was.
@@ -664,6 +666,7 @@ func (state *State) Close() {
 		return
 	}
 	state.closed = true
+	state.closeRemoteToolsWindows()
 	state.closeFileWindows()
 	state.closeSFTPWindows()
 	if state.update.install.cancel != nil {
@@ -860,6 +863,7 @@ func (state *State) setAppearance(appearance appearance) {
 	state.pal = appearance.palette()
 	state.theme = state.pal.theme()
 	state.rebuildTerminalLook()
+	state.invalidateRemoteToolsWindows()
 }
 
 // systemLogin is the account name SSH uses for a host that names none.
@@ -1334,6 +1338,7 @@ func (state *State) openNewWindow() {
 // closeSession ends a tab: its connection and shell are released and the
 // neighbouring tab, or the host list when it was the last, takes over.
 func (state *State) closeSession(id uint32) {
+	defer state.syncRemoteToolsWindows()
 	index := -1
 	for at := range state.sessions {
 		if state.sessions[at].ID == id {
