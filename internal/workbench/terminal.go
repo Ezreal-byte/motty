@@ -232,6 +232,8 @@ func (t *terminal) syncRemaining() time.Duration {
 func (state *State) configureTerminal(session *Session) {
 	session.term.openLink = state.openTerminalLink
 	session.term.clock = state.now
+	// An image decoded off the window thread asks for the frame that shows it.
+	session.term.screen.SetImageWake(state.options.Invalidate)
 	state.attachHistory(session)
 	state.stampTerminal(session.term)
 	sessionID := session.ID
@@ -501,7 +503,13 @@ const pumpBudget = 128 << 10
 func (state *State) pump(session *Session) {
 	state.collectShell(session)
 	t := session.term
-	if t == nil || t.shell == nil {
+	if t == nil {
+		return
+	}
+	// Inline images finish decoding in the background; the ones that are ready
+	// land here, in the order their bytes arrived.
+	t.screen.ApplyImages()
+	if t.shell == nil {
 		return
 	}
 	t.rx = t.shell.Drain(t.rx) // keep what an earlier frame could not parse

@@ -171,6 +171,11 @@ type Terminal struct {
 	nextHyperlink     uint32
 	images            *imageStore
 	kitty             *kittyTransfer
+	// imageOps are the inline images whose decode or placement has not been
+	// applied yet, in parse order; see image_decode.go.
+	imageOps   []*imageJob
+	imageBytes int
+	imageWake  func()
 
 	replyFn      func([]byte)
 	clipboardFn  func(ClipboardWrite)
@@ -415,6 +420,7 @@ func (t *Terminal) trimHistory() {
 func (t *Terminal) Reset() {
 	t.parser = parser{}
 	t.kitty = nil
+	t.discardImageJobs()
 	if t.images != nil {
 		t.images.deleteAll()
 	}

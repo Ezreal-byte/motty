@@ -11,6 +11,18 @@ import (
 	"github.com/vivaui/viva/ui"
 )
 
+// settleImages waits for the background image decode and applies it, then
+// wakes the window so the next paint sees the placement.
+func settleImages(t testing.TB, state *State) {
+	t.Helper()
+	for index := range state.sessions {
+		if screen := state.sessions[index].term; screen != nil {
+			screen.screen.WaitImages()
+		}
+	}
+	state.Wake()
+}
+
 func TestTerminalImagesReachVifBitmapCanvasAndSteadyPaintAllocatesNothing(t *testing.T) {
 	state, _, _, shell := liveSession(t)
 	picture := image.NewNRGBA(image.Rect(0, 0, 2, 1))
@@ -23,6 +35,7 @@ func TestTerminalImagesReachVifBitmapCanvasAndSteadyPaintAllocatesNothing(t *tes
 	encoded := base64.StdEncoding.EncodeToString(pngData.Bytes())
 	shell.say("\x1b]1337;File=inline=1;width=40px;height=20px:" + encoded + "\x07")
 	state.Wake()
+	settleImages(t, state)
 
 	var canvas ui.Canvas
 	size := ui.Size{Width: 1400, Height: 900}
@@ -49,6 +62,7 @@ func BenchmarkPaintTerminalImageUnchanged(b *testing.B) {
 	raw := base64.StdEncoding.EncodeToString([]byte{255, 0, 0, 255})
 	shell.say("\x1b_Ga=T,f=32,s=1,v=1,c=20,r=10;" + raw + "\x1b\\")
 	state.Wake()
+	settleImages(&testing.T{}, state)
 	var canvas ui.Canvas
 	size := ui.Size{Width: 1400, Height: 900}
 	state.Paint(&canvas, size)

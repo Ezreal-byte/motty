@@ -72,11 +72,66 @@ func (t *Terminal) Write(p []byte) (int, error) {
 				continue
 			}
 		}
+		if run := t.stringRun(p[i:]); run > 0 {
+			i += run
+			continue
+		}
 		t.feed(p[i])
 		i++
 	}
 	t.version++
 	return len(p), nil
+}
+
+// stringRun appends a printable run of a control string in one copy and
+// returns how many bytes it took, or zero when the byte needs the per-byte
+// state machine (a terminator, a C0 control, or an OSC whose limit still
+// depends on its first bytes). An inline picture's payload is megabytes, and
+// copying it one byte at a time cost more than decoding it.
+func (t *Terminal) stringRun(p []byte) int {
+	if len(p) == 0 || p[0] < 0x20 {
+		return 0
+	}
+	run := 0
+	for run < len(p) && p[run] >= 0x20 {
+		run++
+	}
+	var dst *[]byte
+	limit, overflow := maxOSC, false
+	switch t.state {
+	case stOSC:
+		// The image limit applies only when the string starts with 1337;File=,
+		// so the first bytes still go through the per-byte path.
+		if len(t.osc) < len("1337;File=") {
+			return 0
+		}
+		if bytes.HasPrefix(t.osc, []byte("1337;File=")) {
+			limit = maxImageSequence
+		}
+		dst, overflow = &t.osc, t.oscOverflow
+	case stDCS:
+		dst, overflow, limit = &t.dcs, t.dcsOverflow, maxSixelSequence
+	case stAPC:
+		dst, overflow, limit = &t.apc, t.apcOverflow, maxImageSequence
+	default:
+		return 0
+	}
+	if overflow {
+		return run
+	}
+	take := min(run, max(limit-len(*dst), 0))
+	*dst = append(*dst, p[:take]...)
+	if take < run {
+		switch t.state {
+		case stOSC:
+			t.oscOverflow = true
+		case stDCS:
+			t.dcsOverflow = true
+		case stAPC:
+			t.apcOverflow = true
+		}
+	}
+	return run
 }
 
 func (t *Terminal) feed(b byte) {
@@ -377,7 +432,11 @@ func (t *Terminal) endOSC() {
 	case 52:
 		t.osc52(text)
 	case 1337:
-		t.itermImage(text)
+		if t.itermImage(text) {
+			// The decoder reads the payload in place; the next escape sequence
+			// must not overwrite the buffer under it.
+			t.osc = nil
+		}
 	}
 }
 
@@ -411,7 +470,10 @@ func (t *Terminal) endString() {
 		data, overflow := t.dcs, t.dcsOverflow
 		t.dcs, t.dcsOverflow, t.state = t.dcs[:0], false, stGround
 		if !overflow {
-			t.sixel(data)
+			if t.sixel(data) {
+				// Decoding reads the sequence in place; detach it.
+				t.dcs = nil
+			}
 		}
 	case stAPC:
 		data, overflow := t.apc, t.apcOverflow

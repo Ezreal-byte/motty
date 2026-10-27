@@ -112,6 +112,11 @@ func (s *State) aiStartCLILogin(id string, device bool) {
 	s.aiCloseDialog()
 	ctx, cancel := context.WithCancel(context.Background())
 	login := &aiCLILogin{provider: p, term: newTerminalWithScrollback(90, 16, 200), cancel: cancel}
+	login.term.screen.SetImageWake(func() {
+		if s.options.Invalidate != nil {
+			s.options.Invalidate()
+		}
+	})
 	s.ai.login = login
 	s.ai.cfg.dialog = aiDialogCLILogin
 	s.aiSetAuth(id, cli.AuthSigningIn)
@@ -208,6 +213,7 @@ func (s *State) aiPumpCLILogin() {
 	if login == nil {
 		return
 	}
+	login.term.screen.ApplyImages()
 	current, ok := s.aiProviderByID(login.provider.ID)
 	if !ok || current.Kind != login.provider.Kind || current.CLIPath != login.provider.CLIPath {
 		s.aiStopCLILogin()
