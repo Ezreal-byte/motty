@@ -231,6 +231,21 @@ type configBase struct {
 	ords     map[configstore.Key]int64
 	maxOrd   int64
 	local    []byte
+	// hostRecords is what the last save wrote for each host. The host list is
+	// the one large list in the state, and a save that edits a single host must
+	// not re-encode every other host; see appendHostEntries.
+	hostRecords map[string]hostRecord
+}
+
+// hostRecord remembers the state a host was last encoded from, its ordinal, and
+// the record payload that encoding produced. A host whose state and ordinal are
+// unchanged reuses the payload; holding it here rather than reading the store
+// again also makes a retry after a failed commit write the edit, not the record
+// the failed save left behind.
+type hostRecord struct {
+	host    savedHost
+	ord     int64
+	payload []byte
 }
 
 func newConfigBase() *configBase {
@@ -478,17 +493,24 @@ func (base *configBase) diff(entries []configstore.Entry) (puts []configstore.En
 
 // accept records that the store now holds entries and local.
 func (base *configBase) accept(entries []configstore.Entry, local []byte) {
-	base.payloads = make(map[configstore.Key][]byte, len(entries))
-	base.ords = make(map[configstore.Key]int64, len(entries))
+	payloads := make(map[configstore.Key][]byte, len(entries))
+	ords := make(map[configstore.Key]int64, len(entries))
 	for _, entry := range entries {
 		key := configstore.Key{Kind: entry.Kind, ID: entry.ID}
-		base.payloads[key] = entry.Payload
+		payloads[key] = entry.Payload
+		// A record that was already known keeps the ordinal the base gave it:
+		// entries either reuse an old payload or encode the Ord the base holds,
+		// so only a record new to this base has to be decoded.
+		if ord, known := base.ords[key]; known {
+			ords[key] = ord
+			continue
+		}
 		var payload recordPayload
 		if json.Unmarshal(entry.Payload, &payload) == nil {
-			base.ords[key] = payload.Ord
+			ords[key] = payload.Ord
 		}
 	}
-	base.local = local
+	base.payloads, base.ords, base.local = payloads, ords, local
 }
 
 // writeConfig stores a state through a store and updates the base. It says

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"slices"
 	"sort"
 	"strings"
 
@@ -140,6 +141,15 @@ func entityByField(name string) (entityField, bool) {
 // entries. It uses the same id, ordering, default and delete rules as
 // splitState.
 func appendEntityEntries(entries []configstore.Entry, base *configBase, defaults configDefaults, entity entityField, value any, nextOrd int64) ([]configstore.Entry, int64, error) {
+	// The host list is saved one record at a time: an edit of one host must not
+	// re-encode the whole catalog. The generic path below is kept for lists
+	// whose keys are derived from their content and for duplicate or anonymous
+	// host ids, whose record keys depend on the order.
+	if entity.kind == kindHost {
+		if hosts, ok := value.([]savedHost); ok && uniqueHostIDs(hosts) {
+			return appendHostEntries(entries, base, defaults, hosts, nextOrd)
+		}
+	}
 	raw, err := json.Marshal(value)
 	if err != nil {
 		return nil, nextOrd, err
@@ -182,6 +192,86 @@ func appendEntityEntries(entries []configstore.Entry, base *configBase, defaults
 			return nil, nextOrd, err
 		}
 		entries = append(entries, configstore.Entry{Kind: entity.kind, ID: id, Payload: payload})
+	}
+	return entries, nextOrd, nil
+}
+
+const kindHost = "host"
+
+// sameSavedHost reports whether two saved hosts hold the same state. It compares
+// field by field instead of reflect.DeepEqual, which allocates an interface box
+// and a visited map per call, three hundred times per save on a large catalog.
+func sameSavedHost(left, right savedHost) bool {
+	return left.Color == right.Color && left.ID == right.ID && left.Label == right.Label &&
+		left.Group == right.Group && slices.Equal(left.Tags, right.Tags) && left.Icon == right.Icon &&
+		left.Address == right.Address && left.User == right.User && left.Port == right.Port &&
+		left.System == right.System &&
+		left.Protocol == right.Protocol && left.Line == right.Line && left.Flow == right.Flow &&
+		sameSavedProxy(left.Proxy, right.Proxy) &&
+		left.Algorithms == right.Algorithms && left.AlgorithmList == right.AlgorithmList &&
+		left.Authentication == right.Authentication && left.Identity == right.Identity &&
+		left.ForwardX11 == right.ForwardX11 && left.AgentForward == right.AgentForward &&
+		left.NoHistory == right.NoHistory && left.Transfer == right.Transfer &&
+		left.ViaSSH == right.ViaSSH && left.Clipboard == right.Clipboard
+}
+
+func sameSavedProxy(left, right *savedOutboundProxy) bool {
+	if left == nil || right == nil {
+		return left == right
+	}
+	return *left == *right
+}
+
+// uniqueHostIDs reports whether every host has a non-empty id of its own, which
+// is what lets appendHostEntries key its cache by id.
+func uniqueHostIDs(hosts []savedHost) bool {
+	if len(hosts) < 2 {
+		return len(hosts) == 0 || hosts[0].ID != ""
+	}
+	seen := make(map[string]struct{}, len(hosts))
+	for _, host := range hosts {
+		if host.ID == "" {
+			return false
+		}
+		if _, duplicate := seen[host.ID]; duplicate {
+			return false
+		}
+		seen[host.ID] = struct{}{}
+	}
+	return true
+}
+
+// appendHostEntries appends the host records, reusing the record of every host
+// that did not change since the last save. It applies the same id, ordinal,
+// default and skip rules as the generic appendEntityEntries path.
+func appendHostEntries(entries []configstore.Entry, base *configBase, defaults configDefaults, hosts []savedHost, nextOrd int64) ([]configstore.Entry, int64, error) {
+	if base.hostRecords == nil {
+		base.hostRecords = make(map[string]hostRecord, len(hosts))
+	}
+	for _, host := range hosts {
+		key := configstore.Key{Kind: kindHost, ID: host.ID}
+		ord, known := base.ords[key]
+		if record, cached := base.hostRecords[host.ID]; cached && known && record.ord == ord && sameSavedHost(record.host, host) {
+			entries = append(entries, configstore.Entry{Kind: kindHost, ID: host.ID, Payload: record.payload})
+			continue
+		}
+		raw, err := json.Marshal(host)
+		if err != nil {
+			return nil, nextOrd, err
+		}
+		if _, held := base.payloads[key]; !held && defaults[key] == string(raw) {
+			continue
+		}
+		if !known {
+			nextOrd++
+			ord = nextOrd
+		}
+		payload, err := json.Marshal(recordPayload{Ord: ord, Data: raw})
+		if err != nil {
+			return nil, nextOrd, err
+		}
+		entries = append(entries, configstore.Entry{Kind: kindHost, ID: host.ID, Payload: payload})
+		base.hostRecords[host.ID] = hostRecord{host: host, ord: ord, payload: payload}
 	}
 	return entries, nextOrd, nil
 }
