@@ -302,6 +302,7 @@ var (
 	hitTerminalMenuClear      = tree.ID(terminalMenuHits, "terminal-menu-clear")
 	hitTerminalMenuSplitRight = tree.ID(terminalMenuHits, "terminal-menu-split-right")
 	hitTerminalMenuSplitDown  = tree.ID(terminalMenuHits, "terminal-menu-split-down")
+	hitTerminalMenuClosePane  = tree.ID(terminalMenuHits, "terminal-menu-close-pane")
 	hitTerminalMenuFiles      = tree.ID(terminalMenuHits, "terminal-menu-files")
 	hitTerminalMenuStats      = tree.ID(terminalMenuHits, "terminal-menu-stats")
 	hitLocalTerminal          = tree.ID(terminalMenuHits, "local-terminal")
