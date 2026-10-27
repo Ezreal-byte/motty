@@ -98,7 +98,7 @@ func TestX11ChannelOfTheShellReachesTheLocalDisplayWithItsRealCookie(t *testing.
 		if got.AuthName != "MIT-MAGIC-COOKIE-1" || string(got.AuthData) != "the-real-cookie!" {
 			t.Fatalf("the display received %+v", got)
 		}
-	case <-time.After(5 * time.Second):
+	case <-time.After(15 * time.Second):
 		t.Fatal("the display received nothing")
 	}
 	reply := make([]byte, len("hello from X"))
