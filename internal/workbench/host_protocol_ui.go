@@ -337,20 +337,21 @@ func (state *State) hostFormHeight() float32 {
 	return height
 }
 
-// switchRowsHeight is the room of the three switches under the algorithm
-// rows: "Forward X11", "Forward ssh-agent" and "Don't record commands". A
-// switch's hit region is 32px high, so consecutive rows keep that distance
-// for their hit regions not to overlap.
-const switchRowsHeight = 96
-
-// agentAccessRow is the room of the "Allow MCP agents to use this host" switch
-// under those, which only an SSH host has. Like theirs, its hit region is 32px
-// high, so it keeps that distance from the row above.
-const agentAccessRow = 32
+// sshSwitchRowsHeight is the room of the four switches under the algorithm rows:
+// "Forward X11", "Forward ssh-agent", "Don't record commands" and "Allow MCP
+// agents to use this host". A switch's hit region is 32px high, so consecutive
+// rows keep that distance (a 20px row and 12px above it) for their hit regions
+// not to overlap, and all of them are the same distance apart. The first sits 4px
+// below the buttons above it, and 16px are left under the last.
+const sshSwitchRowsHeight = 4 + 20 + 3*(12+20) + 16
 
 // advancedHeaderHeight is the row that opens the Advanced section of an SSH
 // host, with the gap above it.
-const advancedHeaderHeight = 40
+const advancedHeaderHeight = 48
+
+// advancedHeaderGap is the space above that row, and the same space is left under
+// it: 8px each, around its 32px.
+const advancedHeaderGap = 8
 
 // advancedSectionHeight is the room of an SSH host's Advanced section: its row
 // alone while closed, and open the algorithm choice (a third row for a custom
@@ -363,7 +364,7 @@ func (state *State) advancedSectionHeight() float32 {
 	if state.editor.algoMode == algoCustom {
 		rows++
 	}
-	return advancedHeaderHeight + rows*hostFormRowHeight + otpButtonsRow + switchRowsHeight + agentAccessRow
+	return advancedHeaderHeight + rows*hostFormRowHeight + otpButtonsRow + sshSwitchRowsHeight
 }
 
 // hostDialogExtra is the height the protocol-specific rows add to the host dialog.
@@ -392,7 +393,7 @@ func (state *State) paintAdvancedSection(canvas *ui.Canvas, bounds ui.Rect) {
 		chevron = iconChevronDown
 	}
 	var icon flex.Box
-	header := ui.Rect{X: bounds.X, Y: bounds.Y + advancedHeaderHeight - 32, Width: bounds.Width, Height: 32}
+	header := ui.Rect{X: bounds.X, Y: bounds.Y + advancedHeaderGap, Width: bounds.Width, Height: 32}
 	state.rememberHostControl(hitDialogAdvanced, header)
 	f := state.partLayout.Begin(canvas, state.Theme(), header)
 	f.Row().Fill().PadSides(0, 0, 0, 2).Gap(8).Items(flex.Center).
@@ -419,7 +420,7 @@ func (state *State) paintAlgorithmRows(canvas *ui.Canvas, x, y, width, rowHeight
 	}
 	const removeWidth, scanWidth, pasteWidth = 84, 132, 96
 	var algo, custom, otp, scan, paste, remove, x11, agentFwd, noHistory, agentAccess flex.Box
-	f := state.partLayout.Begin(canvas, state.Theme(), ui.Rect{X: x, Y: y, Width: width, Height: rows*rowHeight + switchRowsHeight + agentAccessRow + otpButtonsRow})
+	f := state.partLayout.Begin(canvas, state.Theme(), ui.Rect{X: x, Y: y, Width: width, Height: rows*rowHeight + sshSwitchRowsHeight + otpButtonsRow})
 	f.Column().Fill().Children(func() {
 		algo = f.Slot().Height(rowHeight)
 		if editor.algoMode == algoCustom {
@@ -434,7 +435,7 @@ func (state *State) paintAlgorithmRows(canvas *ui.Canvas, x, y, width, rowHeight
 			remove = f.Slot().Size(removeWidth, 30).Self(flex.Start)
 		})
 		x11 = state.declareDialogCheckbox(f, m.X11Forward, 4, 0)
-		agentFwd = state.declareDialogCheckbox(f, m.AgentForward, 4, 0)
+		agentFwd = state.declareDialogCheckbox(f, m.AgentForward, 12, 0)
 		noHistory = state.declareDialogCheckbox(f, state.messages.History.HostNoRecord, 12, 0)
 		agentAccess = state.declareDialogCheckbox(f, m.AgentAccess, 12, 0)
 	})
@@ -496,7 +497,7 @@ func (state *State) paintOTPRow(canvas *ui.Canvas, field, scan, paste, remove ui
 }
 
 // vncRowsHeight is the room of the two switches of a remote desktop host.
-const vncRowsHeight = switchRowsHeight
+const vncRowsHeight = 4 + 20 + (12 + 20) + 16
 
 // paintVNCRows declares the two switches of a VNC or RDP host and paints them in
 // bounds' place: connecting through SSH and sharing the clipboard.

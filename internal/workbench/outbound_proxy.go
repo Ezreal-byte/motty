@@ -531,7 +531,10 @@ func (state *State) paintHostProxyRow(canvas *ui.Canvas, bounds ui.Rect) {
 	button := components.BeginButton(canvas, theme, hitHostProxyConfigure, ui.Rect{}).XSmall().SizeToFit(m.ProxyConfigure)
 	var action flex.Box
 	f := state.partLayout.Begin(canvas, theme, content)
-	f.Row().Fill().Items(flex.Center).Gap(8).Children(func() {
+	// The summary sits in a box like the other fields' inputs, with its button
+	// inside, so the row has the same edge and height as they do.
+	f.Row().Fill().Items(flex.Center).Gap(8).PadSides(0, 4, 0, 12).
+		Background(state.pal.surface).Border(1, state.pal.line).Radius(radius.control).Children(func() {
 		f.Text(state.hostProxyDescription()).FontSize(metrics.FontSizeS).Color(state.pal.muted).Ellipsis().Grow(1)
 		action = f.Slot().Size(button.BoundsWidth(), 24)
 	})
