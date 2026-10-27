@@ -481,6 +481,11 @@ func (state *State) paintSFTPDialog(canvas *ui.Canvas, viewport ui.Rect, view *s
 		description = fmt.Sprintf(messages.Tools.ExtractDescriptionFmt, view.dialogEntry.Name)
 		fieldLabel = messages.Tools.ExtractFolder
 		submitLabel = messages.Tools.ExtractConfirm
+	case sftpDialogCompress:
+		title = messages.Tools.CompressTitle
+		description = fmt.Sprintf(messages.Tools.CompressDescriptionFmt, view.dialogEntry.Name)
+		fieldLabel = messages.Tools.CompressName
+		submitLabel = messages.Tools.CompressConfirm
 	case sftpDialogDiscardEdit:
 		title = messages.SFTPEditDiscardTitle
 		description = messages.SFTPEditDiscardDescription
@@ -500,7 +505,7 @@ func (state *State) paintSFTPDialog(canvas *ui.Canvas, viewport ui.Rect, view *s
 		initialFocus = hitSFTPDialogCancel
 	}
 	fieldDialog := view.dialog == sftpDialogCreateDirectory || view.dialog == sftpDialogRename || view.dialog == sftpDialogChmod ||
-		view.dialog == sftpDialogSymlink || view.dialog == sftpDialogExtract
+		view.dialog == sftpDialogSymlink || view.dialog == sftpDialogExtract || view.dialog == sftpDialogCompress
 	showError := view.dialog == sftpDialogDelete && view.dialogError != ""
 	body := float32(0) // a confirmation is only its text
 	switch {
