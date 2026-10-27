@@ -1773,9 +1773,6 @@ func (state *State) key(event ui.KeyEvent) ui.EventResult {
 	if result, handled := state.menuKey(event); handled {
 		return result
 	}
-	if result, handled := state.devSwatchKey(event); handled {
-		return result
-	}
 	if result, handled := state.selectTypeaheadKey(event); handled {
 		return result
 	}
