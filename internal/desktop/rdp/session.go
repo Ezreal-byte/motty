@@ -30,9 +30,9 @@ var ErrAuthRequired = errors.New("rdp: a password is required")
 const (
 	DefaultWidth  = 1600
 	DefaultHeight = 900
-	// maxSize bounds what a caller may ask for. RDP carries sizes in 16 bits;
-	// this is the 8K desktop the frame buffer is willing to hold.
-	maxSize = 7680
+	// maxSize bounds what a caller may ask for, and what a server may hand
+	// back: the largest desktop the frame buffer is built for.
+	maxSize = rdpcore.MaxDesktopSize
 	// handshakeTimeout bounds everything up to the first picture: dialing, the
 	// security negotiation, authentication and the capability exchange.
 	handshakeTimeout = 45 * time.Second

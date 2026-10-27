@@ -1026,6 +1026,18 @@ func (c *Client) mcsConnect() error {
 				c.endPaint()
 			})
 			c.egfxHandler.OnResetGraphics(func(w, h int) {
+				// The server picks this size, so hold it to what a display can
+				// show rather than letting one PDU allocate the frame buffer.
+				if w <= 0 || h <= 0 {
+					c.log.LogAttrs(context.Background(), slog.LevelWarn, "ResetGraphics with an empty desktop, ignoring",
+						slog.Int("width", w), slog.Int("height", h))
+					return
+				}
+				if w > MaxDesktopSize || h > MaxDesktopSize {
+					c.log.LogAttrs(context.Background(), slog.LevelWarn, "ResetGraphics desktop larger than the client can show, clamping",
+						slog.Int("width", w), slog.Int("height", h), slog.Int("limit", MaxDesktopSize))
+					w, h = min(w, MaxDesktopSize), min(h, MaxDesktopSize)
+				}
 				c.log.LogAttrs(context.Background(), slog.LevelDebug, "EGFX ResetGraphics callback", slog.Int("width", w), slog.Int("height", h), slog.Bool("hasFramebuf", c.framebuf != nil))
 				c.opts.Width = uint16(w)
 				c.opts.Height = uint16(h)
