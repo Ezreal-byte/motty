@@ -1629,6 +1629,9 @@ func (state *State) Pointer(event ui.PointerEvent) (outcome ui.EventResult) {
 	if state.aiTrackPointer(event) {
 		defer func() { outcome.Repaint = true }()
 	}
+	if result, handled := state.commandPalettePointer(event); handled {
+		return result
+	}
 	// The menu opens where the pointer is in the window, which the pane
 	// translation below would otherwise hide.
 	state.terminalMenu.pointer = ui.Point{X: event.X, Y: event.Y}

@@ -190,7 +190,13 @@ func (state *State) refreshCommandPalette() {
 		palette.visible[palette.visibleCount] = index
 		palette.visibleCount++
 	}
-	palette.selected, palette.top = 0, 0
+	choice := palette.choiceAt(0, 1)
+	if choice >= 0 {
+		palette.selected = uint8(choice)
+	} else {
+		palette.selected = 0
+	}
+	palette.top = 0
 }
 
 // choiceAt returns the first choice from index and in direction, stepping over
@@ -219,7 +225,7 @@ func (palette *commandPalette) follow() {
 func (state *State) scrollCommandPalette(event ui.ScrollEvent) ui.EventResult {
 	state.refreshCommandPalette()
 	palette := &state.commandPalette
-	before := palette.top
+	beforeTop, beforeSelected := palette.top, palette.selected
 	last := max(int(palette.visibleCount)-commandPaletteVisibleRows, 0)
 	// A notch moves one row; a long gesture moves as many rows as it spans.
 	rows := max(int(math.Abs(float64(event.DeltaY))/34), 1)
@@ -229,7 +235,14 @@ func (state *State) scrollCommandPalette(event ui.ScrollEvent) ui.EventResult {
 	case event.DeltaY < 0:
 		palette.top = uint8(max(int(palette.top)-rows, 0))
 	}
-	return ui.EventResult{Handled: true, Repaint: palette.top != before}
+	target := event.Target
+	if visible, ok := target.In(hitCommandPaletteItems); ok {
+		row := int(palette.top) + visible
+		if row < int(palette.visibleCount) && !palette.entries[palette.visible[row]].header {
+			palette.selected = uint8(row)
+		}
+	}
+	return ui.EventResult{Handled: true, Repaint: palette.top != beforeTop || palette.selected != beforeSelected}
 }
 
 func (state *State) clickCommandPalette(id ui.ID) {
@@ -265,6 +278,29 @@ func (state *State) executeCommandPalette(visible uint8) {
 	state.Click(target)
 }
 
+func (state *State) commandPalettePointer(event ui.PointerEvent) (ui.EventResult, bool) {
+	if state.modal != modalCommandPalette {
+		return ui.EventResult{}, false
+	}
+	visible, ok := event.Target.In(hitCommandPaletteItems)
+	if !ok {
+		return ui.EventResult{}, false
+	}
+	palette := &state.commandPalette
+	row := int(palette.top) + visible
+	if row >= int(palette.visibleCount) {
+		return ui.EventResult{}, false
+	}
+	if palette.entries[palette.visible[row]].header {
+		return ui.EventResult{}, false
+	}
+	if event.Kind == ui.PointerMove && palette.selected != uint8(row) {
+		palette.selected = uint8(row)
+		return ui.EventResult{Handled: true, Repaint: true}, true
+	}
+	return ui.EventResult{}, false
+}
+
 func (state *State) commandPaletteKey(event ui.KeyEvent) (ui.EventResult, bool) {
 	if state.modal != modalCommandPalette {
 		return ui.EventResult{}, false
@@ -275,20 +311,24 @@ func (state *State) commandPaletteKey(event ui.KeyEvent) (ui.EventResult, bool) 
 		state.closeCommandPalette()
 		return ui.EventResult{Handled: true, Repaint: true}, true
 	}
-	if event.Target == hitCommandPaletteSearch && event.Key == ui.KeyEnter && !event.Repeat {
+	inSearch := event.Target == hitCommandPaletteSearch
+	_, inItems := event.Target.In(hitCommandPaletteItems)
+	if !inSearch && !inItems {
+		return ui.EventResult{}, false
+	}
+	if inSearch && event.Key == ui.KeyEnter && !event.Repeat {
 		state.executeCommandPalette(palette.selected)
 		return ui.EventResult{Handled: true, Repaint: true, Focus: state.modalSearchFocus()}, true
 	}
-	visible, ok := event.Target.In(hitCommandPaletteItems)
-	if !ok {
-		return ui.EventResult{}, false
+	if inItems && (event.Key == ui.KeyEnter || event.Key == ui.KeySpace) && !event.Repeat {
+		state.executeCommandPalette(palette.selected)
+		return ui.EventResult{Handled: true, Repaint: true, Focus: state.modalSearchFocus()}, true
 	}
-	row := int(palette.top) + visible
-	if row >= int(palette.visibleCount) {
-		return ui.EventResult{}, false
-	}
-	palette.selected = uint8(row)
+	row := int(palette.selected)
 	move := func(selected, direction int) (ui.EventResult, bool) {
+		if palette.visibleCount == 0 {
+			return ui.EventResult{Handled: true}, true
+		}
 		selected = min(max(selected, 0), int(palette.visibleCount)-1)
 		selected = palette.choiceAt(selected, direction)
 		if selected < 0 {
@@ -305,6 +345,9 @@ func (state *State) commandPaletteKey(event ui.KeyEvent) (ui.EventResult, bool) 
 		}
 		palette.selected = uint8(selected)
 		palette.follow()
+		if inSearch {
+			return ui.EventResult{Handled: true, Repaint: true, Focus: hitCommandPaletteSearch}, true
+		}
 		return ui.EventResult{
 			Handled: true, Repaint: true,
 			Focus: hitCommandPaletteItems.At(int(palette.selected - palette.top)), FocusVisible: true,
@@ -315,19 +358,18 @@ func (state *State) commandPaletteKey(event ui.KeyEvent) (ui.EventResult, bool) 
 		return move(row-1, -1)
 	case ui.KeyDown:
 		return move(row+1, 1)
-	case ui.KeyHome:
-		return move(0, 1)
-	case ui.KeyEnd:
-		return move(int(palette.visibleCount)-1, -1)
 	case ui.KeyPageUp:
 		return move(row-commandPaletteVisibleRows, -1)
 	case ui.KeyPageDown:
 		return move(row+commandPaletteVisibleRows, 1)
-	case ui.KeyEnter, ui.KeySpace:
-		if !event.Repeat {
-			state.executeCommandPalette(palette.selected)
+	}
+	if inItems {
+		switch event.Key {
+		case ui.KeyHome:
+			return move(0, 1)
+		case ui.KeyEnd:
+			return move(int(palette.visibleCount)-1, -1)
 		}
-		return ui.EventResult{Handled: true, Repaint: true, Focus: state.modalSearchFocus()}, true
 	}
 	return ui.EventResult{}, false
 }

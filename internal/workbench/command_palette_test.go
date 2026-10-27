@@ -1,9 +1,11 @@
 package workbench
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/vivaui/viva/app"
+	"github.com/vivaui/viva/text"
 	"github.com/vivaui/viva/ui"
 )
 
@@ -158,5 +160,218 @@ func TestCommandPaletteReachesEntriesBelowTheTenRowsItShows(t *testing.T) {
 	state.Click(hitCommandPaletteItems.At(commandPaletteVisibleRows - 1))
 	if state.modal != modalNone || state.activeSessionID != 3 {
 		t.Fatalf("clicking the last row: modal=%d active session %d, want the last session", state.modal, state.activeSessionID)
+	}
+}
+
+func TestCommandPalettePointerHoverAndLeaveRetainsSelection(t *testing.T) {
+	state := newTestState(t, testOptions(t))
+	state.Click(hitCommandPalette)
+	if state.commandPalette.selected != 0 {
+		t.Fatalf("initial selected = %d, want 0", state.commandPalette.selected)
+	}
+
+	// Moving pointer over item 5 (Settings).
+	settingsHit := hitCommandPaletteItems.At(5)
+	result := state.Pointer(ui.PointerEvent{Kind: ui.PointerMove, Target: settingsHit})
+	if !result.Handled || !result.Repaint || state.commandPalette.selected != 5 {
+		t.Fatalf("hover over item 5: result=%+v selected=%d", result, state.commandPalette.selected)
+	}
+
+	// Moving pointer away (e.g. back to search field or outside the list).
+	state.Pointer(ui.PointerEvent{Kind: ui.PointerMove, Target: hitCommandPaletteSearch})
+	if state.commandPalette.selected != 5 {
+		t.Fatalf("after pointer leaves, selected = %d, want it to stay 5", state.commandPalette.selected)
+	}
+
+	// Pressing Enter from the search input should execute the selected item (Settings), not item 0 (Hosts).
+	res := state.Key(ui.KeyEvent{Target: hitCommandPaletteSearch, Key: ui.KeyEnter})
+	if !res.Handled || state.modal != modalNone || state.activeSection != sectionSettings {
+		t.Fatalf("enter after hover: res=%+v modal=%d section=%d (want settings)", res, state.modal, state.activeSection)
+	}
+}
+
+func TestCommandPaletteArrowKeysFromSearchInput(t *testing.T) {
+	state := newTestState(t, testOptions(t))
+	state.Click(hitCommandPalette)
+
+	var canvas ui.Canvas
+	state.Paint(&canvas, ui.Size{Width: 1400, Height: 900})
+	searchHit, ok := hitByID(&canvas, hitCommandPaletteSearch)
+	if !ok || !searchHit.NavigationKeys || searchHit.Placement != nil {
+		t.Fatalf("search field hit = %+v, want NavigationKeys=true and Placement=nil", searchHit)
+	}
+
+	// Pressing Down from the search box navigates to the next item while keeping focus on the search field.
+	result := state.Key(ui.KeyEvent{Target: hitCommandPaletteSearch, Key: ui.KeyDown})
+	if !result.Handled || !result.Repaint || result.Focus != hitCommandPaletteSearch || state.commandPalette.selected != 1 {
+		t.Fatalf("down from search: result=%+v selected=%d", result, state.commandPalette.selected)
+	}
+
+	// Pressing Up navigates back to item 0.
+	result = state.Key(ui.KeyEvent{Target: hitCommandPaletteSearch, Key: ui.KeyUp})
+	if !result.Handled || !result.Repaint || result.Focus != hitCommandPaletteSearch || state.commandPalette.selected != 0 {
+		t.Fatalf("up from search: result=%+v selected=%d", result, state.commandPalette.selected)
+	}
+
+	// Navigate to item 5 (Settings) using down arrows.
+	for i := 0; i < 5; i++ {
+		state.Key(ui.KeyEvent{Target: hitCommandPaletteSearch, Key: ui.KeyDown})
+	}
+	if state.commandPalette.selected != 5 {
+		t.Fatalf("after 5 down arrows: selected=%d, want 5", state.commandPalette.selected)
+	}
+
+	// Press Enter to execute Settings.
+	res := state.Key(ui.KeyEvent{Target: hitCommandPaletteSearch, Key: ui.KeyEnter})
+	if !res.Handled || state.modal != modalNone || state.activeSection != sectionSettings {
+		t.Fatalf("enter after arrow navigation: res=%+v modal=%d section=%d (want settings)", res, state.modal, state.activeSection)
+	}
+}
+
+func TestCommandPalettePointerDownDoesNotConsumePress(t *testing.T) {
+	state := newTestState(t, testOptions(t))
+	state.Click(hitCommandPalette)
+
+	// Pointer down on item 5 must not be consumed as handled, so click can fire.
+	down := state.Pointer(ui.PointerEvent{Kind: ui.PointerDown, Button: ui.PointerButtonPrimary, Target: hitCommandPaletteItems.At(5)})
+	if down.Handled {
+		t.Fatalf("pointer down handled=%v, want false so click can be delivered", down.Handled)
+	}
+
+	// Click on item 5 executes Settings.
+	state.Click(hitCommandPaletteItems.At(5))
+	if state.modal != modalNone || state.activeSection != sectionSettings {
+		t.Fatalf("click modal=%d section=%d, want sectionSettings", state.modal, state.activeSection)
+	}
+}
+
+func TestCommandPaletteDriverRetainsNativeTextEditing(t *testing.T) {
+	state := newTestState(t, testOptions(t))
+	state.Click(hitCommandPalette)
+
+	var nativeInput app.TextInput
+	driver, err := app.NewDriver(app.Config{
+		Title: "cmd palette driver", Width: 1400, Height: 900, Tree: Tree(),
+		Paint: state.Paint, OnPointer: state.Pointer, OnKey: state.Key,
+		TextInput: func(context app.TextInputContext) *app.TextInput {
+			if editor := state.EditorFor(context.ID); editor != nil {
+				nativeInput = app.TextInput{Editor: editor, NavigationKeys: context.NavigationKeys}
+				return &nativeInput
+			}
+			return nil
+		},
+	}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer driver.Close()
+
+	// Type abcdef into the search field.
+	if err := driver.Type("abcdef"); err != nil {
+		t.Fatal(err)
+	}
+	if got := state.EditorFor(hitCommandPaletteSearch).String(); got != "abcdef" {
+		t.Fatalf("search value = %q, want abcdef", got)
+	}
+
+	// Press Home: native editor moves caret to 0.
+	if err := driver.Key(ui.KeyHome, 0); err != nil {
+		t.Fatal(err)
+	}
+	if caret := state.EditorFor(hitCommandPaletteSearch).Selection(); caret != (text.Range{Start: 0, End: 0}) {
+		t.Fatalf("after Home: caret = %+v, want 0", caret)
+	}
+
+	// Select all and delete to restore full list.
+	if _, err := driver.Shortcut('a'); err != nil {
+		t.Fatal(err)
+	}
+	if err := driver.Key(ui.KeyBackspace, 0); err != nil {
+		t.Fatal(err)
+	}
+	if got := state.EditorFor(hitCommandPaletteSearch).String(); got != "" {
+		t.Fatalf("search value after delete = %q, want empty", got)
+	}
+
+	// Press Down: reaches the application to navigate command palette items.
+	if err := driver.Key(ui.KeyDown, 0); err != nil {
+		t.Fatal(err)
+	}
+	if state.commandPalette.selected != 1 {
+		t.Fatalf("after Down: selected = %d, want 1", state.commandPalette.selected)
+	}
+}
+
+func TestCommandPaletteTabFocusAndHoverEnterExecutesHoveredChoice(t *testing.T) {
+	state := newTestState(t, testOptions(t))
+	state.Click(hitCommandPalette)
+	if state.commandPalette.selected != 0 {
+		t.Fatalf("initial selected = %d, want 0", state.commandPalette.selected)
+	}
+
+	firstItem := hitCommandPaletteItems.At(0)
+	settingsHit := hitCommandPaletteItems.At(5)
+
+	// Hover pointer over item 5 (Settings).
+	hoverRes := state.Pointer(ui.PointerEvent{Kind: ui.PointerMove, Target: settingsHit})
+	if !hoverRes.Handled || state.commandPalette.selected != 5 {
+		t.Fatalf("hover over item 5: result=%+v selected=%d", hoverRes, state.commandPalette.selected)
+	}
+
+	// Paint canvas with focus still on item 0 (as when Tab focused it).
+	var canvas ui.Canvas
+	canvas.SetInteraction(ui.ID{}, ui.ID{}, firstItem, true)
+	state.Paint(&canvas, ui.Size{Width: 1400, Height: 900})
+
+	// Enter with target=firstItem must execute the hovered item (Settings, 5), not item 0.
+	enterRes := state.Key(ui.KeyEvent{Target: firstItem, Key: ui.KeyEnter})
+	if !enterRes.Handled || state.modal != modalNone || state.activeSection != sectionSettings {
+		t.Fatalf("enter after hover: enterRes=%+v modal=%d section=%d (want settings)", enterRes, state.modal, state.activeSection)
+	}
+}
+
+func TestCommandPaletteMoveWheelRepaintEnterOnLongList(t *testing.T) {
+	state := newTestState(t, testOptions(t))
+	for id := uint32(1); id <= 5; id++ {
+		state.sessions = append(state.sessions, Session{ID: id, Title: fmt.Sprintf("Server %d", id), restored: true})
+	}
+	state.activeSessionID, state.nextSessionID = 1, 6
+	state.Click(hitCommandPalette)
+
+	var canvas ui.Canvas
+	state.Paint(&canvas, ui.Size{Width: 1400, Height: 900})
+	if int(state.commandPalette.visibleCount) <= commandPaletteVisibleRows {
+		t.Fatalf("entries = %d, want > %d", state.commandPalette.visibleCount, commandPaletteVisibleRows)
+	}
+
+	// 1. Move: pointer hovers over slot 2
+	slot2 := hitCommandPaletteItems.At(2)
+	moveRes := state.Pointer(ui.PointerEvent{Kind: ui.PointerMove, Target: slot2})
+	if !moveRes.Handled || state.commandPalette.selected != 2 {
+		t.Fatalf("move: result=%+v selected=%d, want 2", moveRes, state.commandPalette.selected)
+	}
+
+	// 2. Wheel: scroll down by 3 rows while pointer stays over slot 2
+	scrollRes := state.Scroll(ui.ScrollEvent{DeltaY: 34 * 3, Target: slot2})
+	if !scrollRes.Handled || !scrollRes.Repaint {
+		t.Fatalf("scroll: result=%+v", scrollRes)
+	}
+	if state.commandPalette.top != 3 {
+		t.Fatalf("after scroll: top=%d, want 3", state.commandPalette.top)
+	}
+	// The item now at slot 2 is top (3) + 2 = 5 (NavSettings)
+	wantSelected := uint8(3 + 2)
+	if state.commandPalette.selected != wantSelected {
+		t.Fatalf("after wheel: selected=%d, want %d", state.commandPalette.selected, wantSelected)
+	}
+
+	// 3. Repaint
+	canvas.Reset()
+	state.Paint(&canvas, ui.Size{Width: 1400, Height: 900})
+
+	// 4. Enter: executes the selected item (5: Settings)
+	keyRes := state.Key(ui.KeyEvent{Target: slot2, Key: ui.KeyEnter})
+	if !keyRes.Handled || state.modal != modalNone || state.activeSection != sectionSettings {
+		t.Fatalf("enter: res=%+v modal=%d section=%d (want settings)", keyRes, state.modal, state.activeSection)
 	}
 }

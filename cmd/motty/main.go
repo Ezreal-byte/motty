@@ -250,7 +250,7 @@ func openWorkbenchWindow(application *app.Application, status *tray, hub *workbe
 			return nil
 		}
 		// Bounds, font size and color come from the field the component painted.
-		nativeInput = app.TextInput{Editor: editor}
+		nativeInput = app.TextInput{Editor: editor, NavigationKeys: context.NavigationKeys}
 		return &nativeInput
 	}
 

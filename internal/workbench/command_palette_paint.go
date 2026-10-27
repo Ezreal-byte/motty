@@ -24,21 +24,6 @@ func (state *State) paintCommandPalette(canvas *ui.Canvas, viewport ui.Rect) {
 	focused := canvas.Focused() == hitCommandPaletteSearch
 	palette := &state.commandPalette
 	count := min(int(palette.visibleCount)-int(palette.top), commandPaletteVisibleRows)
-	// One row is the current one. The pointer on a row makes it that one, so the
-	// row the keyboard last chose does not stay lit beside it. A heading is not
-	// a choice: the pointer there lights nothing, rather than falling back to
-	// the keyboard's first row.
-	current, overHeading := -1, false
-	for visible := 0; visible < count; visible++ {
-		entry := palette.entries[palette.visible[int(palette.top)+visible]]
-		if entry.header {
-			overHeading = overHeading || canvas.Hovered() == hitCommandPaletteHeaders.At(visible)
-			continue
-		}
-		if canvas.Hovered() == hitCommandPaletteItems.At(visible) {
-			current = visible
-		}
-	}
 
 	var search flex.Box
 	f := state.paletteLayout.Begin(canvas, state.Theme(), layout.Body)
@@ -64,7 +49,7 @@ func (state *State) paintCommandPalette(canvas *ui.Canvas, viewport ui.Rect) {
 					continue
 				}
 				id := hitCommandPaletteItems.At(visible)
-				selected := current == visible || current < 0 && !overHeading && (palette.selected == palette.top+uint8(visible) || canvas.Focused() == id)
+				selected := palette.selected == palette.top+uint8(visible)
 				color, detailColor := state.pal.muted, state.pal.faint
 				if selected {
 					color, detailColor = state.pal.onAccent, state.pal.onAccent
@@ -75,7 +60,9 @@ func (state *State) paintCommandPalette(canvas *ui.Canvas, viewport ui.Rect) {
 				}
 				// The rows touch through the gap between them, so crossing it
 				// never takes the pointer off the list and flashes the first row.
-				row.HitOutset(2, 0, 2, 0).HitWith(id, entry.label, ui.HitOptions{Role: ui.RoleButton}).Children(func() {
+				// Rows are not tab stops: the pointer and the arrows are the one
+				// way the selection moves, so Tab keeps its normal traversal.
+				row.HitOutset(2, 0, 2, 0).HitWith(id, entry.label, ui.HitOptions{Role: ui.RoleButton, SkipTab: true}).Children(func() {
 					f.Text(entry.label).FontSize(metrics.FontSizeM).Weight(ui.WeightMedium).Color(color).Ellipsis().Grow(1)
 					if entry.detail != "" {
 						f.Text(entry.detail).FontSize(metrics.FontSizeS).Color(detailColor).Ellipsis().MaxWidth(layout.Body.Width * 0.45).Shrink(0)
@@ -95,6 +82,7 @@ func (state *State) paintCommandPalette(canvas *ui.Canvas, viewport ui.Rect) {
 	components.PaintInput(canvas, state.Theme(), search.Rect(), components.InputSnapshot{
 		ID: hitCommandPaletteSearch, Label: title, Value: value,
 		Placeholder: placeholder, Focused: focused, PlatformEditing: focused && value != "",
+		NavigationKeys: true,
 	})
 	dialog.End()
 }
