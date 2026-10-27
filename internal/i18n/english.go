@@ -51,6 +51,9 @@ var EnglishMessages = Messages{
 	DebugEnvironmentDevelopment: "Development",
 	DebugEnvironmentStaging:     "Staging",
 	DebugEnvironmentProduction:  "Production",
+	DebugColorSwatchTitle:       "Color swatch",
+	DebugColorSwatchDescription: "A round color choice with a selection ring and a keyboard focus ring. Tab enters the palette and the arrow keys move through it; the last option is disabled.",
+	DebugColorSwatchChoice:      "Selected color:",
 
 	StateTooNewTitle:       "Saved data is from a newer Motty",
 	StateTooNewBodyFmt:     "%s was written by a newer version (format %s; this version reads up to %s). It has not been changed, and this version will not save over it, so your hosts and settings are safe. Open it with the newer version.",

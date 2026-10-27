@@ -51,6 +51,9 @@ var ChineseMessages = Messages{
 	DebugEnvironmentDevelopment: "开发",
 	DebugEnvironmentStaging:     "预发布",
 	DebugEnvironmentProduction:  "生产",
+	DebugColorSwatchTitle:       "色板",
+	DebugColorSwatchDescription: "带选中环和键盘焦点环的圆形颜色选择。Tab 进入色板，方向键移动，最后一个选项为禁用状态。",
+	DebugColorSwatchChoice:      "已选颜色：",
 
 	StateTooNewTitle:       "已保存的数据来自更新版本的 Motty",
 	StateTooNewBodyFmt:     "%s 由更新的版本写入(格式 %s;当前版本最高读取 %s)。它没有被改动,当前版本也不会覆盖它,你的主机和设置是安全的。请用新版本打开。",

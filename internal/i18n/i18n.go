@@ -81,6 +81,9 @@ type Messages struct {
 	DebugEnvironmentDevelopment string
 	DebugEnvironmentStaging     string
 	DebugEnvironmentProduction  string
+	DebugColorSwatchTitle       string
+	DebugColorSwatchDescription string
+	DebugColorSwatchChoice      string
 
 	// What the user is told when the saved state could not be loaded as it was.
 	// The Fmt strings take the file names or versions named in persist.go.
