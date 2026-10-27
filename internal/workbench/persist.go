@@ -406,10 +406,13 @@ func (state *State) snapshot() savedState {
 	}
 	for index := range state.sessions {
 		session := &state.sessions[index]
+		if session.containerCommand != "" {
+			continue
+		}
 		if session.isLocal() {
 			saved.Sessions = append(saved.Sessions, savedSession{Label: session.Title, Local: true})
 			if session.ID == state.activeSessionID {
-				saved.ActiveSession = index + 1
+				saved.ActiveSession = len(saved.Sessions)
 			}
 			continue
 		}
@@ -419,7 +422,7 @@ func (state *State) snapshot() savedState {
 			savedTransport: session.host.transport(),
 		})
 		if session.ID == state.activeSessionID {
-			saved.ActiveSession = index + 1
+			saved.ActiveSession = len(saved.Sessions)
 		}
 	}
 	saved.AIProviders = state.savedAIProviders()

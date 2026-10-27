@@ -83,6 +83,8 @@ type Session struct {
 	role       sshconn.EndpointRole
 	conn       Connection
 	shared     bool // conn is a tab on another tab's connection
+	// An interactive remote command for this tab only; it is not persisted as a host setting.
+	containerCommand string
 	// avoidShare makes the next connection a fresh one: the server refused one
 	// more channel on the shared connection.
 	avoidShare bool
