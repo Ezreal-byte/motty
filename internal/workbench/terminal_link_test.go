@@ -55,8 +55,8 @@ func TestTerminalLinkHitHoverPaintAndClick(t *testing.T) {
 
 	var canvas ui.Canvas
 	state.paintGrid(&canvas, session, geometry)
-	if session.term.links.valid {
-		t.Fatal("painting an unhovered terminal scanned for links")
+	if session.term.links.hasHover {
+		t.Fatal("painting an unhovered terminal set a link")
 	}
 	terminalHit, ok := hitByID(&canvas, hit)
 	if !ok || terminalHit.Role != ui.RoleTerminal || terminalHit.Bounds != geometry.area {
@@ -105,6 +105,25 @@ func TestTerminalLinkHitHoverPaintAndClick(t *testing.T) {
 	}
 	if _, ok := session.term.links.hoveredLink(session.term.screen); ok {
 		t.Fatal("pointer exit kept the hovered link")
+	}
+}
+
+func TestTerminalLinkHoverChecksTheNextLineAfterALinklessOne(t *testing.T) {
+	state, session, geometry := selectionState()
+	session.term.write([]byte("no links here\r\nsee https://example.test/x now"))
+	hit := hitTerminalList.At(int(session.ID))
+
+	emptyX, emptyY := cellPoint(geometry, 0, 3, state.cellWidth, state.cellHeight)
+	state.Pointer(ui.PointerEvent{Kind: ui.PointerMove, Target: hit, X: emptyX, Y: emptyY, Viewport: state.viewport})
+	if _, ok := session.term.links.hoveredLink(session.term.screen); ok {
+		t.Fatal("a linkless line reported a link")
+	}
+
+	linkX, linkY := cellPoint(geometry, 1, 8, state.cellWidth, state.cellHeight)
+	state.Pointer(ui.PointerEvent{Kind: ui.PointerMove, Target: hit, X: linkX, Y: linkY, Viewport: state.viewport})
+	link, ok := session.term.links.hoveredLink(session.term.screen)
+	if !ok || link.Target != "https://example.test/x" {
+		t.Fatalf("link on the next line = %+v, %v", link, ok)
 	}
 }
 
