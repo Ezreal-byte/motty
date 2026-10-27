@@ -267,6 +267,15 @@ type Messages struct {
 	FieldPasswordHint           string
 	FieldPasswordKeepHint       string
 	FieldPasswordCopyHint       string
+	FieldAuthentication         string
+	AuthAutomatic               string
+	AuthPassword                string
+	AuthPrivateKey              string
+	AuthAgent                   string
+	FieldIdentity               string
+	AuthAllKeys                 string
+	AuthKeyUnavailable          string
+	AuthImportKey               string
 	FieldVNCPassword            string
 	HostPasswordShared          string
 	HostPasswordNotCarried      string
@@ -494,6 +503,7 @@ type Messages struct {
 	KeyNothingImported          string
 	KeySelected                 string
 	KeyRemoved                  string
+	KeyInUseFmt                 string
 	KeyPassphraseTitle          string
 	KeyPassphraseDescriptionFmt string
 	KeyPassphraseLabel          string
