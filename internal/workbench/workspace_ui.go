@@ -274,9 +274,9 @@ func (state *State) paintContextPanel(canvas *ui.Canvas, size ui.Size, workspace
 			side = components.DrawerRight
 		}
 		drawer := components.BeginDrawer(canvas, state.Theme(), state.baseWorkspacePixelBounds(size), components.DrawerOptions{
-			Layer: dialogLayer, Scope: dialogScope, DismissID: hitSFTPClose, CloseID: hitSFTPClose,
+			Layer: dialogLayer, Scope: dialogScope, DismissID: hitSFTPClose, CloseID: hitSFTPDrawerClose,
 			Side: side, ContentExtent: min(context.Width, size.Width*0.82),
-			InitialFocusID: hitSFTPClose,
+			InitialFocusID: hitSFTPDrawerClose,
 		})
 		description := ""
 		if session != nil {

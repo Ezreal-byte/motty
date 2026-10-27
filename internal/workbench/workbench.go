@@ -119,6 +119,7 @@ var (
 	hitTerminalRecord          = tree.ID(shellHits, "terminal-record")
 	hitTerminalRecordingExport = tree.ID(shellHits, "terminal-recording-export")
 	hitStateNoticeDismiss      = tree.ID(shellHits, "state-notice-dismiss")
+	hitStateNoticeClose        = tree.ID(shellHits, "state-notice-close")
 	hitStateNoticeOK           = tree.ID(shellHits, "state-notice-ok")
 )
 
@@ -288,6 +289,11 @@ var (
 	hitSFTPEditReload      = tree.ID(sftpHits, "sftp-edit-reload")
 	hitSFTPBreadcrumbList  = tree.Sub(sftpHits, tree.Name("sftp-breadcrumb"))
 	hitSFTPEntryList       = tree.Sub(sftpHits, tree.Name("sftp-entry"))
+
+	// hitSFTPDrawerClose is the close button of the drawer a narrow window shows
+	// the panel in. It is a hit of its own, apart from the backdrop that
+	// hitSFTPClose dismisses the drawer with: one ID cannot name both targets.
+	hitSFTPDrawerClose = tree.ID(sftpHits, "sftp-drawer-close")
 )
 
 // Remote resource monitoring owns a fixed hit outside every page range. Only

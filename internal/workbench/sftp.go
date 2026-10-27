@@ -203,7 +203,7 @@ func (state *State) clickSFTP(id ui.ID) {
 		state.openSFTPWindow(session)
 		return
 	}
-	if id == hitSFTPClose {
+	if id == hitSFTPClose || id == hitSFTPDrawerClose {
 		state.releaseIdleSFTP(session)
 		context, _ := state.deck.Context(state.deck.ActiveWorkspace())
 		context.Open = false
