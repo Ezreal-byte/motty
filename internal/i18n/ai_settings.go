@@ -202,4 +202,22 @@ type AISettingsMessages struct {
 	MCPZCodeHint     string
 	MCPClientLabel   string
 	MCPPreviewHint   string
+
+	// Agents that work without the window (motty mcp-serve).
+	AgentsTitle         string
+	AgentMode           string
+	AgentModeDesc       string
+	AgentModeObserve    string
+	AgentModeRun        string
+	AgentHosts          string
+	AgentHostsNoneDesc  string
+	AgentConfig         string
+	AgentConfigDesc     string
+	AgentActivity       string
+	AgentActivityNone   string
+	AgentActivityDesc   string
+	AgentActivityClear  string
+	AgentOutcomeOK      string
+	AgentOutcomeFailed  string
+	AgentOutcomeRefused string
 }

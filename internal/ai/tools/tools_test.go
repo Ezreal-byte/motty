@@ -238,3 +238,39 @@ func TestEscalationToolIsAskOnlyAndDecodes(t *testing.T) {
 		t.Fatal("an unknown field was accepted")
 	}
 }
+
+func TestHeadlessCatalogDropsTheScreenAndStopsPromisingATerminal(t *testing.T) {
+	names := func(commands bool) []string {
+		var names []string
+		for _, spec := range Headless(commands) {
+			names = append(names, spec.Name)
+			if len(spec.Description) == 0 || len(spec.Description) > 400 {
+				t.Errorf("%s: description length %d", spec.Name, len(spec.Description))
+			}
+			if !json.Valid(spec.Schema) {
+				t.Errorf("%s: schema is not JSON", spec.Name)
+			}
+			full, _ := Lookup(spec.Name)
+			if spec.Kind != full.Kind {
+				t.Errorf("%s: kind %v, want %v", spec.Name, spec.Kind, full.Kind)
+			}
+			for _, text := range []string{spec.Description, string(spec.Schema)} {
+				for _, stale := range []string{"visible terminal", "user sees", "active session", "that is ready", "must approve"} {
+					if strings.Contains(text, stale) {
+						t.Errorf("%s still says %q: %s", spec.Name, stale, text)
+					}
+				}
+			}
+		}
+		return names
+	}
+	if got, want := names(false), []string{NameListSessions, NameSFTPList, NameSFTPRead}; !slices.Equal(got, want) {
+		t.Errorf("read-only headless tools %v, want %v", got, want)
+	}
+	if got, want := names(true), []string{NameListSessions, NameTerminalExec, NameTerminalExecMany, NameSFTPList, NameSFTPRead}; !slices.Equal(got, want) {
+		t.Errorf("headless tools with commands %v, want %v", got, want)
+	}
+	if _, ok := Lookup(NameTerminalRead); !ok {
+		t.Fatal("the full catalog must keep terminal_read")
+	}
+}

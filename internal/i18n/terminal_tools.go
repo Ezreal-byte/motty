@@ -567,6 +567,7 @@ type ToolsMessages struct {
 	X11Forward                      string
 	X11UnavailableFmt               string
 	AgentForward                    string
+	AgentAccess                     string
 	AgentForwardUnavailableFmt      string
 	OTPKeep                         string
 	ErrOTPInvalid                   string

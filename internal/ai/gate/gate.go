@@ -392,7 +392,7 @@ func formatExec(r ExecResult) string {
 	}
 	switch {
 	case r.TimedOut:
-		b.WriteString("[timed out; the command may still be running in the terminal]")
+		b.WriteString("[timed out; the command may still be running on the host]")
 	case r.Truncated:
 		fmt.Fprintf(&b, "[output truncated] [exit status %d]", r.ExitCode)
 	default:

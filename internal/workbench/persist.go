@@ -7,6 +7,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -74,13 +75,17 @@ type savedState struct {
 	Hosts                      []savedHost         `json:"hosts"`
 	HostGroups                 []savedHostGroup    `json:"host_groups,omitempty"`
 	IdentityFiles              []string            `json:"identity_files,omitempty"`
-	Forwards                   []savedForward      `json:"forwards,omitempty"`
-	Proxies                    []savedProxy        `json:"proxies,omitempty"`
-	Sessions                   []savedSession      `json:"sessions,omitempty"`
-	Deck                       *layoutcore.DeckDTO `json:"deck,omitempty"`
-	Sync                       *savedSync          `json:"sync,omitempty"`
-	HostView                   string              `json:"host_view,omitempty"`
-	Background                 *savedBackground    `json:"background,omitempty"`
+	// AgentHosts are the catalog ids of the hosts an agent may use without a
+	// window. It belongs to this computer, not to the hosts that sync, so a host
+	// that arrives from another device starts out closed to agents.
+	AgentHosts []string            `json:"agent_hosts,omitempty"`
+	Forwards   []savedForward      `json:"forwards,omitempty"`
+	Proxies    []savedProxy        `json:"proxies,omitempty"`
+	Sessions   []savedSession      `json:"sessions,omitempty"`
+	Deck       *layoutcore.DeckDTO `json:"deck,omitempty"`
+	Sync       *savedSync          `json:"sync,omitempty"`
+	HostView   string              `json:"host_view,omitempty"`
+	Background *savedBackground    `json:"background,omitempty"`
 	// Provider collections are nil while the assistant's database is unread.
 	AIProviders    *[]savedAIProvider `json:"ai_providers,omitempty"`
 	AICLIProviders *[]savedAIProvider `json:"ai_cli_providers,omitempty"`
@@ -383,6 +388,18 @@ func (state *State) snapshot() savedState {
 			savedTransport: host.transport(),
 		})
 	}
+	// A host that is gone takes its opening with it: a host added later at the
+	// same address must not come back already open to agents.
+	for id := range state.agentHosts {
+		if !slices.ContainsFunc(state.hosts, func(host Host) bool { return host.isSSH() && host.CatalogID == id }) {
+			delete(state.agentHosts, id)
+		}
+	}
+	for _, host := range state.hosts {
+		if state.agentHosts[host.CatalogID] {
+			saved.AgentHosts = append(saved.AgentHosts, host.CatalogID)
+		}
+	}
 	for _, bookmark := range state.sftpBookmarks {
 		saved.SFTPBookmarks = append(saved.SFTPBookmarks, savedBookmark{Host: bookmark.host, Path: bookmark.path})
 	}
@@ -541,6 +558,7 @@ func (state *State) restoreLocal(saved savedState) {
 	state.shareConnections = shareConnectionsPolicyFromString(saved.ShareConnections)
 	state.ai.panelWidth = saved.AIPanelWidth
 	state.restoreIdentities(saved.IdentityFiles)
+	state.agentHosts = agentHostSet(saved.AgentHosts)
 	state.restoreSync(saved.Sync)
 	state.hostView = hostViewFromString(saved.HostView)
 	if saved.WindowWidth > 0 && saved.WindowHeight > 0 {
@@ -560,8 +578,7 @@ func (state *State) restoreShared(saved savedState) {
 	state.terminalOption = terminalOptionModeFromString(saved.TerminalOption)
 	state.shortcuts = restoreShortcuts(saved.Shortcuts)
 	state.setTerminalScrollback(normalizeTerminalScrollback(saved.TerminalScrollback))
-	state.connectionTimeout = time.Duration(normalizeConnectionTimeoutSeconds(saved.ConnectionTimeoutSeconds)) * time.Second
-	state.connectionKeepAlive = time.Duration(normalizeConnectionKeepAliveSeconds(saved.ConnectionKeepAliveSeconds)) * time.Second
+	state.connectionTimeout, state.connectionKeepAlive = connectionTimes(saved)
 	state.connectionReconnect = reconnectPolicyFromString(saved.ConnectionReconnect)
 	state.terminalClipboard = terminalClipboardPolicyFromString(saved.TerminalClipboard)
 	state.terminalCursorSteady = saved.TerminalCursorSteady
@@ -572,17 +589,7 @@ func (state *State) restoreShared(saved savedState) {
 	state.history.on = saved.CommandHistory
 	state.history.suggestOff = saved.CommandSuggestOff
 	state.restoreSFTPSettings(saved)
-	state.proxy = outboundProxy{}
-	if entry := saved.OutboundProxy; entry != nil {
-		kind := proxyKindFromString(entry.Kind)
-		if kind != sshconn.ProxyNone && !validProxyAddress(entry.Address) {
-			kind = sshconn.ProxyNone // a damaged address would only fail every connection
-		}
-		state.proxy = outboundProxy{kind: kind, bypass: strings.TrimSpace(entry.Bypass)}
-		if kind != sshconn.ProxyNone {
-			state.proxy.address, state.proxy.user = entry.Address, entry.User
-		}
-	}
+	state.proxy = decodeOutboundProxy(saved.OutboundProxy)
 	state.restoreTerminalTools(saved)
 	state.restoreAutofill(saved)
 
@@ -593,42 +600,10 @@ func (state *State) restoreShared(saved savedState) {
 			known[host.CatalogID] = host.ID
 		}
 	}
-	next := max(state.nextHostID, 1)
 	clear(state.hosts)
 	clear(state.hostGroups)
-	state.hosts = state.hosts[:0]
+	state.hosts, state.nextHostID = decodeHosts(saved.Hosts, known, state.nextHostID)
 	state.hostGroups = state.hostGroups[:0]
-	usedIDs := make(map[string]struct{}, len(saved.Hosts))
-	for _, entry := range saved.Hosts {
-		if entry.Label == "" || entry.Address == "" {
-			continue
-		}
-		id, kept := known[entry.ID]
-		if !kept {
-			id = next
-			next++
-		}
-		host := Host{
-			ID: id, CatalogID: entry.ID, Label: entry.Label, Group: strings.TrimSpace(entry.Group),
-			Address: entry.Address, User: entry.User, Port: entry.Port, System: sshconn.ParseRemoteSystem(entry.System),
-		}
-		if !host.applyTransport(entry.savedTransport) {
-			if !kept {
-				next--
-			}
-			continue
-		}
-		host.Icon, _ = parseHostIcon(entry.Icon)
-		host.Color, _ = normalizeHostColor(entry.Color)
-		if tags, ok := normalizeHostTags(entry.Tags); ok {
-			setHostTags(&host, tags)
-		}
-		host.normalizeEndpoint()
-		host.finish()
-		host.CatalogID = uniqueCatalogID(host.CatalogID, host, usedIDs)
-		state.hosts = append(state.hosts, host)
-	}
-	state.nextHostID = next
 	for _, entry := range saved.HostGroups {
 		name := strings.TrimSpace(entry.Name)
 		if state.hostGroupIndex(name) >= 0 {
@@ -710,35 +685,13 @@ func (state *State) restoreWorkspace(workspace string) {
 
 func (state *State) restoreProxies(saved []savedProxy) {
 	clear(state.proxies)
-	state.proxies = state.proxies[:0]
+	state.proxies = append(state.proxies[:0], decodeProxies(saved, state.hosts)...)
 	state.selectedProxyID = 0
-	state.nextProxyID = 1
-	for _, entry := range saved {
-		target, targetOK := state.hostByConnection(entry.TargetAddress, entry.TargetUser, entry.TargetPort)
-		jump, jumpOK := state.hostByConnection(entry.JumpAddress, entry.JumpUser, entry.JumpPort)
-		if !targetOK || !jumpOK || target.ID == jump.ID || state.proxyTargetConfigured(target.ID) || state.proxyWouldCycle(target.ID, jump.ID) {
-			continue
-		}
-		route := proxyRecord{ID: state.nextProxyID, TargetID: target.ID, JumpID: jump.ID}
-		state.nextProxyID++
-		state.proxies = append(state.proxies, route)
-	}
+	state.nextProxyID = uint32(len(state.proxies)) + 1
 	if len(state.proxies) > 0 {
 		state.selectedProxyID = state.proxies[0].ID
 	}
 	state.refreshProxies()
-}
-
-func (state *State) hostByConnection(address, user string, port uint16) (Host, bool) {
-	if port == 0 {
-		port = defaultPort
-	}
-	for _, host := range state.hosts {
-		if host.isSSH() && host.Address == address && host.User == user && host.Port == port {
-			return host, true
-		}
-	}
-	return Host{}, false
 }
 
 func (state *State) restoreSessions(entries []savedSession, active int) []uint32 {

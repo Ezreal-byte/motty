@@ -28,6 +28,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -361,8 +362,12 @@ func (s *Store) Format() int { return s.format }
 
 // Load returns every live record and this device's own values.
 func (s *Store) Load() (entries []Entry, local map[string][]byte, err error) {
-	ctx := context.Background()
-	rows, err := s.db.QueryContext(ctx, `SELECT kind, id, payload FROM records WHERE deleted=0 ORDER BY kind, id`)
+	return load(context.Background(), s.db)
+}
+
+// load reads the live records and this device's values from db.
+func load(ctx context.Context, db *sql.DB) (entries []Entry, local map[string][]byte, err error) {
+	rows, err := db.QueryContext(ctx, `SELECT kind, id, payload FROM records WHERE deleted=0 ORDER BY kind, id`)
 	if err != nil {
 		return nil, nil, fmt.Errorf("config store: load: %w", err)
 	}
@@ -377,7 +382,7 @@ func (s *Store) Load() (entries []Entry, local map[string][]byte, err error) {
 	if err := errors.Join(rows.Err(), rows.Close()); err != nil {
 		return nil, nil, fmt.Errorf("config store: load: %w", err)
 	}
-	rows, err = s.db.QueryContext(ctx, `SELECT key, value FROM local`)
+	rows, err = db.QueryContext(ctx, `SELECT key, value FROM local`)
 	if err != nil {
 		return nil, nil, fmt.Errorf("config store: load: %w", err)
 	}
@@ -395,6 +400,54 @@ func (s *Store) Load() (entries []Entry, local map[string][]byte, err error) {
 		return nil, nil, fmt.Errorf("config store: load: %w", err)
 	}
 	return entries, local, nil
+}
+
+// ReadOnly reads the live records and this device's values of the store at path
+// without changing anything: it does not create the file, migrate it, register a
+// device or advance the clock, and it opens the database read-only. It is for a
+// second process that only needs to look at what the application saved. A file
+// that is missing is os.ErrNotExist, one that is not a store ErrCorrupt, and one
+// written by a newer build (a newer schema, or payloads newer than format) a
+// *TooNewError; an older schema is read as it is, and reports an error if it
+// lacks a table this build needs.
+func ReadOnly(path string, format int) (entries []Entry, local map[string][]byte, err error) {
+	if path == "" {
+		return nil, nil, errors.New("config store: bad database path")
+	}
+	if _, err := os.Stat(path); err != nil {
+		return nil, nil, fmt.Errorf("config store: %w", err)
+	}
+	if err := checkHeader(path); err != nil {
+		return nil, nil, err
+	}
+	slashed := filepath.ToSlash(path)
+	if !strings.HasPrefix(slashed, "/") {
+		slashed = "/" + slashed // C:/dir becomes /C:/dir
+	}
+	uri := url.URL{Scheme: "file", Path: slashed, RawQuery: "mode=ro&_pragma=busy_timeout(5000)&_pragma=query_only(1)"}
+	db, err := sql.Open("sqlite", uri.String())
+	if err != nil {
+		return nil, nil, fmt.Errorf("config store: open: %w", err)
+	}
+	defer db.Close()
+	db.SetMaxOpenConns(1)
+	ctx := context.Background()
+	var stored string
+	err = db.QueryRowContext(ctx, `SELECT value FROM meta WHERE key='format'`).Scan(&stored)
+	switch {
+	case errors.Is(err, sql.ErrNoRows):
+	case err != nil:
+		return nil, nil, ErrCorrupt
+	default:
+		var found int
+		if _, err := fmt.Sscanf(stored, "%d", &found); err != nil {
+			return nil, nil, ErrCorrupt
+		}
+		if found > format {
+			return nil, nil, &TooNewError{Found: fmt.Sprintf("format %d", found), Supported: fmt.Sprintf("format %d", format)}
+		}
+	}
+	return load(ctx, db)
 }
 
 // Records returns every record, tombstones included: what a device sends to the

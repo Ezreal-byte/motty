@@ -112,7 +112,8 @@ Hextile/ZRLE、桌面尺寸变化、指针、键盘和文本剪贴板。RDP 使�
 上下文窗口。悬停最后一条回答可查看本轮 token 用量并复制回答，保存的对话可以重命名。
 
 可选 MCP 服务器把同样的工具交给外部 agent：默认关闭、只监听 loopback、要求
-bearer token，支持 observe 和 ask 两种模式。
+bearer token，支持 observe 和 ask 两种模式。`motty mcp-serve` 是不开窗口的同类做法：
+agent 通过 stdio 启动它，它只使用你对 agent 开放的主机，没有端口，也没有 token。
 
 ### ☁️ 备份与同步
 
@@ -210,7 +211,7 @@ Viva 负责窗口、输入、文本/输入法、焦点、布局、组件和渲�
 
 | 路径 | 内容 |
 | --- | --- |
-| `cmd/motty` | 应用入口、无头模式和 MCP bridge |
+| `cmd/motty` | 应用入口、无头模式、MCP bridge 和 `mcp-serve` |
 | `internal/sshconn` | SSH 拨号、主机密钥、认证、代理和跳板路由 |
 | `internal/term` | 终端模拟器和解析器 |
 | `internal/rfb`、`internal/desktop/vnc` | VNC 协议与桌面后端 |

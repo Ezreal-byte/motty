@@ -159,18 +159,10 @@ func (b *aiBackend) ListDir(ctx context.Context, args tools.SFTPListArgs) ([]gat
 	if err != nil {
 		return nil, err
 	}
-	infos, err := remote.ReadDir(args.Path)
+	entries, err := listRemoteDir(remote, args.Path)
 	if err != nil {
 		b.drop(id)
 		return nil, err
-	}
-	sort.Slice(infos, func(i, j int) bool { return infos[i].Name() < infos[j].Name() })
-	if len(infos) > maxListEntries {
-		infos = infos[:maxListEntries]
-	}
-	entries := make([]gate.FileEntry, len(infos))
-	for index, info := range infos {
-		entries[index] = gate.FileEntry{Name: info.Name(), Size: info.Size(), Dir: info.IsDir()}
 	}
 	return entries, nil
 }
@@ -180,12 +172,12 @@ func (b *aiBackend) ReadFile(ctx context.Context, args tools.SFTPReadArgs) (stri
 	if err != nil {
 		return "", false, err
 	}
-	data, truncated, err := sftpclient.ReadAll(remote, args.Path, min(args.MaxBytes, maxReadChars))
+	text, truncated, err := readRemoteFile(remote, args.Path, args.MaxBytes)
 	if err != nil {
 		b.drop(id)
 		return "", false, err
 	}
-	return strings.ToValidUTF8(string(data), "�"), truncated, nil
+	return text, truncated, nil
 }
 
 func (b *aiBackend) WriteFile(ctx context.Context, args tools.SFTPWriteArgs) error {
@@ -212,4 +204,32 @@ func (b *aiBackend) Remove(ctx context.Context, args tools.SFTPRemoveArgs) error
 		return err
 	}
 	return nil
+}
+
+// listRemoteDir lists a directory for a model: sorted by name, and cut at
+// maxListEntries.
+func listRemoteDir(remote sftpclient.Remote, path string) ([]gate.FileEntry, error) {
+	infos, err := remote.ReadDir(path)
+	if err != nil {
+		return nil, err
+	}
+	sort.Slice(infos, func(i, j int) bool { return infos[i].Name() < infos[j].Name() })
+	if len(infos) > maxListEntries {
+		infos = infos[:maxListEntries]
+	}
+	entries := make([]gate.FileEntry, len(infos))
+	for index, info := range infos {
+		entries[index] = gate.FileEntry{Name: info.Name(), Size: info.Size(), Dir: info.IsDir()}
+	}
+	return entries, nil
+}
+
+// readRemoteFile reads the start of a file as text for a model, replacing bytes
+// that are not UTF-8, and says whether the file was longer than what it read.
+func readRemoteFile(remote sftpclient.Remote, path string, maxBytes int) (string, bool, error) {
+	data, truncated, err := sftpclient.ReadAll(remote, path, min(maxBytes, maxReadChars))
+	if err != nil {
+		return "", false, err
+	}
+	return strings.ToValidUTF8(string(data), "�"), truncated, nil
 }

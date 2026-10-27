@@ -5,7 +5,6 @@ import (
 
 	"github.com/vivaui/viva/components"
 	"github.com/vivaui/viva/ui"
-	"motty/internal/sshconn"
 )
 
 // hostAuth is the authentication policy of one SSH host. The zero value keeps
@@ -59,48 +58,6 @@ func parseHostAuth(value string) (hostAuth, bool) {
 	default:
 		return authAutomatic, false
 	}
-}
-
-func (state *State) authenticationFor(host Host) sshconn.Authentication {
-	switch host.Auth {
-	case authPassword:
-		return sshconn.Authentication{
-			Methods:       sshconn.AuthKeyboardInteractive | sshconn.AuthPassword,
-			IdentityFiles: []string{},
-		}
-	case authPrivateKey:
-		if fingerprint := strings.TrimSpace(host.Identity); fingerprint != "" {
-			if identity, ok := state.identityForFingerprint(fingerprint); ok {
-				return sshconn.Authentication{Methods: sshconn.AuthPublicKey, IdentityFiles: []string{identity.Path}}
-			}
-			return sshconn.Authentication{Methods: sshconn.AuthPublicKey, IdentityFiles: []string{}}
-		}
-		return sshconn.Authentication{
-			Methods:                 sshconn.AuthPublicKey,
-			AdditionalIdentityFiles: state.identityPaths(),
-		}
-	case authAgent:
-		return sshconn.Authentication{
-			Methods:       sshconn.AuthPublicKey,
-			IdentityFiles: []string{},
-			Agent:         true,
-		}
-	default:
-		return sshconn.Authentication{
-			Methods:                 sshconn.AuthAll,
-			AdditionalIdentityFiles: state.identityPaths(),
-			Agent:                   true,
-		}
-	}
-}
-
-func (state *State) identityForFingerprint(fingerprint string) (identityRecord, bool) {
-	for _, identity := range state.identities {
-		if identity.Error == "" && identity.Fingerprint == fingerprint {
-			return identity, true
-		}
-	}
-	return identityRecord{}, false
 }
 
 func (state *State) authLabel(authentication hostAuth) string {

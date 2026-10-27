@@ -177,3 +177,58 @@ func TestStreamCommandCancellationAndLineLimit(t *testing.T) {
 		t.Fatalf("connection phase = %v", harness.conn.Status().Phase)
 	}
 }
+
+func TestExecReturnsBothStreamsAndTheExitStatusAsAResult(t *testing.T) {
+	harness := connectedCommandHarness(t, func(_ string, channel ssh.Channel) {
+		_, _ = io.WriteString(channel, "out\n")
+		_, _ = io.WriteString(channel.Stderr(), "err\n")
+		channel.SendRequest("exit-status", false, ssh.Marshal(struct{ Status uint32 }{3}))
+		_ = channel.Close()
+	})
+	result, err := harness.conn.Exec(context.Background(), "mixed", 64)
+	if err != nil || result.ExitCode != 3 || result.Truncated {
+		t.Fatalf("result = %+v, err = %v", result, err)
+	}
+	if got := string(result.Output); got != "out\nerr\n" && got != "err\nout\n" {
+		t.Fatalf("output = %q", got)
+	}
+}
+
+func TestExecBoundsOutputAndKeepsWhatWasPrintedWhenCanceled(t *testing.T) {
+	harness := connectedCommandHarness(t, func(_ string, channel ssh.Channel) {
+		_, _ = io.WriteString(channel, "0123456789")
+		channel.SendRequest("exit-status", false, ssh.Marshal(struct{ Status uint32 }{0}))
+		_ = channel.Close()
+	})
+	result, err := harness.conn.Exec(context.Background(), "long", 4)
+	if err != nil || string(result.Output) != "0123" || !result.Truncated {
+		t.Fatalf("result = %+v, err = %v", result, err)
+	}
+
+	printed := make(chan struct{})
+	slow := connectedCommandHarness(t, func(_ string, channel ssh.Channel) {
+		_, _ = io.WriteString(channel, "so far")
+		close(printed)
+		_, _ = io.Copy(io.Discard, channel)
+	})
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan ExecResult, 1)
+	go func() {
+		result, err := slow.conn.Exec(ctx, "wait", 64)
+		if !errors.Is(err, context.Canceled) {
+			t.Errorf("error = %v", err)
+		}
+		done <- result
+	}()
+	<-printed
+	time.Sleep(50 * time.Millisecond) // let the output arrive before canceling
+	cancel()
+	select {
+	case result := <-done:
+		if string(result.Output) != "so far" {
+			t.Fatalf("output after cancel = %q", result.Output)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("Exec did not return after cancel")
+	}
+}

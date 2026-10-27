@@ -377,6 +377,9 @@ const (
 // Paint reads it synchronously and never starts work or allocates background
 // resources.
 type State struct {
+	// hostCatalog is the hosts, jump routes, keys, outbound proxy and timeouts a
+	// connection is resolved from; the headless MCP server builds one too.
+	hostCatalog
 	fileWindows   fileWindowManager
 	fileNotices   fileNotices
 	sftpWindows   map[uint32]*sftpWindow
@@ -407,7 +410,6 @@ type State struct {
 	pauseSave          int
 	stateNotice        stateNotice
 	stateFileOutcome   string // how the saved state was read at start, for diagnostics
-	hosts              []Host
 	sessions           []Session
 	tabOptions         []components.TabOption
 	workspaceTabs      []layoutcore.WorkspaceInfo
@@ -424,9 +426,7 @@ type State struct {
 	nextForwardID      uint32
 	nextForwardStartID uint64
 	nextProxyID        uint32
-	identities         []identityRecord
 	forwards           []forwardRecord
-	proxies            []proxyRecord
 	selectedIdentityID uint32
 	selectedForwardID  uint32
 	selectedProxyID    uint32
@@ -505,8 +505,6 @@ type State struct {
 	terminalFontSize    float32
 	terminalFontFace    ui.MonoFace
 	terminalScrollback  int
-	connectionTimeout   time.Duration
-	connectionKeepAlive time.Duration
 	connectionReconnect reconnectPolicy
 	restoreConnect      restoreConnectPolicy
 	// openStream opens the stream of a Telnet or serial host; tests replace it.
@@ -575,7 +573,6 @@ type State struct {
 	wallClock      func() int64
 	notifyOff      bool
 	fonts          fontsUI
-	proxy          outboundProxy
 	proxyForm      outboundProxyForm
 	form           formDialog
 	formSerial     uint32
@@ -593,8 +590,7 @@ type State struct {
 	history       historyUI
 	historyLayout flex.View
 	// broadcast is the tab whose panes type together, or zero.
-	broadcast  layoutcore.WorkspaceID
-	systemUser string // login used for hosts that name none
+	broadcast layoutcore.WorkspaceID
 
 	// wrapped is scratch for text broken into lines while painting.
 	wrapped          [failureLines]string
@@ -729,11 +725,10 @@ func New(options Options) *State {
 		language:           i18n.English,
 		messages:           messages,
 		status:             messages.StatusReadyIdle,
-		systemUser:         systemLogin(),
 		viewport:           ui.Size{Width: 1400, Height: 900},
 		terminalFontSize:   termFontSize,
 		terminalScrollback: scrollbackLines,
-		connectionTimeout:  10 * time.Second,
+		hostCatalog:        hostCatalog{systemUser: systemLogin(), connectionTimeout: 10 * time.Second},
 		sftpParallel:       DefaultSFTPParallel,
 		terminalClipboard:  terminalClipboardAsk,
 		shortcuts:          defaultShortcuts(),
@@ -877,14 +872,6 @@ func systemLogin() string {
 		return current.Username
 	}
 	return os.Getenv("USER")
-}
-
-// login is the account a connection to host signs in as.
-func (state *State) login(host Host) string {
-	if host.User != "" {
-		return host.User
-	}
-	return state.systemUser
 }
 
 // WindowColor is the color behind everything the workbench paints; the window
@@ -2081,15 +2068,6 @@ func (state *State) rebuildTabOptions() {
 
 func (state *State) selectedHost() (Host, bool) {
 	return state.hostByID(state.selectedHostID)
-}
-
-func (state *State) hostByID(id uint32) (Host, bool) {
-	for _, host := range state.hosts {
-		if host.ID == id {
-			return host, true
-		}
-	}
-	return Host{}, false
 }
 
 func (state *State) sessionByID(id uint32) (Session, bool) {

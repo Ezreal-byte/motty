@@ -437,6 +437,7 @@ func (state *State) paintAIMCP(page *settingsPage) {
 			})
 		})
 	})
+	state.paintAIAgents(page)
 	state.paintAIMCPConfig(page, endpoint, ready)
 }
 

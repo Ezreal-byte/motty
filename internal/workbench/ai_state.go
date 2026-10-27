@@ -92,6 +92,9 @@ type aiSettings struct {
 	// behind it may also run commands (after the user approves each one).
 	mcpEnabled bool
 	mcpAsk     bool
+	// agentRun is whether the server that works without the window may run
+	// commands (agent_mcp.go), not only read.
+	agentRun bool
 	// defaultProvider and defaultModel are the model new questions go to.
 	defaultProvider, defaultModel string
 }
@@ -155,6 +158,10 @@ type aiState struct {
 	// mcpAddr and mcpToken are where external agents reach the application and
 	// what they must present; empty while the server is not running.
 	mcpAddr, mcpToken string
+	// agentAudit is the latest calls agents made without the window.
+	agentAudit []store.AuditEntry
+	// agentSummary caches what the page shows about them.
+	agentSummary agentSummary
 	// cfg is the settings section's own state (ai_settings.go).
 	cfg        aiSettingsUI
 	login      *aiCLILogin
@@ -260,6 +267,9 @@ func (state *State) reloadAI() {
 	read("ai.history", func(v string) { ai.settings.keepHistory = v != "off" })
 	read("ai.mcp.enabled", func(v string) { ai.settings.mcpEnabled = v == "on" })
 	read("ai.mcp.mode", func(v string) { ai.settings.mcpAsk = v == "ask" })
+	read(agentModeSetting, func(v string) { ai.settings.agentRun = v == AgentModeCommands })
+	ai.agentAudit, _ = ai.store.Audit(agentAuditShown)
+	ai.agentSummary.lines = nil
 	read("ai.mode", func(v string) {
 		if v == "agent" {
 			ai.mode = agent.ModeAgent

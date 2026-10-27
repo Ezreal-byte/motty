@@ -291,6 +291,7 @@ func (state *State) aiSettingsClick(id ui.ID) bool {
 		state.aiPut("ai.mcp.mode", "observe")
 	case id == hitAISetMCPAsk:
 		state.aiPut("ai.mcp.mode", "ask")
+	case state.aiAgentClick(id):
 	case id == hitAISetMCPCopy:
 		state.aiCopyClientConfig()
 	case id == hitAISetMCPCopyURL:
@@ -489,6 +490,7 @@ func (state *State) aiSettingsKey(event ui.KeyEvent) (ui.EventResult, bool) {
 	var steps [3]components.SegmentOption
 	var lines [4]components.SegmentOption
 	var modes [2]components.SegmentOption
+	var agents [2]components.SegmentOption
 	switch event.Target {
 	case hitAISetFormKindOpenAI, hitAISetFormKindClaude:
 		kind = state.aiKindOptions()
@@ -508,6 +510,9 @@ func (state *State) aiSettingsKey(event ui.KeyEvent) (ui.EventResult, bool) {
 	case hitAISetMCPObserve, hitAISetMCPAsk:
 		modes = state.aiMCPModeOptions()
 		options = modes[:]
+	case hitAISetAgentObserve, hitAISetAgentRun:
+		agents = state.aiAgentModeOptions()
+		options = agents[:]
 	default:
 		return ui.EventResult{}, false
 	}
@@ -1167,11 +1172,5 @@ func (state *State) aiCopyMCP(target ui.ID, value string) {
 	if !state.aiMCPReady() {
 		return
 	}
-	cfg := &state.ai.cfg
-	cfg.copyTarget = target
-	if err := state.options.SetClipboardText(value); err != nil {
-		cfg.copied = aiCopyFailed
-		return
-	}
-	cfg.copied = aiCopyDone
+	state.aiCopyText(target, value)
 }

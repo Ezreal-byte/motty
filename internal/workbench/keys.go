@@ -8,6 +8,7 @@ import (
 	"slices"
 
 	"github.com/vivaui/viva/app"
+	"motty/internal/i18n"
 	"motty/internal/keyidentity"
 )
 
@@ -66,36 +67,21 @@ type keyMessages struct {
 	EncryptedUnknown string
 }
 
-func (state *State) keyMessages() keyMessages {
-	return keyMessages{
-		Unavailable:      state.messages.KeyUnavailable,
-		Unencrypted:      state.messages.KeyUnencrypted,
-		Passphrase:       state.messages.KeyPassphraseProtected,
-		EncryptedUnknown: state.messages.KeyEncryptedUnknown,
-	}
-}
+func (state *State) keyMessages() keyMessages { return keyMessagesIn(state.messages) }
 
-func (state *State) identityPaths() []string {
-	paths := make([]string, 0, len(state.identities))
-	for _, identity := range state.identities {
-		if identity.Error == "" {
-			paths = append(paths, identity.Path)
-		}
+func keyMessagesIn(messages i18n.Messages) keyMessages {
+	return keyMessages{
+		Unavailable:      messages.KeyUnavailable,
+		Unencrypted:      messages.KeyUnencrypted,
+		Passphrase:       messages.KeyPassphraseProtected,
+		EncryptedUnknown: messages.KeyEncryptedUnknown,
 	}
-	return paths
 }
 
 func (state *State) restoreIdentities(paths []string) {
 	clear(state.identities)
-	state.identities = state.identities[:0]
-	state.nextIdentityID = 1
-	for _, path := range paths {
-		if path == "" || state.hasIdentityPath(path) {
-			continue
-		}
-		state.identities = append(state.identities, inspectIdentity(state.nextIdentityID, path, state.keyMessages()))
-		state.nextIdentityID++
-	}
+	state.identities = append(state.identities[:0], decodeIdentities(paths, state.keyMessages())...)
+	state.nextIdentityID = uint32(len(state.identities)) + 1
 	if len(state.identities) > 0 {
 		state.selectedIdentityID = state.identities[0].ID
 	}

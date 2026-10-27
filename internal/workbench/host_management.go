@@ -177,8 +177,9 @@ func (state *State) openEditHostID(id uint32) {
 	}
 	state.selectedHostID = host.ID
 	state.editor.load(host)
+	state.editor.agentAccess = host.isSSH() && state.agentHosts[host.CatalogID]
 	state.prepareOTPState(host)
-	state.editor.advancedOpen = state.editor.advancedOpen || state.editor.otpSaved
+	state.editor.advancedOpen = state.editor.advancedOpen || state.editor.otpSaved || state.editor.agentAccess
 	state.hostDialogMode = hostDialogEdit
 	state.hostDialogID = host.ID
 	state.dialogError = ""
@@ -200,6 +201,7 @@ func (state *State) openCopyHostID(id uint32) {
 	}
 	state.selectedHostID = host.ID
 	state.editor.load(host)
+	state.editor.agentAccess = false // a copy is a new host, closed to agents until asked
 	state.editor.label = text.Editor{}
 	state.editor.label.Insert(fmt.Sprintf(state.messages.HostCopyLabelFmt, host.Label))
 	state.hostDialogMode = hostDialogCopy
@@ -299,6 +301,9 @@ func (state *State) submitHostDialog() {
 	}
 	state.editor.password = text.Editor{}
 	state.editor.proxyPassword = ""
+	// A copy or a new host is closed to agents unless the switch was turned on in
+	// this very dialog.
+	state.setAgentAccess(candidate, state.editor.agentAccess)
 	if state.hostDialogMode == hostDialogEdit {
 		state.updateHostFromEditor(candidate, *previous, passwordNote, proxyNote)
 		return

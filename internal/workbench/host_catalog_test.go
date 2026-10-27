@@ -287,7 +287,7 @@ func TestOTPFieldKeepsItsWidthWhateverButtonsItHas(t *testing.T) {
 		if scan.Bounds.Y <= field.Bounds.Y+field.Bounds.Height-1 {
 			t.Fatalf("checked=%v: scan %+v should sit under the field %+v", checked, scan.Bounds, field.Bounds)
 		}
-		for _, id := range []ui.ID{hitDialogOTPScan, hitDialogOTPPaste, hitDialogForwardX11, hitDialogNoHistory} {
+		for _, id := range []ui.ID{hitDialogOTPScan, hitDialogOTPPaste, hitDialogForwardX11, hitDialogNoHistory, hitDialogAgentAccess} {
 			hit, found := hitByID(canvas, id)
 			if !found || hit.Bounds.Y+hit.Bounds.Height > float32(state.windowRect().Height) {
 				t.Fatalf("checked=%v: control %v is missing or off screen: %+v", checked, id, hit)
@@ -297,6 +297,10 @@ func TestOTPFieldKeepsItsWidthWhateverButtonsItHas(t *testing.T) {
 		history, _ := hitByID(canvas, hitDialogNoHistory)
 		if x11.Bounds.Y+x11.Bounds.Height > history.Bounds.Y {
 			t.Fatalf("checked=%v: the two switches overlap: %+v and %+v", checked, x11.Bounds, history.Bounds)
+		}
+		access, _ := hitByID(canvas, hitDialogAgentAccess)
+		if history.Bounds.Y+history.Bounds.Height > access.Bounds.Y {
+			t.Fatalf("checked=%v: the agent switch overlaps the one above it: %+v and %+v", checked, history.Bounds, access.Bounds)
 		}
 	}
 }

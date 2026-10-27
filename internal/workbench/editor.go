@@ -52,6 +52,9 @@ type hostEditor struct {
 	forwardX11 bool
 	// agentForward is the host's "Forward ssh-agent" switch.
 	agentForward bool
+	// agentAccess is the "Allow MCP agents to use this host" switch. It is not
+	// part of the host: it is kept for this computer (see savedState.AgentHosts).
+	agentAccess bool
 	// noHistory is the host's "Don't record commands" switch.
 	noHistory bool
 	// proxy is nil to inherit the global proxy, ProxyNone to force a direct
@@ -306,6 +309,7 @@ func (editor *hostEditor) reset() {
 	editor.algoMode, editor.auth, editor.identity = algoDefault, authAutomatic, ""
 	editor.authOpen, editor.identityOpen = false, false
 	editor.forwardX11, editor.agentForward, editor.noHistory, editor.transfer = false, false, false, transferAuto
+	editor.agentAccess = false
 	editor.proxy, editor.proxyPassword = nil, ""
 	editor.advancedOpen = false
 	editor.port.Insert(strconv.Itoa(defaultPort))

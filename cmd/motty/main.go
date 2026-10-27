@@ -39,6 +39,9 @@ func main() {
 	if len(os.Args) > 1 && os.Args[1] == "mcp-bridge" {
 		os.Exit(runMCPBridge(os.Args[2:]))
 	}
+	if len(os.Args) > 1 && os.Args[1] == "mcp-serve" {
+		os.Exit(runMCPServe(os.Args[2:]))
+	}
 	if len(os.Args) > 1 && os.Args[1] == selfupdate.Command {
 		os.Exit(runApplyUpdate(os.Args[2:]))
 	}

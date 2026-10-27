@@ -35,6 +35,7 @@ var (
 	hitDialogForwardX11     = tree.ID(hostProtocolUiHits, "dialog-forward-x11")
 	hitDialogAgentForward   = tree.ID(hostProtocolUiHits, "dialog-agent-forward")
 	hitDialogNoHistory      = tree.ID(hostProtocolUiHits, "dialog-no-history")
+	hitDialogAgentAccess    = tree.ID(hostProtocolUiHits, "dialog-agent-access")
 	hitDialogOTP            = tree.ID(hostProtocolUiHits, "dialog-otp")
 	hitDialogOTPRemove      = tree.ID(hostProtocolUiHits, "dialog-otp-remove")
 	hitDialogOTPScan        = tree.ID(hostProtocolUiHits, "dialog-otp-scan")
@@ -256,6 +257,8 @@ func (state *State) clickHostProtocol(id ui.ID) bool {
 		editor.agentForward = !editor.agentForward
 	case id == hitDialogNoHistory:
 		editor.noHistory = !editor.noHistory
+	case id == hitDialogAgentAccess:
+		editor.agentAccess = !editor.agentAccess
 	case state.clickHostAuthentication(id):
 	case state.clickTransferChoice(id):
 	case state.clickHostColor(id):
@@ -340,6 +343,11 @@ func (state *State) hostFormHeight() float32 {
 // for their hit regions not to overlap.
 const switchRowsHeight = 96
 
+// agentAccessRow is the room of the "Allow MCP agents to use this host" switch
+// under those, which only an SSH host has. Like theirs, its hit region is 32px
+// high, so it keeps that distance from the row above.
+const agentAccessRow = 32
+
 // advancedHeaderHeight is the row that opens the Advanced section of an SSH
 // host, with the gap above it.
 const advancedHeaderHeight = 40
@@ -355,7 +363,7 @@ func (state *State) advancedSectionHeight() float32 {
 	if state.editor.algoMode == algoCustom {
 		rows++
 	}
-	return advancedHeaderHeight + rows*hostFormRowHeight + otpButtonsRow + switchRowsHeight
+	return advancedHeaderHeight + rows*hostFormRowHeight + otpButtonsRow + switchRowsHeight + agentAccessRow
 }
 
 // hostDialogExtra is the height the protocol-specific rows add to the host dialog.
@@ -410,8 +418,8 @@ func (state *State) paintAlgorithmRows(canvas *ui.Canvas, x, y, width, rowHeight
 		rows++
 	}
 	const removeWidth, scanWidth, pasteWidth = 84, 132, 96
-	var algo, custom, otp, scan, paste, remove, x11, agentFwd, noHistory flex.Box
-	f := state.partLayout.Begin(canvas, state.Theme(), ui.Rect{X: x, Y: y, Width: width, Height: rows*rowHeight + switchRowsHeight + otpButtonsRow})
+	var algo, custom, otp, scan, paste, remove, x11, agentFwd, noHistory, agentAccess flex.Box
+	f := state.partLayout.Begin(canvas, state.Theme(), ui.Rect{X: x, Y: y, Width: width, Height: rows*rowHeight + switchRowsHeight + agentAccessRow + otpButtonsRow})
 	f.Column().Fill().Children(func() {
 		algo = f.Slot().Height(rowHeight)
 		if editor.algoMode == algoCustom {
@@ -428,6 +436,7 @@ func (state *State) paintAlgorithmRows(canvas *ui.Canvas, x, y, width, rowHeight
 		x11 = state.declareDialogCheckbox(f, m.X11Forward, 4, 0)
 		agentFwd = state.declareDialogCheckbox(f, m.AgentForward, 4, 0)
 		noHistory = state.declareDialogCheckbox(f, state.messages.History.HostNoRecord, 12, 0)
+		agentAccess = state.declareDialogCheckbox(f, m.AgentAccess, 12, 0)
 	})
 	f.End()
 
@@ -450,6 +459,7 @@ func (state *State) paintAlgorithmRows(canvas *ui.Canvas, x, y, width, rowHeight
 	state.paintDialogCheckbox(canvas, hitDialogForwardX11, m.X11Forward, editor.forwardX11, x11)
 	state.paintDialogCheckbox(canvas, hitDialogAgentForward, m.AgentForward, editor.agentForward, agentFwd)
 	state.paintDialogCheckbox(canvas, hitDialogNoHistory, state.messages.History.HostNoRecord, editor.noHistory, noHistory)
+	state.paintDialogCheckbox(canvas, hitDialogAgentAccess, m.AgentAccess, editor.agentAccess, agentAccess)
 }
 
 // paintOTPRow draws the one-time code secret: a field for a new one, a button to

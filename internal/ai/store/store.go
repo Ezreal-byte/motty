@@ -75,7 +75,7 @@ func (e *LimitError) Error() string {
 // Is makes errors.Is(err, ErrTooLarge) true.
 func (e *LimitError) Is(target error) bool { return target == ErrTooLarge }
 
-const schemaVersion = 4
+const schemaVersion = 5
 
 var migrations = [...]string{
 	// version 1
@@ -124,6 +124,18 @@ var migrations = [...]string{
 	// version 4: an Anthropic provider may send its key as a bearer token
 	// instead of x-api-key. The empty value keeps the pre-existing behavior.
 	`ALTER TABLE providers ADD COLUMN auth_style TEXT NOT NULL DEFAULT '';`,
+	// version 5: what an agent did through the stdio MCP server, which runs no
+	// window to show it in. A summary of each call, never its output.
+	`CREATE TABLE agent_audit (
+		id         INTEGER PRIMARY KEY AUTOINCREMENT,
+		at         INTEGER NOT NULL,
+		host_id    TEXT NOT NULL,
+		host_label TEXT NOT NULL,
+		tool       TEXT NOT NULL,
+		summary    TEXT NOT NULL,
+		outcome    TEXT NOT NULL
+	);
+	CREATE INDEX agent_audit_at ON agent_audit(at DESC, id DESC);`,
 }
 
 const sqliteMagic = "SQLite format 3\x00"

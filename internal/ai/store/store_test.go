@@ -12,6 +12,7 @@ import (
 	"sync"
 	"testing"
 	"time"
+	"unicode/utf8"
 )
 
 func openTemp(t testing.TB) (*Store, string) {
@@ -562,5 +563,51 @@ func TestMigrateV1ProvidersToV2(t *testing.T) {
 	}
 	if got, _ := s.Providers(); !got[0].HasKey {
 		t.Fatal("clearing the legacy key must not clear has_key")
+	}
+}
+
+func TestAuditKeepsASummaryNewestFirstAndPrunesByAge(t *testing.T) {
+	s, _ := openTemp(t)
+	now := time.Now()
+	old := AuditEntry{At: now.Add(-48 * time.Hour), HostID: "h1", HostLabel: "web", Tool: "terminal_exec", Summary: "uptime", Outcome: AuditOK}
+	recent := AuditEntry{At: now, HostID: "h2", HostLabel: "db", Tool: "sftp_read", Summary: "/etc/passwd", Outcome: AuditRefused}
+	for _, entry := range []AuditEntry{old, recent} {
+		if err := s.RecordAudit(entry); err != nil {
+			t.Fatal(err)
+		}
+	}
+	entries, err := s.Audit(10)
+	if err != nil || len(entries) != 2 || entries[0].HostLabel != "db" || entries[1].Summary != "uptime" {
+		t.Fatalf("entries = %+v, err %v", entries, err)
+	}
+	if got, err := s.PruneAudit(now.Add(-24 * time.Hour)); err != nil || got != 1 {
+		t.Fatalf("pruned %d, %v", got, err)
+	}
+	if entries, _ := s.Audit(10); len(entries) != 1 || entries[0].Outcome != AuditRefused {
+		t.Fatalf("after prune: %+v", entries)
+	}
+	if err := s.ClearAudit(); err != nil {
+		t.Fatal(err)
+	}
+	if entries, _ := s.Audit(10); len(entries) != 0 {
+		t.Fatalf("after clear: %+v", entries)
+	}
+}
+
+func TestAuditCutsALongSummaryOnACharacterBoundaryAndNeedsAToolAndOutcome(t *testing.T) {
+	s, _ := openTemp(t)
+	long := strings.Repeat("命", MaxAuditSummaryBytes) // 3 bytes each
+	if err := s.RecordAudit(AuditEntry{Tool: "terminal_exec", Summary: long, Outcome: AuditOK}); err != nil {
+		t.Fatal(err)
+	}
+	entries, _ := s.Audit(1)
+	if len(entries) != 1 || len(entries[0].Summary) > MaxAuditSummaryBytes || !utf8.ValidString(entries[0].Summary) {
+		t.Fatalf("summary length %d valid %v", len(entries[0].Summary), utf8.ValidString(entries[0].Summary))
+	}
+	if err := s.RecordAudit(AuditEntry{Outcome: AuditOK}); !errors.Is(err, ErrInvalid) {
+		t.Fatalf("no tool: %v", err)
+	}
+	if err := s.RecordAudit(AuditEntry{Tool: "x"}); !errors.Is(err, ErrInvalid) {
+		t.Fatalf("no outcome: %v", err)
 	}
 }

@@ -144,10 +144,10 @@ func TestLoadingHostAuthenticationResetsTransientMenus(t *testing.T) {
 }
 
 func BenchmarkHostAuthenticationPolicy(b *testing.B) {
-	state := &State{identities: []identityRecord{
+	state := &State{hostCatalog: hostCatalog{identities: []identityRecord{
 		{Path: "/keys/one", Fingerprint: "SHA256:one"},
 		{Path: "/keys/two", Fingerprint: "SHA256:two"},
-	}}
+	}}}
 	for _, benchmark := range []struct {
 		name string
 		host Host

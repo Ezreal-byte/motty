@@ -70,6 +70,9 @@ type Config struct {
 	Dispatch func(context.Context, string, []byte) gate.Result
 	// ServerName and Version appear in the initialize reply.
 	ServerName, Version string
+	// Instructions is the usage note in the initialize reply; empty keeps the
+	// one for the sessions of open windows.
+	Instructions string
 	// MaxBody limits a request body; default 1 MiB.
 	MaxBody int64
 	// CallTimeout limits one tools/call; default 5 minutes.
@@ -81,6 +84,7 @@ type Server struct {
 	tokenHash [sha256.Size]byte
 	gate      func() gate.Gate
 	name, ver string
+	guidance  string
 	maxBody   int64
 	timeout   time.Duration
 	toolsList json.RawMessage
@@ -117,6 +121,10 @@ func New(cfg Config) (*Server, error) {
 		timeout:   cfg.CallTimeout,
 		dispatch:  cfg.Dispatch,
 		allowed:   make(map[string]bool),
+	}
+	s.guidance = cfg.Instructions
+	if s.guidance == "" {
+		s.guidance = instructions
 	}
 	if s.name == "" {
 		s.name = "motty"
@@ -460,7 +468,7 @@ func (s *Server) initialize(params json.RawMessage) json.RawMessage {
 		ProtocolVersion: version,
 		Capabilities:    map[string]any{"tools": map[string]any{"listChanged": false}},
 		ServerInfo:      map[string]any{"name": s.name, "version": s.ver},
-		Instructions:    instructions,
+		Instructions:    s.guidance,
 	})
 	return b
 }

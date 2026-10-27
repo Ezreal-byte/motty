@@ -141,7 +141,9 @@ and a copy button, and saved conversations can be renamed.
 
 An optional MCP server exposes the same tools to external agents. It is off by
 default, loopback-only, bearer-token protected, and supports observe and ask
-modes.
+modes. `motty mcp-serve` is the same idea without the window: an agent starts it
+over stdio and it works on the hosts you opened to agents, with no port and no
+token.
 
 ### ☁️ Backup and sync
 
@@ -253,7 +255,7 @@ capabilities go into Viva rather than being duplicated here.
 
 | Path | Contents |
 | --- | --- |
-| `cmd/motty` | application entry point, headless mode and MCP bridge |
+| `cmd/motty` | application entry point, headless mode, MCP bridge and `mcp-serve` |
 | `internal/sshconn` | SSH dialling, host keys, authentication, proxies and jump routes |
 | `internal/term` | terminal emulator and parser |
 | `internal/rfb`, `internal/desktop/vnc` | VNC protocol and desktop backend |

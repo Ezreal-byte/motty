@@ -213,6 +213,10 @@ type Options struct {
 	// (buttons, menus, dialogs, native text editing). Nil uses
 	// app.SetNativeAppearance.
 	SetNativeAppearance func(app.Appearance)
+	// Executable is the path of the running program, which the settings page
+	// puts into the client configuration of the MCP server that needs no window.
+	// Nil uses os.Executable.
+	Executable func() (string, error)
 	// SetClipboardText replaces the system clipboard after the configured OSC
 	// 52 policy permits it. Nil uses app.SetClipboardText.
 	SetClipboardText func(string) error
@@ -296,6 +300,9 @@ func (options Options) withDefaults() Options {
 	}
 	if options.SetClipboardText == nil {
 		options.SetClipboardText = app.SetClipboardText
+	}
+	if options.Executable == nil {
+		options.Executable = executableOf
 	}
 	if options.ClipboardImagePNG == nil {
 		options.ClipboardImagePNG = app.ClipboardImagePNG
@@ -457,46 +464,23 @@ func (state *State) startConnectionMode(session *Session, host Host, automatic b
 // session's path. valid is false when the route is broken, and the config then
 // has no host to dial.
 func (state *State) sshConfigFor(session *Session, host Host) (config sshconn.Config, valid bool) {
-	proxy := state.proxyForHost(session.host)
-	session.proxyRoute = proxyRouteKey(proxy)
-	config = sshconn.Config{
-		Host: host.Address, Port: host.Port, User: state.login(host),
-		KnownHostsPath:          state.options.KnownHostsPath,
-		Agent:                   true,
-		DialTimeout:             state.connectionTimeout,
-		AdditionalIdentityFiles: state.identityPaths(),
-		Authentication:          make(map[sshconn.Endpoint]sshconn.Authentication, 1),
-		Notify:                  state.notifyFor(session),
-		Proxy:                   proxy,
-	}
-	targetEndpoint := sshconn.Endpoint{Host: host.Address, Port: host.Port, User: state.login(host)}
-	config.Authentication[targetEndpoint] = state.authenticationFor(host)
-	if state.connectionKeepAlive > 0 {
-		config.KeepAlive = sshconn.KeepAliveConfig{Interval: state.connectionKeepAlive, Timeout: 10 * time.Second}
-	}
-	session.jumpPath = ""
-	chain, valid := state.proxyChainFor(host)
-	config.Algorithms = state.algorithmsFor(host, chain)
-	if !valid {
-		config.Host = ""
-	} else if len(chain) > 0 {
-		config.ProxyJumps = make([]sshconn.Endpoint, len(chain))
-		config.Authentication = make(map[sshconn.Endpoint]sshconn.Authentication, len(chain)+1)
-		config.Authentication[targetEndpoint] = state.authenticationFor(host)
-		var path strings.Builder
-		for source := len(chain) - 1; source >= 0; source-- {
-			jump := chain[source]
-			endpoint := sshconn.Endpoint{Host: jump.Address, Port: jump.Port, User: state.login(jump)}
-			config.ProxyJumps[len(chain)-1-source] = endpoint
-			config.Authentication[endpoint] = state.authenticationFor(jump)
-			if path.Len() > 0 {
-				path.WriteString(" → ")
-			}
-			path.WriteString(formatEndpoint(endpoint))
-		}
-		session.jumpPath = path.String()
-	}
+	config, route, valid := state.hostCatalog.sshConfigFor(host, session.host, state.connectionEnv(state.notifyFor(session)))
+	session.proxyRoute, session.jumpPath = route.proxyKey, route.jumpPath
 	return config, valid
+}
+
+// connectionEnv is what resolving a connection needs that the catalog does not
+// hold: the trusted-keys file, the vault, and how to wake this window.
+func (state *State) connectionEnv(notify func()) connectEnv {
+	env := connectEnv{
+		KnownHostsPath: state.options.KnownHostsPath,
+		Notify:         notify,
+		ProxyLocked:    errors.New(state.messages.Tools.ProxyPasswordLocked),
+	}
+	if state.secrets.vault != nil {
+		env.Passwords = state.secrets.vault
+	}
+	return env
 }
 
 // shareFrom opens a tab on the connection another tab of this window already

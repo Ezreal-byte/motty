@@ -30,6 +30,11 @@ python3 tools/headless_drive.py "$(mktemp -d)" tools/e2e/tray_e2e.txt
 `e2e/mcp_e2e.py` is the Python harness for the MCP server and stdio bridge; it
 also expects the loopback SSH fixture on port 2222 and a built `/tmp/motty-head`.
 
+`e2e/run_agent_mcp_e2e.sh` runs everything for `motty mcp-serve` (the MCP server
+that needs no window) by itself: it builds, starts a fixture, drives the window side
+(`agent_mcp_setup_e2e.txt`, `agent_mcp_activity_e2e.txt`) and the real `motty
+mcp-serve` over stdio (`agent_mcp_e2e.py`), with its own HOME and data directory.
+
 Fixtures:
 
 - `e2esshd/` — loopback-only SSH/SFTP/SCP fixture with its own Go module.

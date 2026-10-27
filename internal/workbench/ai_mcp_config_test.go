@@ -335,7 +335,7 @@ func TestMCPConfigurationLayout(t *testing.T) {
 			for _, tab := range aiMCPClientOptions() {
 				state.Click(tab.ID)
 				var canvas ui.Canvas
-				state.Paint(&canvas, ui.Size{Width: width, Height: 1600})
+				state.Paint(&canvas, ui.Size{Width: width, Height: 2600})
 				var copyToken, reset ui.Hit
 				for _, id := range []ui.ID{hitAISetMCPSelect, hitAISetMCPCopy, hitAISetMCPCopyURL, hitAISetMCPCopyToken, hitAISetMCPReset} {
 					hit, ok := hitByID(&canvas, id)

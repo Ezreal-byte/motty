@@ -200,6 +200,43 @@ var specs = []Spec{
 // All returns every tool in a stable order. The slice is a copy.
 func All() []Spec { return append([]Spec(nil), specs...) }
 
+// Headless returns the catalog of a server that has no terminal windows to act
+// in: it works on saved hosts over their own connections. The tools and their
+// arguments are the same, so the same decoders and the same gate serve them;
+// what changes is what the descriptions promise and which tools are offered.
+// There is no screen to read, so terminal_read is absent. A command runs through
+// an SSH exec channel, with no terminal and no shell state kept between calls,
+// and the user does not watch it run; the command tools are offered only when
+// commands is true. Writing and removing files always need the user's approval,
+// which such a server cannot ask for, so they are never offered. The slice is a
+// copy.
+func Headless(commands bool) []Spec {
+	const (
+		sessionHint = "Session id from list_sessions. Defaults to the active session."
+		hostHint    = "Host id from list_sessions. May be left out when only one host is available."
+		manyHint    = "Session ids from list_sessions, two to eight, each a host that is ready."
+	)
+	out := make([]Spec, 0, len(specs))
+	for _, spec := range specs {
+		switch {
+		case spec.Name == NameTerminalRead, spec.Kind == Write, spec.Kind == Exec && !commands:
+			continue
+		}
+		schema := strings.ReplaceAll(string(spec.Schema), sessionHint, hostHint)
+		spec.Schema = json.RawMessage(strings.ReplaceAll(schema, manyHint, "Host ids from list_sessions, two to eight."))
+		switch spec.Name {
+		case NameListSessions:
+			spec.Description = "List the saved hosts the user allowed you to use, with their ids. A host connects when you first use it. Call this first when you need a host id."
+		case NameTerminalExec:
+			spec.Description = "Run one shell command on a saved host over a fresh SSH exec channel and return its combined output and exit status. There is no terminal: nothing interactive works, and the working directory and environment do not carry over to the next call. The user does not watch it run. It must finish within the timeout."
+		case NameTerminalExecMany:
+			spec.Description = "Run the same shell command on several saved hosts at once and return each host's combined output and exit status, labelled by host. There is no terminal and no state carries over. Use it to check or change the same thing across hosts; use terminal_exec for one host. It must finish within the timeout on every host."
+		}
+		out = append(out, spec)
+	}
+	return out
+}
+
 // Lookup finds a tool by name.
 func Lookup(name string) (Spec, bool) {
 	for _, s := range specs {

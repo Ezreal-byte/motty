@@ -196,41 +196,6 @@ func validProxyAddress(value string) bool {
 	return err == nil && number >= 1 && number <= 65535
 }
 
-// currentProxy is what a connection is given: the saved proxy with its password,
-// or nil for none.
-func (state *State) proxyWithPassword(saved outboundProxy, passwordSecret string) *sshconn.Proxy {
-	if saved.kind == sshconn.ProxyNone || saved.address == "" {
-		return nil
-	}
-	proxy := &sshconn.Proxy{Kind: saved.kind, Address: saved.address, Username: saved.user, Bypass: splitBypass(saved.bypass)}
-	if saved.user != "" && state.secrets.vault != nil {
-		password, found, err := state.secrets.vault.Get(passwordSecret)
-		switch {
-		case errors.Is(err, vault.ErrLocked):
-			proxy.Err = errors.New(state.messages.Tools.ProxyPasswordLocked)
-		case err == nil && found:
-			proxy.Password = password
-		}
-	}
-	return proxy
-}
-
-func (state *State) currentProxy() *sshconn.Proxy {
-	return state.proxyWithPassword(state.proxy, proxyPasswordSecret)
-}
-
-// proxyForHost resolves a host's policy at connection time so inherited hosts
-// observe later changes to the global proxy.
-func (state *State) proxyForHost(host Host) *sshconn.Proxy {
-	if host.Protocol == protocolSerial {
-		return nil
-	}
-	if host.Proxy == nil {
-		return state.currentProxy()
-	}
-	return state.proxyWithPassword(*host.Proxy, hostProxyPasswordSecret(host.CatalogID, host.Proxy))
-}
-
 // proxyRouteKey identifies the non-secret route a live connection used. It is
 // intentionally conservative: a changed bypass list starts a fresh connection
 // even when both lists happen to make this one target take the same path.
@@ -580,4 +545,20 @@ func (state *State) paintOutboundProxyRow(page *settingsPage) {
 	m := state.messages.Tools
 	page.actionRow(m.ProxyRow, state.outboundProxyDescription(), false,
 		components.ButtonAction{ID: hitSettingsProxyConfigure, Label: m.ProxyConfigure, Variant: components.ButtonOutline})
+}
+
+// proxyWithPassword is the saved proxy with its password, as a connection is
+// given it, or nil for none.
+func (state *State) proxyWithPassword(saved outboundProxy, passwordSecret string) *sshconn.Proxy {
+	return state.hostCatalog.proxyWithPassword(saved, passwordSecret, state.connectionEnv(nil))
+}
+
+func (state *State) currentProxy() *sshconn.Proxy {
+	return state.proxyWithPassword(state.proxy, proxyPasswordSecret)
+}
+
+// proxyForHost resolves a host's policy at connection time so inherited hosts
+// observe later changes to the global proxy.
+func (state *State) proxyForHost(host Host) *sshconn.Proxy {
+	return state.hostCatalog.proxyForHost(host, state.connectionEnv(nil))
 }

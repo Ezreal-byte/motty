@@ -185,6 +185,10 @@ func (state *State) eachSettingsEntry(add func(settingsEntry)) {
 	row(settingsMCP, ai.MCPMode, ai.MCPModeDesc)
 	row(settingsMCP, ai.MCPEndpoint, "")
 	row(settingsMCP, ai.MCPToken, ai.MCPTokenDesc)
+	row(settingsMCP, ai.AgentMode, ai.AgentModeDesc)
+	row(settingsMCP, ai.AgentHosts, ai.AgentHostsNoneDesc)
+	row(settingsMCP, ai.AgentConfig, "")
+	row(settingsMCP, ai.AgentActivity, ai.AgentActivityNone)
 
 	for action := shortcutAction(1); action < shortcutActionCount; action++ {
 		row(settingsShortcuts, state.shortcutActionLabel(action), state.shortcuts.labels[action])
