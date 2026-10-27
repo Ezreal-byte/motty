@@ -49,7 +49,9 @@ func TestPressingTheWordsOfAControlFocusesOrFlipsIt(t *testing.T) {
 		t.Fatalf("after pressing the Port label focus is %s, want the port field", tree.Text(got))
 	}
 	state.Click(hitDialogAdvanced)
-	driver.Resize(1100, 900)
+	// The switches are at the end of a long form: the window is tall enough to
+	// show all of it.
+	driver.Resize(1100, 1300)
 	x, y = labelPoint(t, driver, hitDialogForwardX11)
 	if err := driver.Click(x, y); err != nil {
 		t.Fatal(err)

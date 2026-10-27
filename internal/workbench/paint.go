@@ -1495,9 +1495,9 @@ func (state *State) paintHostDialog(canvas *ui.Canvas, viewport ui.Rect) {
 	f := state.chrome.dialog.Begin(canvas, state.Theme(), body)
 	f.Column().Fill().PadSides(2, 4, 0, 4).Children(func() {
 		protocol = f.Slot().Height(34).MarginSides(0, 0, 10, 0)
-		f.Row().Height(rowHeight).Gap(16).Children(func() {
+		f.Row().Height(rowHeight).Gap(8).Children(func() {
 			label = f.Slot().Grow(1)
-			colorField = f.Slot().Width(277).Shrink(0)
+			colorField = f.Slot().Grow(1)
 		})
 		endpoint = f.Slot().Height(float32(state.hostEndpointRows()) * rowHeight)
 		f.Row().Height(rowHeight).Gap(8).Children(func() {

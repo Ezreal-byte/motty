@@ -247,6 +247,29 @@ func (state *State) declareDialogCheckbox(f *flex.Frame, label string, above, be
 	})
 }
 
+// declareDialogCheckboxHelp is declareDialogCheckbox with a help icon right after
+// the label, which paintHelpIcon fills in.
+func (state *State) declareDialogCheckboxHelp(f *flex.Frame, label string, above, below float32) (row, help flex.Box) {
+	side := components.CheckboxExtent(state.Theme())
+	row = f.Row().Height(20).Gap(24-side).Items(flex.Center).MarginSides(above, 0, below, 2).Children(func() {
+		f.Slot().Size(side, side).Shrink(0)
+		f.Text(label).FontSize(metrics.FontSizeM).Weight(ui.WeightMedium).Color(state.pal.text).LineHeight(20)
+		help = f.Slot().Size(16, 16).Shrink(0)
+		f.Spacer().Grow(1)
+	})
+	return row, help
+}
+
+// paintHelpIcon draws a question mark in bounds that shows hint as a tooltip when
+// the pointer rests on it.
+func (state *State) paintHelpIcon(canvas *ui.Canvas, id ui.ID, hint string, bounds ui.Rect) {
+	if hint == "" || bounds.Width <= 0 || bounds.Height <= 0 {
+		return
+	}
+	canvas.HitWithOptions(id, bounds, hint, ui.HitOptions{Role: ui.RoleButton, SkipFocus: true, Hint: hint})
+	paintIcon(canvas, iconHelp, insetRect(bounds, 0.08), state.pal.muted)
+}
+
 // paintDialogCheckbox paints the checkbox of a declared row and makes the words
 // beside it its label, so pressing them toggles it.
 func (state *State) paintDialogCheckbox(canvas *ui.Canvas, id ui.ID, label string, checked bool, row flex.Box) {

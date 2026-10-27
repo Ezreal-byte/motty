@@ -15,34 +15,35 @@ import (
 var hostProtocolUiHits = tree.Feature("host-protocol-ui")
 
 var (
-	hitDialogProtocolSSH    = tree.ID(hostProtocolUiHits, "dialog-protocol-ssh")
-	hitDialogProtocolTelnet = tree.ID(hostProtocolUiHits, "dialog-protocol-telnet")
-	hitDialogProtocolSerial = tree.ID(hostProtocolUiHits, "dialog-protocol-serial")
-	hitDialogProtocolVNC    = tree.ID(hostProtocolUiHits, "dialog-protocol-vnc")
-	hitDialogProtocolRDP    = tree.ID(hostProtocolUiHits, "dialog-protocol-rdp")
-	hitDialogViaSSH         = tree.ID(hostProtocolUiHits, "dialog-via-ssh")
-	hitDialogClipboard      = tree.ID(hostProtocolUiHits, "dialog-clipboard")
-	hitDialogFlowNone       = tree.ID(hostProtocolUiHits, "dialog-flow-none")
-	hitDialogFlowHardware   = tree.ID(hostProtocolUiHits, "dialog-flow-hardware")
-	hitDialogFlowSoftware   = tree.ID(hostProtocolUiHits, "dialog-flow-software")
-	hitDialogPortsTrigger   = tree.ID(hostProtocolUiHits, "dialog-ports-trigger")
-	hitDialogPortsDismiss   = tree.ID(hostProtocolUiHits, "dialog-ports-dismiss")
-	hitDialogAlgoDefault    = tree.ID(hostProtocolUiHits, "dialog-algo-default")
-	hitDialogAlgoCompatible = tree.ID(hostProtocolUiHits, "dialog-algo-compatible")
-	hitDialogAlgoCustom     = tree.ID(hostProtocolUiHits, "dialog-algo-custom")
-	hitDialogAlgorithms     = tree.ID(hostProtocolUiHits, "dialog-algorithms")
-	hitDialogAdvanced       = tree.ID(hostProtocolUiHits, "dialog-advanced")
-	hitDialogForwardX11     = tree.ID(hostProtocolUiHits, "dialog-forward-x11")
-	hitDialogAgentForward   = tree.ID(hostProtocolUiHits, "dialog-agent-forward")
-	hitDialogNoHistory      = tree.ID(hostProtocolUiHits, "dialog-no-history")
-	hitDialogAgentAccess    = tree.ID(hostProtocolUiHits, "dialog-agent-access")
-	hitDialogOTP            = tree.ID(hostProtocolUiHits, "dialog-otp")
-	hitDialogOTPRemove      = tree.ID(hostProtocolUiHits, "dialog-otp-remove")
-	hitDialogOTPScan        = tree.ID(hostProtocolUiHits, "dialog-otp-scan")
-	hitDialogOTPPaste       = tree.ID(hostProtocolUiHits, "dialog-otp-paste")
-	hitDialogPortsItemList  = tree.Sub(hostProtocolUiHits, tree.Name("dialog-ports-item")) // + index of a detected port
-	hitDialogIconDismiss    = tree.ID(hostProtocolUiHits, "dialog-icon-dismiss")
-	hitDialogIconItemList   = tree.Sub(hostProtocolUiHits, tree.Name("dialog-icon-item")) // + a hostIcon
+	hitDialogProtocolSSH     = tree.ID(hostProtocolUiHits, "dialog-protocol-ssh")
+	hitDialogProtocolTelnet  = tree.ID(hostProtocolUiHits, "dialog-protocol-telnet")
+	hitDialogProtocolSerial  = tree.ID(hostProtocolUiHits, "dialog-protocol-serial")
+	hitDialogProtocolVNC     = tree.ID(hostProtocolUiHits, "dialog-protocol-vnc")
+	hitDialogProtocolRDP     = tree.ID(hostProtocolUiHits, "dialog-protocol-rdp")
+	hitDialogViaSSH          = tree.ID(hostProtocolUiHits, "dialog-via-ssh")
+	hitDialogClipboard       = tree.ID(hostProtocolUiHits, "dialog-clipboard")
+	hitDialogFlowNone        = tree.ID(hostProtocolUiHits, "dialog-flow-none")
+	hitDialogFlowHardware    = tree.ID(hostProtocolUiHits, "dialog-flow-hardware")
+	hitDialogFlowSoftware    = tree.ID(hostProtocolUiHits, "dialog-flow-software")
+	hitDialogPortsTrigger    = tree.ID(hostProtocolUiHits, "dialog-ports-trigger")
+	hitDialogPortsDismiss    = tree.ID(hostProtocolUiHits, "dialog-ports-dismiss")
+	hitDialogAlgoDefault     = tree.ID(hostProtocolUiHits, "dialog-algo-default")
+	hitDialogAlgoCompatible  = tree.ID(hostProtocolUiHits, "dialog-algo-compatible")
+	hitDialogAlgoCustom      = tree.ID(hostProtocolUiHits, "dialog-algo-custom")
+	hitDialogAlgorithms      = tree.ID(hostProtocolUiHits, "dialog-algorithms")
+	hitDialogAdvanced        = tree.ID(hostProtocolUiHits, "dialog-advanced")
+	hitDialogForwardX11      = tree.ID(hostProtocolUiHits, "dialog-forward-x11")
+	hitDialogAgentForward    = tree.ID(hostProtocolUiHits, "dialog-agent-forward")
+	hitDialogNoHistory       = tree.ID(hostProtocolUiHits, "dialog-no-history")
+	hitDialogAgentAccess     = tree.ID(hostProtocolUiHits, "dialog-agent-access")
+	hitDialogAgentAccessHelp = tree.ID(hostProtocolUiHits, "dialog-agent-access-help")
+	hitDialogOTP             = tree.ID(hostProtocolUiHits, "dialog-otp")
+	hitDialogOTPRemove       = tree.ID(hostProtocolUiHits, "dialog-otp-remove")
+	hitDialogOTPScan         = tree.ID(hostProtocolUiHits, "dialog-otp-scan")
+	hitDialogOTPPaste        = tree.ID(hostProtocolUiHits, "dialog-otp-paste")
+	hitDialogPortsItemList   = tree.Sub(hostProtocolUiHits, tree.Name("dialog-ports-item")) // + index of a detected port
+	hitDialogIconDismiss     = tree.ID(hostProtocolUiHits, "dialog-icon-dismiss")
+	hitDialogIconItemList    = tree.Sub(hostProtocolUiHits, tree.Name("dialog-icon-item")) // + a hostIcon
 )
 
 // maxListedPorts bounds the picker: a machine with more serial devices than
@@ -337,13 +338,25 @@ func (state *State) hostFormHeight() float32 {
 	return height
 }
 
-// sshSwitchRowsHeight is the room of the four switches under the algorithm rows:
-// "Forward X11", "Forward ssh-agent", "Don't record commands" and "Allow MCP
-// agents to use this host". A switch's hit region is 32px high, so consecutive
-// rows keep that distance (a 20px row and 12px above it) for their hit regions
-// not to overlap, and all of them are the same distance apart. The first sits 4px
-// below the buttons above it, and 16px are left under the last.
-const sshSwitchRowsHeight = 4 + 20 + 3*(12+20) + 16
+// The Advanced section of an SSH host is the algorithm choice, the one-time code
+// secret with its buttons, and two groups of switches under their own headings:
+// the session ones ("Forward X11", "Forward ssh-agent", "Don't record commands")
+// and the one that opens the host to AI agents, which explains itself in a help
+// tooltip.
+//
+// A switch's hit region is 32px high, so consecutive rows keep that distance (a
+// 20px row and 12px above it) for their hit regions not to overlap, and all of
+// them are the same distance apart.
+const (
+	// otpFieldHeight is the label and input of the one-time code secret, with
+	// only the little room under it that keeps its buttons tied to it.
+	otpFieldHeight = 58
+	// groupHeadingHeight is a rule and the small heading under it.
+	groupHeadingHeight = 40
+	// sshSwitchRowsHeight is both groups: the first row sits 4px under its
+	// heading, the others 12px under the row above, and 16px are left at the end.
+	sshSwitchRowsHeight = groupHeadingHeight + (4 + 20) + 2*(12+20) + groupHeadingHeight + (4 + 20) + 16
+)
 
 // advancedHeaderHeight is the row that opens the Advanced section of an SSH
 // host, with the gap above it.
@@ -360,11 +373,11 @@ func (state *State) advancedSectionHeight() float32 {
 	if !state.editor.advancedOpen {
 		return advancedHeaderHeight
 	}
-	rows := float32(2)
+	rows := float32(1)
 	if state.editor.algoMode == algoCustom {
 		rows++
 	}
-	return advancedHeaderHeight + rows*hostFormRowHeight + otpButtonsRow + sshSwitchRowsHeight
+	return advancedHeaderHeight + rows*hostFormRowHeight + otpFieldHeight + otpButtonsRow + sshSwitchRowsHeight
 }
 
 // hostDialogExtra is the height the protocol-specific rows add to the host dialog.
@@ -413,20 +426,26 @@ func (state *State) paintAdvancedSection(canvas *ui.Canvas, bounds ui.Rect) {
 // paintAlgorithmRows draws the SSH algorithm choice and, for a custom one, the
 // list that is allowed, then the one-time code secret.
 func (state *State) paintAlgorithmRows(canvas *ui.Canvas, x, y, width, rowHeight float32) {
-	m, editor := state.messages.Tools, &state.editor
-	rows := float32(2)
+	m, editor, pal := state.messages.Tools, &state.editor, state.pal
+	rows := float32(1)
 	if editor.algoMode == algoCustom {
 		rows++
 	}
 	const removeWidth, scanWidth, pasteWidth = 84, 132, 96
-	var algo, custom, otp, scan, paste, remove, x11, agentFwd, noHistory, agentAccess flex.Box
-	f := state.partLayout.Begin(canvas, state.Theme(), ui.Rect{X: x, Y: y, Width: width, Height: rows*rowHeight + sshSwitchRowsHeight + otpButtonsRow})
+	var algo, custom, otp, scan, paste, remove, x11, agentFwd, noHistory, agentAccess, agentHelp flex.Box
+	f := state.partLayout.Begin(canvas, state.Theme(), ui.Rect{X: x, Y: y, Width: width, Height: rows*rowHeight + otpFieldHeight + otpButtonsRow + sshSwitchRowsHeight})
+	heading := func(title string) {
+		f.Column().Height(groupHeadingHeight).Children(func() {
+			f.Column().Height(1).MarginSides(12, 0, 0, 0).Background(withAlpha(pal.line, 0.7))
+			f.Text(title).FontSize(metrics.FontSizeS).Weight(ui.WeightMedium).Color(pal.muted).MarginSides(8, 0, 0, 2)
+		})
+	}
 	f.Column().Fill().Children(func() {
 		algo = f.Slot().Height(rowHeight)
 		if editor.algoMode == algoCustom {
 			custom = f.Slot().Height(rowHeight)
 		}
-		f.Row().Height(rowHeight).Gap(8).Children(func() {
+		f.Row().Height(otpFieldHeight).Gap(8).Children(func() {
 			otp = f.Slot().Grow(1)
 		})
 		f.Row().Height(otpButtonsRow).Gap(8).Children(func() {
@@ -434,10 +453,12 @@ func (state *State) paintAlgorithmRows(canvas *ui.Canvas, x, y, width, rowHeight
 			paste = f.Slot().Size(pasteWidth, 30).Self(flex.Start)
 			remove = f.Slot().Size(removeWidth, 30).Self(flex.Start)
 		})
+		heading(m.AdvancedSession)
 		x11 = state.declareDialogCheckbox(f, m.X11Forward, 4, 0)
 		agentFwd = state.declareDialogCheckbox(f, m.AgentForward, 12, 0)
 		noHistory = state.declareDialogCheckbox(f, state.messages.History.HostNoRecord, 12, 0)
-		agentAccess = state.declareDialogCheckbox(f, m.AgentAccess, 12, 0)
+		heading(m.AdvancedAgents)
+		agentAccess, agentHelp = state.declareDialogCheckboxHelp(f, m.AgentAccess, 4, 0)
 	})
 	f.End()
 
@@ -461,6 +482,9 @@ func (state *State) paintAlgorithmRows(canvas *ui.Canvas, x, y, width, rowHeight
 	state.paintDialogCheckbox(canvas, hitDialogAgentForward, m.AgentForward, editor.agentForward, agentFwd)
 	state.paintDialogCheckbox(canvas, hitDialogNoHistory, state.messages.History.HostNoRecord, editor.noHistory, noHistory)
 	state.paintDialogCheckbox(canvas, hitDialogAgentAccess, m.AgentAccess, editor.agentAccess, agentAccess)
+	// After the checkbox, whose words reach to the end of the row, so that this is
+	// the hit on top where the two meet.
+	state.paintHelpIcon(canvas, hitDialogAgentAccessHelp, m.AgentAccessNote, agentHelp.Rect())
 }
 
 // paintOTPRow draws the one-time code secret: a field for a new one, a button to
