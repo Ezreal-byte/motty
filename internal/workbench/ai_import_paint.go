@@ -405,11 +405,15 @@ func aiImportToolName(tool aiproviderimport.Tool) string {
 	return "magpie"
 }
 
+// aiImportToolIcon is the source application's own mark, so the row names the
+// app people recognize rather than an abstract stand-in. magpie's is a single
+// path and takes the tile's accent; cc-switch's is its full-color starburst and
+// ignores the tint.
 func aiImportToolIcon(tool aiproviderimport.Tool) ui.Icon {
 	if tool == aiproviderimport.ToolCCSwitch {
-		return icons.ArrowRightLeft
+		return icons.CcSwitch
 	}
-	return icons.Sparkles
+	return icons.Magpie
 }
 
 func aiImportKindIcon(kind string) ui.Icon {
