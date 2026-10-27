@@ -109,6 +109,77 @@ func TestProvidersModelsSettings(t *testing.T) {
 	}
 }
 
+func TestProviderAuthStyleRoundTrip(t *testing.T) {
+	s, _ := openTemp(t)
+	want := Provider{ID: "p1", Name: "Relay", Kind: KindAnthropic, BaseURL: "https://relay.example.com", AuthStyle: AuthStyleBearer, HasKey: true, Enabled: true}
+	if err := s.SaveProvider(want); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.SaveProvider(Provider{ID: "p2", Name: "OpenAI", Kind: KindOpenAI, BaseURL: "https://api.example.com/v1", AuthStyle: AuthStyleBearer, Enabled: true}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.SaveProvider(Provider{ID: "bad", Kind: KindAnthropic, AuthStyle: "basic"}); !errors.Is(err, ErrInvalid) {
+		t.Fatalf("unknown style: %v", err)
+	}
+	got, err := s.Providers()
+	if err != nil || len(got) != 2 {
+		t.Fatalf("%v %v", got, err)
+	}
+	byID := map[string]Provider{}
+	for _, provider := range got {
+		byID[provider.ID] = provider
+	}
+	if byID["p1"].AuthStyle != AuthStyleBearer {
+		t.Fatalf("Anthropic style = %q, want %q", byID["p1"].AuthStyle, AuthStyleBearer)
+	}
+	// An OpenAI-compatible provider has no header choice: bearer is inherent.
+	if byID["p2"].AuthStyle != "" {
+		t.Fatalf("OpenAI style = %q, want empty", byID["p2"].AuthStyle)
+	}
+}
+
+// A database written before bearer authentication existed must migrate without
+// losing providers, and every existing row keeps the historical x-api-key
+// behavior.
+func TestVersion2DatabaseMigratesWithTheDefaultAuthStyle(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "ai.db")
+	raw, err := sql.Open("sqlite", path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for index := 0; index < 2; index++ {
+		if _, err := raw.Exec(migrations[index]); err != nil {
+			t.Fatalf("create v%d: %v", index+1, err)
+		}
+	}
+	if _, err := raw.Exec(`PRAGMA user_version = 2`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := raw.Exec(`INSERT INTO providers(id,name,kind,base_url,api_key,enabled,has_key) VALUES('old','Old','anthropic','https://old.example.com','',1,0)`); err != nil {
+		t.Fatal(err)
+	}
+	if err := raw.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	s, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	var version int
+	if err := s.db.QueryRow(`PRAGMA user_version`).Scan(&version); err != nil || version != schemaVersion {
+		t.Fatalf("version = %d, err %v, want %d", version, err, schemaVersion)
+	}
+	got, err := s.Providers()
+	if err != nil || len(got) != 1 {
+		t.Fatalf("providers = %v, err %v", got, err)
+	}
+	if got[0].ID != "old" || got[0].AuthStyle != "" {
+		t.Fatalf("migrated provider = %#v", got[0])
+	}
+}
+
 func TestKeyRedaction(t *testing.T) {
 	const key = "sk-very-secret"
 	p := Provider{ID: "p", Kind: KindOpenAI, APIKey: key}

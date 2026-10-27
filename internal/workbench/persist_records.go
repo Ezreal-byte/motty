@@ -35,7 +35,18 @@ import (
 // when it saved the record, a value it would reject) raises it; a build refuses a
 // store or a synced file with a higher number than its own, so that it never
 // saves over data it only half understands.
-const configFormat = 3
+//
+// Version 3 was assigned independently by two lines of work: one added the
+// synchronized SFTP path input, the other the AI provider authentication style.
+// Both payloads share the same number, so the merged build writes 4; otherwise
+// either older format-3 build would accept the other's records and drop the
+// field it does not know when it saves them.
+//
+// The AI providers mirrored into the state file are guarded by this number and
+// by the ai.db schema, not by stateFileVersion: that constant is written but
+// never checked, and a build that cannot open a newer ai.db omits the mirror
+// until the next build rebuilds it from the database.
+const configFormat = 4
 
 const (
 	kindSetting = "setting"

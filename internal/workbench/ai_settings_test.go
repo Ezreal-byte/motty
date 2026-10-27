@@ -3,6 +3,8 @@ package workbench
 import (
 	"context"
 	"errors"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -69,6 +71,13 @@ type settingsWorld struct {
 
 func newSettingsWorld(t *testing.T, fake *lister) *settingsWorld {
 	t.Helper()
+	return newSettingsWorldWith(t, fake, nil)
+}
+
+// newSettingsWorldWith is newSettingsWorld with the options adjusted before the
+// window is created, which is where a test installs a seam.
+func newSettingsWorldWith(t *testing.T, fake *lister, adjust func(*Options)) *settingsWorld {
+	t.Helper()
 	world := &settingsWorld{lister: fake}
 	world.options = freshOptions(t)
 	world.options.AIStorePath = filepath.Join(t.TempDir(), "ai.db")
@@ -84,6 +93,9 @@ func newSettingsWorld(t *testing.T, fake *lister) *settingsWorld {
 		fake.key = provider.APIKey
 		fake.mu.Unlock()
 		return fake
+	}
+	if adjust != nil {
+		adjust(&world.options)
 	}
 	world.state = world.open(t)
 	return world
@@ -221,6 +233,95 @@ func TestAIProviderIsAddedStoredAndItsKeyNeverPainted(t *testing.T) {
 	again.Wake()
 	if len(again.ai.providers) != 1 {
 		t.Fatalf("a new window has providers %v", again.ai.providers)
+	}
+}
+
+func TestAIProviderAuthStyleChoiceKeepsTheSavedKey(t *testing.T) {
+	world := newSettingsWorld(t, newLister())
+	state := world.state
+	m := state.messages.AISettings
+	state.Click(hitAISetProviderAdd)
+	world.typeInto(t, hitAISetFormName, "Relay")
+	state.Click(hitAISetFormKindClaude)
+	state.Click(hitAISetFormAuthBearer)
+	world.typeInto(t, hitAISetFormKey, testSecretKey)
+	state.Click(hitAISetFormSubmit)
+	if len(state.ai.providers) != 1 {
+		t.Fatalf("providers = %v", state.ai.providers)
+	}
+	provider := state.ai.providers[0]
+	if provider.AuthStyle != store.AuthStyleBearer || state.aiKeyOf(provider) != testSecretKey {
+		t.Fatalf("stored provider = %#v, key %q", provider, state.aiKeyOf(provider))
+	}
+	_, texts := world.paint()
+	if !contains(texts, m.ProviderAuthBearer) {
+		t.Fatalf("the provider row does not show the bearer style: %v", texts)
+	}
+	for _, value := range texts {
+		if strings.Contains(value, testSecretKey) {
+			t.Fatalf("the saved key is painted: %q", value)
+		}
+	}
+
+	state.Click(hitAISetProviderEdit.At(0))
+	if state.ai.cfg.authStyle != store.AuthStyleBearer {
+		t.Fatalf("edit form style = %q", state.ai.cfg.authStyle)
+	}
+	canvas, texts := world.paint()
+	if _, ok := hitByID(canvas, hitAISetFormAuthBearer); !ok {
+		t.Fatalf("the edit form has no bearer choice: %v", texts)
+	}
+	for _, value := range texts {
+		if strings.Contains(value, testSecretKey) {
+			t.Fatalf("the saved key is painted in the edit form: %q", value)
+		}
+	}
+	// Switching the header does not require re-entering the credential.
+	state.Click(hitAISetFormAuthAPIKey)
+	state.Click(hitAISetFormSubmit)
+	provider = state.ai.providers[0]
+	if provider.AuthStyle != store.AuthStyleAPIKey || state.aiKeyOf(provider) != testSecretKey {
+		t.Fatalf("after switching style: %#v, key %q", provider, state.aiKeyOf(provider))
+	}
+
+	// An OpenAI-compatible provider has no choice of header.
+	state.Click(hitAISetProviderAdd)
+	canvas, _ = world.paint()
+	if _, ok := hitByID(canvas, hitAISetFormAuthBearer); ok {
+		t.Fatal("the OpenAI form offers a bearer/API-key choice")
+	}
+}
+
+func TestAIProviderPassesTheAuthenticationStyleToTheRequest(t *testing.T) {
+	var header http.Header
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		header = r.Header.Clone()
+		w.Write([]byte(`{"data":[{"id":"m"}],"has_more":false}`))
+	}))
+	defer srv.Close()
+
+	options := freshOptions(t)
+	options.Keystore = &memKeys{}
+	options.AIProvider = nil // exercise the real wire client
+	state := newTestState(t, options)
+	for _, test := range []struct {
+		style  string
+		apiKey string
+		bearer string
+	}{
+		{store.AuthStyleAPIKey, "key", ""},
+		{store.AuthStyleBearer, "", "Bearer key"},
+	} {
+		header = nil
+		provider := state.aiProvider(store.Provider{
+			Kind: store.KindAnthropic, BaseURL: srv.URL, APIKey: "key", AuthStyle: test.style,
+		})
+		if _, err := provider.Models(context.Background()); err != nil {
+			t.Fatal(err)
+		}
+		if header.Get("x-api-key") != test.apiKey || header.Get("Authorization") != test.bearer {
+			t.Fatalf("style %q sent %v", test.style, header)
+		}
 	}
 }
 

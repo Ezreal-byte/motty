@@ -75,7 +75,7 @@ func (e *LimitError) Error() string {
 // Is makes errors.Is(err, ErrTooLarge) true.
 func (e *LimitError) Is(target error) bool { return target == ErrTooLarge }
 
-const schemaVersion = 3
+const schemaVersion = 4
 
 var migrations = [...]string{
 	// version 1
@@ -121,6 +121,9 @@ var migrations = [...]string{
 	UPDATE providers SET has_key = (api_key <> '');`,
 	// Executable paths belong to this machine, not provider sync records.
 	`ALTER TABLE providers ADD COLUMN cli_path TEXT NOT NULL DEFAULT '';`,
+	// version 4: an Anthropic provider may send its key as a bearer token
+	// instead of x-api-key. The empty value keeps the pre-existing behavior.
+	`ALTER TABLE providers ADD COLUMN auth_style TEXT NOT NULL DEFAULT '';`,
 }
 
 const sqliteMagic = "SQLite format 3\x00"
@@ -298,6 +301,19 @@ const (
 	KindOpenCodeCLI = "opencode-cli"
 )
 
+// Authentication styles of an Anthropic provider. The empty value means the
+// kind's historical default, which is an API key for Anthropic and a bearer
+// token for OpenAI-compatible endpoints.
+const (
+	AuthStyleAPIKey = "api_key"
+	AuthStyleBearer = "bearer"
+)
+
+// ValidAuthStyle reports whether style is one a provider may store.
+func ValidAuthStyle(style string) bool {
+	return style == "" || style == AuthStyleAPIKey || style == AuthStyleBearer
+}
+
 func IsCLIKind(kind string) bool {
 	return kind == KindClaudeCLI || kind == KindCodexCLI || kind == KindOpenCodeCLI
 }
@@ -318,6 +334,9 @@ type Provider struct {
 	APIKey  string
 	HasKey  bool
 	Enabled bool
+	// AuthStyle selects the Anthropic request header. Empty has the historical
+	// meaning: x-api-key for Anthropic, bearer for OpenAI-compatible endpoints.
+	AuthStyle string
 }
 
 func (p Provider) redacted() string {
@@ -325,8 +344,8 @@ func (p Provider) redacted() string {
 	if p.APIKey != "" {
 		key = "<redacted>"
 	}
-	return fmt.Sprintf("Provider{ID:%q Name:%q Kind:%q BaseURL:%q APIKey:%q HasKey:%t Enabled:%t}",
-		p.ID, p.Name, p.Kind, p.BaseURL, key, p.HasKey, p.Enabled)
+	return fmt.Sprintf("Provider{ID:%q Name:%q Kind:%q BaseURL:%q AuthStyle:%q APIKey:%q HasKey:%t Enabled:%t}",
+		p.ID, p.Name, p.Kind, p.BaseURL, p.AuthStyle, key, p.HasKey, p.Enabled)
 }
 
 // String implements fmt.Stringer and hides the API key.
@@ -341,19 +360,29 @@ func (s *Store) SaveProvider(p Provider) error {
 	if p.ID == "" || !ValidProviderKind(p.Kind) {
 		return fmt.Errorf("%w: provider needs an id and a supported kind", ErrInvalid)
 	}
-	if IsCLIKind(p.Kind) && (p.BaseURL != "" || p.APIKey != "" || p.HasKey) {
+	if IsCLIKind(p.Kind) && (p.BaseURL != "" || p.APIKey != "" || p.HasKey || p.AuthStyle != "") {
 		return fmt.Errorf("%w: CLI providers use their own authentication", ErrInvalid)
 	}
-	_, err := s.db.Exec(`INSERT INTO providers(id,name,kind,base_url,api_key,has_key,enabled,cli_path) VALUES(?,?,?,?,'',?,?,?)
+	if !ValidAuthStyle(p.AuthStyle) {
+		return fmt.Errorf("%w: unsupported authentication style", ErrInvalid)
+	}
+	// Only Anthropic has a choice of header. OpenAI-compatible requests always
+	// use bearer authentication, so keeping a style there would be misleading.
+	authStyle := p.AuthStyle
+	if p.Kind != KindAnthropic {
+		authStyle = ""
+	}
+	_, err := s.db.Exec(`INSERT INTO providers(id,name,kind,base_url,api_key,has_key,enabled,cli_path,auth_style) VALUES(?,?,?,?,'',?,?,?,?)
 		ON CONFLICT(id) DO UPDATE SET name=excluded.name, kind=excluded.kind,
-		base_url=excluded.base_url, has_key=excluded.has_key, enabled=excluded.enabled, cli_path=excluded.cli_path`,
-		p.ID, p.Name, p.Kind, p.BaseURL, b2i(p.HasKey), b2i(p.Enabled), p.CLIPath)
+		base_url=excluded.base_url, has_key=excluded.has_key, enabled=excluded.enabled,
+		cli_path=excluded.cli_path, auth_style=excluded.auth_style`,
+		p.ID, p.Name, p.Kind, p.BaseURL, b2i(p.HasKey), b2i(p.Enabled), p.CLIPath, authStyle)
 	return wrapDB(err)
 }
 
 // Providers lists all providers ordered by name then ID.
 func (s *Store) Providers() ([]Provider, error) {
-	rows, err := s.db.Query(`SELECT id,name,kind,base_url,has_key,enabled,cli_path FROM providers ORDER BY name, id`)
+	rows, err := s.db.Query(`SELECT id,name,kind,base_url,has_key,enabled,cli_path,auth_style FROM providers ORDER BY name, id`)
 	if err != nil {
 		return nil, wrapDB(err)
 	}
@@ -362,7 +391,7 @@ func (s *Store) Providers() ([]Provider, error) {
 	for rows.Next() {
 		var p Provider
 		var hk, en int
-		if err := rows.Scan(&p.ID, &p.Name, &p.Kind, &p.BaseURL, &hk, &en, &p.CLIPath); err != nil {
+		if err := rows.Scan(&p.ID, &p.Name, &p.Kind, &p.BaseURL, &hk, &en, &p.CLIPath, &p.AuthStyle); err != nil {
 			return nil, wrapDB(err)
 		}
 		p.HasKey = hk != 0

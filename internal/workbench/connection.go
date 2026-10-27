@@ -16,6 +16,7 @@ import (
 	"github.com/vivaui/viva/text"
 	"motty/internal/ai/llm"
 	"motty/internal/ai/store"
+	"motty/internal/aiproviderimport"
 	"motty/internal/localshell"
 	"motty/internal/sftpclient"
 	"motty/internal/sshconn"
@@ -232,6 +233,10 @@ type Options struct {
 	// AIProvider builds the client for a configured provider. Nil talks to the
 	// real service; tests supply a fake.
 	AIProvider func(store.Provider) llm.Provider
+	// AIProviderScan detects magpie and cc-switch provider data for the AI
+	// import dialog. Nil reads the standard locations. It is called only after
+	// the user activates Import, never from a paint.
+	AIProviderScan func() []aiproviderimport.SourceInfo
 	// Notify shows a desktop notification a terminal's program asked for. Nil
 	// uses app.SendNotification.
 	Notify func(app.Notification) error

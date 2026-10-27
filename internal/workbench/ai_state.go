@@ -364,7 +364,7 @@ func (state *State) aiProvider(provider store.Provider) llm.Provider {
 	if store.IsCLIKind(provider.Kind) || !store.ValidProviderKind(provider.Kind) {
 		return cli.New(provider.Kind, provider.CLIPath)
 	}
-	config := llm.Config{BaseURL: provider.BaseURL, APIKey: provider.APIKey}
+	config := llm.Config{BaseURL: provider.BaseURL, APIKey: provider.APIKey, AuthStyle: provider.AuthStyle}
 	if provider.Kind == store.KindAnthropic {
 		return llm.NewAnthropic(config)
 	}

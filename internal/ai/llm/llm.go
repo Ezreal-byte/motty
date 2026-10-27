@@ -93,10 +93,22 @@ type Event struct {
 	Err        error
 }
 
+// Authentication styles. An empty style keeps the protocol's historical
+// behavior: x-api-key for Anthropic and Authorization: Bearer for
+// OpenAI-compatible endpoints.
+const (
+	AuthStyleAPIKey = "api_key"
+	AuthStyleBearer = "bearer"
+)
+
 // Config selects the endpoint and credentials of a Provider.
 type Config struct {
 	BaseURL string
 	APIKey  string
+	// AuthStyle applies to Anthropic only. AuthStyleBearer sends the key as
+	// Authorization: Bearer instead of x-api-key. OpenAI-compatible requests
+	// always use bearer authentication.
+	AuthStyle string
 	// Client is used for all requests. Nil selects a client with no overall
 	// timeout but with dial, TLS and response-header timeouts.
 	Client *http.Client
@@ -133,10 +145,11 @@ const (
 )
 
 type base struct {
-	endpoint string // normalized base, no trailing slash
-	key      string
-	client   *http.Client
-	max      int64
+	endpoint  string // normalized base, no trailing slash
+	key       string
+	authStyle string
+	client    *http.Client
+	max       int64
 }
 
 func newBase(cfg Config, endpoint string) base {
@@ -148,7 +161,7 @@ func newBase(cfg Config, endpoint string) base {
 	if m <= 0 {
 		m = defaultMaxResponse
 	}
-	return base{endpoint: endpoint, key: cfg.APIKey, client: c, max: m}
+	return base{endpoint: endpoint, key: cfg.APIKey, authStyle: cfg.AuthStyle, client: c, max: m}
 }
 
 func defaultClient() *http.Client {

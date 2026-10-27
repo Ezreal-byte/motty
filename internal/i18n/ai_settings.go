@@ -11,6 +11,7 @@ type AISettingsMessages struct {
 	ProvidersTitle     string
 	ProvidersEmpty     string
 	ProviderAdd        string
+	ProviderImport     string
 	ProviderEdit       string
 	ProviderDelete     string
 	ProviderEnabled    string // accessible name of a provider's switch
@@ -19,6 +20,8 @@ type AISettingsMessages struct {
 	ProviderOfficial   string // shown for a provider that uses its official endpoint
 	ProviderKindOpenAI string
 	ProviderKindClaude string
+	ProviderAuthAPIKey string
+	ProviderAuthBearer string
 
 	// The provider dialog.
 	FormAddTitle       string
@@ -27,6 +30,9 @@ type AISettingsMessages struct {
 	FormName           string
 	FormNamePH         string
 	FormKind           string
+	FormAuth           string
+	FormAuthAPIKey     string
+	FormAuthBearer     string
 	FormPreset         string
 	FormPresetCustom   string
 	FormBaseURL        string
@@ -66,6 +72,49 @@ type AISettingsMessages struct {
 	CLIErrVersion     string
 	CLIErrLogin       string
 	CLIErrRunFmt      string
+
+	// Importing from magpie and cc-switch.
+	ImportSourcesTitle              string
+	ImportSourcesDesc               string
+	ImportChooseTitle               string
+	ImportChooseFile                string
+	ImportChooseFromFile            string
+	ImportChooseFileHint            string
+	ImportPreview                   string
+	ImportSourceMissing             string
+	ImportSourceErrorFmt            string
+	ImportSourceCountFmt            string
+	ImportNoSources                 string
+	ImportFileFailedFmt             string
+	ImportPreviewTitle              string
+	ImportPreviewDesc               string
+	ImportSelectedFmt               string
+	ImportUnavailableFmt            string
+	ImportNoCandidates              string
+	ImportBack                      string
+	ImportApply                     string
+	ImportGatewaySource             string
+	ImportGatewayNote               string
+	ImportModelsFmt                 string
+	ImportReasonDisabled            string
+	ImportReasonNoEndpoint          string
+	ImportReasonUnsupportedProtocol string
+	ImportReasonResponses           string
+	ImportReasonOAuth               string
+	ImportReasonGemini              string
+	ImportReasonProxy               string
+	ImportReasonUnsupportedApp      string
+	ImportReasonAmbiguous           string
+	ImportReasonNoChat              string
+	ImportReasonUnsupportedAuth     string
+	ImportReasonMalformed           string
+	ImportReasonCountFmt            string
+	ImportDoneTitle                 string
+	ImportSummaryFmt                string
+	ImportKeyFailedFmt              string
+	ImportFailedFmt                 string
+	ImportGatewayImported           string
+	ImportClose                     string
 
 	// Deleting a provider.
 	DeleteTitle   string

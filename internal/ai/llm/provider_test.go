@@ -612,6 +612,22 @@ func TestAnthropicRequestGolden(t *testing.T) {
 	}`)
 }
 
+func TestAnthropicBearerAuthentication(t *testing.T) {
+	var hdr http.Header
+	srv := sseServer(t, anStart()+anEnd("end_turn"), false, func(r *http.Request, _ []byte) { hdr = r.Header.Clone() })
+	ch, err := NewAnthropic(Config{BaseURL: srv.URL, APIKey: testKey, AuthStyle: AuthStyleBearer}).Stream(bg, simpleReq)
+	if err != nil {
+		t.Fatal(err)
+	}
+	collect(t, ch)
+	if hdr.Get("Authorization") != "Bearer "+testKey || hdr.Get("x-api-key") != "" {
+		t.Fatalf("headers %v", hdr)
+	}
+	if hdr.Get("anthropic-version") != "2023-06-01" {
+		t.Fatalf("version header %v", hdr)
+	}
+}
+
 func TestRequestValidation(t *testing.T) {
 	bad := []Request{
 		{Messages: simpleReq.Messages},

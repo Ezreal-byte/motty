@@ -197,6 +197,7 @@ func (state *State) paintAIProviders(page *settingsPage) {
 				f.Text(m.ProvidersEmpty).FontSize(metrics.FontSizeS).Color(pal.muted)
 			}
 			f.Spacer()
+			page.button(hitAISetProviderImport, m.ProviderImport, aiButtonOutline, false)
 			page.button(hitAISetProviderAdd, m.ProviderAdd, aiButtonPrimary, false)
 		})
 	})
@@ -224,6 +225,13 @@ func (state *State) aiProviderMeta(provider store.Provider) string {
 	key := m.ProviderNoKey
 	if provider.HasKey {
 		key = m.ProviderKeySaved
+	}
+	if provider.Kind == store.KindAnthropic {
+		auth := m.ProviderAuthAPIKey
+		if provider.AuthStyle == store.AuthStyleBearer {
+			auth = m.ProviderAuthBearer
+		}
+		return kind + "  ·  " + address + "  ·  " + auth + "  ·  " + key
 	}
 	return kind + "  ·  " + address + "  ·  " + key
 }
@@ -449,6 +457,8 @@ func (state *State) paintAIDialogs(canvas *ui.Canvas, viewport ui.Rect) {
 	case aiDialogClear:
 		m := state.messages.AISettings
 		state.paintAIConfirm(canvas, viewport, m.ClearTitle, m.ClearBody, m.ClearConfirm)
+	case aiDialogImport:
+		state.paintAIImport(canvas, viewport)
 	}
 }
 
@@ -479,10 +489,14 @@ func (state *State) paintAIProviderForm(canvas *ui.Canvas, viewport ui.Rect) {
 	if cfg.hadKey {
 		keyHeight = 78
 	}
+	authHeight := float32(0) // only Anthropic has a choice of credential header
+	if cfg.kind == store.KindAnthropic {
+		authHeight = 60
+	}
 	dialog := components.BeginDialog(canvas, theme, viewport, components.DialogOptions{
 		Layer: dialogLayer, Scope: dialogScope,
 		DismissID: hitAISetFormDismiss, CloseID: hitAISetFormClose, InitialFocusID: hitAISetFormName,
-		ContentSize: ui.Size{Width: 500}, FitBody: true, BodyHeight: withError(2+presetHeight+3*60+keyHeight+4, cfg.formErr), // the fields, key last
+		ContentSize: ui.Size{Width: 500}, FitBody: true, BodyHeight: withError(2+presetHeight+3*60+authHeight+keyHeight+4, cfg.formErr), // the fields, key last
 	})
 	layout := dialog.Begin(title, m.FormDescription)
 
@@ -495,7 +509,7 @@ func (state *State) paintAIProviderForm(canvas *ui.Canvas, viewport ui.Rect) {
 	if cfg.kind == store.KindAnthropic {
 		selected, placeholder = hitAISetFormKindClaude, m.FormBaseURLClaude
 	}
-	var preset, name, kind, url, key flex.Box
+	var preset, name, kind, auth, url, key flex.Box
 	f := state.settingsRow.Begin(canvas, theme, layout.Body)
 	f.Column().Fill().PadSides(2, 4, 0, 4).Children(func() {
 		if presetHeight > 0 {
@@ -503,6 +517,9 @@ func (state *State) paintAIProviderForm(canvas *ui.Canvas, viewport ui.Rect) {
 		}
 		name = f.Slot().Height(60)
 		kind = f.Slot().Height(60)
+		if authHeight > 0 {
+			auth = f.Slot().Height(authHeight)
+		}
 		url = f.Slot().Height(60)
 		key = f.Slot().Height(keyHeight).MarginSides(0, 0, 4, 0)
 		if cfg.formErr != "" {
@@ -518,6 +535,9 @@ func (state *State) paintAIProviderForm(canvas *ui.Canvas, viewport ui.Rect) {
 	content := components.BeginField(canvas, theme, kind.Rect()).Paint(m.FormKind, "", "")
 	kinds := state.aiKindOptions()
 	components.BeginSegmentedControl(canvas, theme, content, kinds[:], selected).Paint()
+	if authHeight > 0 {
+		state.paintAIAuthField(canvas, auth.Rect())
+	}
 	state.aiFormField(canvas, hitAISetFormURL, m.FormBaseURL, placeholder, "", false, &cfg.baseURL, url.Rect())
 	state.aiFormField(canvas, hitAISetFormKey, m.FormKey, m.FormKeyPH, hint, true, &cfg.apiKey, key.Rect())
 	dialog.Actions(layout,
@@ -525,6 +545,19 @@ func (state *State) paintAIProviderForm(canvas *ui.Canvas, viewport ui.Rect) {
 		components.ButtonAction{ID: hitAISetFormSubmit, Label: submit},
 	)
 	dialog.End()
+}
+
+// paintAIAuthField paints the Anthropic credential-header choice. The style is
+// not a secret; the key itself stays in the secure field below.
+func (state *State) paintAIAuthField(canvas *ui.Canvas, bounds ui.Rect) {
+	cfg, m, theme := &state.ai.cfg, state.messages.AISettings, state.Theme()
+	content := components.BeginField(canvas, theme, bounds).Paint(m.FormAuth, "", "")
+	selected := hitAISetFormAuthAPIKey
+	if cfg.authStyle == store.AuthStyleBearer {
+		selected = hitAISetFormAuthBearer
+	}
+	options := state.aiAuthOptions()
+	components.BeginSegmentedControl(canvas, theme, content, options[:], selected).Paint()
 }
 
 // aiFormField paints one labelled input of the provider dialog. A secure field

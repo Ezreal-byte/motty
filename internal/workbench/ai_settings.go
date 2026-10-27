@@ -18,6 +18,7 @@ import (
 	"github.com/vivaui/viva/ui"
 	"motty/internal/ai/mcp"
 	"motty/internal/ai/store"
+	"motty/internal/aiproviderimport"
 	"motty/internal/vault"
 )
 
@@ -34,12 +35,22 @@ var aiSettingsHits = tree.Feature("ai-settings")
 
 var (
 	hitAISetProviderAdd       = tree.ID(aiSettingsHits, "ai-set-provider-add")
+	hitAISetProviderImport    = tree.ID(aiSettingsHits, "ai-set-provider-import")
+	hitAISetImportSource      = tree.Sub(aiSettingsHits, tree.Name("ai-set-import-source")) // preview, per source
+	hitAISetImportChoose      = tree.ID(aiSettingsHits, "ai-set-import-choose")
+	hitAISetImportBack        = tree.ID(aiSettingsHits, "ai-set-import-back")
+	hitAISetImportApply       = tree.ID(aiSettingsHits, "ai-set-import-apply")
+	hitAISetImportClose       = tree.ID(aiSettingsHits, "ai-set-import-close")
+	hitAISetImportList        = tree.ID(aiSettingsHits, "ai-set-import-list")            // scroll state and group hit
+	hitAISetImportRow         = tree.Sub(aiSettingsHits, tree.Name("ai-set-import-row")) // select, per candidate
 	hitAISetFormDismiss       = tree.ID(aiSettingsHits, "ai-set-form-dismiss")
 	hitAISetFormClose         = tree.ID(aiSettingsHits, "ai-set-form-close")
 	hitAISetFormCancel        = tree.ID(aiSettingsHits, "ai-set-form-cancel")
 	hitAISetFormSubmit        = tree.ID(aiSettingsHits, "ai-set-form-submit")
 	hitAISetFormKindOpenAI    = tree.ID(aiSettingsHits, "ai-set-form-kind-open-ai")
 	hitAISetFormKindClaude    = tree.ID(aiSettingsHits, "ai-set-form-kind-claude")
+	hitAISetFormAuthAPIKey    = tree.ID(aiSettingsHits, "ai-set-form-auth-api-key")
+	hitAISetFormAuthBearer    = tree.ID(aiSettingsHits, "ai-set-form-auth-bearer")
 	hitAISetFormPreset        = tree.ID(aiSettingsHits, "ai-set-form-preset")
 	hitAISetFormPresetDismiss = tree.ID(aiSettingsHits, "ai-set-form-preset-dismiss")
 	hitAISetFormPresetItems   = tree.Sub(aiSettingsHits, tree.Name("ai-set-form-preset-item"))
@@ -106,6 +117,7 @@ const (
 	aiDialogDelete
 	aiDialogClear
 	aiDialogCLILogin
+	aiDialogImport
 )
 
 // aiCopyState is what the "copy client configuration" button last did.
@@ -140,6 +152,7 @@ type aiSettingsUI struct {
 	baseURL    text.Editor
 	apiKey     text.Editor
 	cliPath    text.Editor
+	authStyle  string // Anthropic only; empty means the API key default
 	hadKey     bool
 	formErr    string
 	// deleteID is the provider the delete question is about.
@@ -164,6 +177,15 @@ type aiSettingsUI struct {
 	mcpPreviewLines []string
 	tokenReset      bool
 	loadPosted      bool // the first load was queued from a paint
+
+	// The provider import dialog. The candidates carry credentials until the
+	// dialog closes or the import ends; only key presence is ever painted.
+	importStep       aiImportStep
+	importSources    []aiproviderimport.SourceInfo
+	importCandidates []aiproviderimport.Candidate
+	importSelected   map[int]bool
+	importErr        string
+	importResult     aiImportResult
 }
 
 func (state *State) aiSettingsVisible() bool {
@@ -204,6 +226,8 @@ func (state *State) aiSettingsClick(id ui.ID) bool {
 		}
 	case id == hitAISetProviderAdd:
 		state.aiOpenProviderForm("")
+	case id == hitAISetProviderImport:
+		state.aiOpenImport()
 	case id.Scope() == hitAISetProviderRow:
 		index, _ := id.In(hitAISetProviderRow)
 		state.aiSelectProvider(index)
@@ -338,6 +362,14 @@ func (state *State) aiDialogClick(id ui.ID) {
 				return
 			}
 			cfg.kind = store.KindAnthropic
+		case hitAISetFormAuthAPIKey:
+			if cfg.kind == store.KindAnthropic {
+				cfg.authStyle = store.AuthStyleAPIKey
+			}
+		case hitAISetFormAuthBearer:
+			if cfg.kind == store.KindAnthropic {
+				cfg.authStyle = store.AuthStyleBearer
+			}
 		}
 	case aiDialogDelete:
 		switch id {
@@ -355,6 +387,43 @@ func (state *State) aiDialogClick(id ui.ID) {
 			state.aiCloseDialog()
 			state.aiClearHistory()
 		}
+	case aiDialogImport:
+		state.aiImportDialogClick(id)
+	}
+}
+
+// aiImportDialogClick handles the import dialog's three steps.
+func (state *State) aiImportDialogClick(id ui.ID) {
+	cfg := &state.ai.cfg
+	switch cfg.importStep {
+	case aiImportSources:
+		switch {
+		case id == hitAISetFormDismiss || id == hitAISetFormClose || id == hitAISetImportClose:
+			state.aiCloseDialog()
+		case id.Scope() == hitAISetImportSource:
+			if index, ok := id.In(hitAISetImportSource); ok {
+				state.aiImportUseSource(index)
+			}
+		case id == hitAISetImportChoose:
+			state.aiImportChooseFile()
+		}
+	case aiImportPreview:
+		switch {
+		case id == hitAISetFormDismiss || id == hitAISetFormClose:
+			state.aiCloseDialog()
+		case id == hitAISetImportBack:
+			state.aiImportBack()
+		case id == hitAISetImportApply:
+			state.aiImportApply()
+		case id.Scope() == hitAISetImportRow:
+			if index, ok := id.In(hitAISetImportRow); ok {
+				state.aiImportToggle(index)
+			}
+		}
+	case aiImportDone:
+		if id == hitAISetFormDismiss || id == hitAISetFormClose || id == hitAISetImportClose {
+			state.aiCloseDialog()
+		}
 	}
 }
 
@@ -364,7 +433,12 @@ func (state *State) aiCloseDialog() {
 	cfg := &state.ai.cfg
 	cfg.dialog, cfg.editID, cfg.deleteID, cfg.formErr, cfg.hadKey, cfg.presetOpen = aiDialogNone, "", "", "", false, false
 	cfg.name, cfg.baseURL, cfg.apiKey = text.Editor{}, text.Editor{}, text.Editor{}
-	cfg.cliPath = text.Editor{}
+	cfg.cliPath, cfg.authStyle = text.Editor{}, ""
+	// The import candidates hold credentials in memory; closing the dialog is
+	// also how they are forgotten.
+	cfg.importStep, cfg.importErr = aiImportSources, ""
+	cfg.importSources, cfg.importCandidates, cfg.importSelected = nil, nil, nil
+	cfg.importResult = aiImportResult{}
 }
 
 func (state *State) aiSettingsPointer(event ui.PointerEvent) (ui.EventResult, bool) {
@@ -410,6 +484,7 @@ func (state *State) aiSettingsKey(event ui.KeyEvent) (ui.EventResult, bool) {
 		return ui.EventResult{Focus: aiMCPClientID(cfg.mcpClient), FocusVisible: true, Handled: true, Repaint: true}, true
 	}
 	var kind [2]components.SegmentOption
+	var auth [2]components.SegmentOption
 	var risks [3]components.SegmentOption
 	var steps [3]components.SegmentOption
 	var lines [4]components.SegmentOption
@@ -418,6 +493,9 @@ func (state *State) aiSettingsKey(event ui.KeyEvent) (ui.EventResult, bool) {
 	case hitAISetFormKindOpenAI, hitAISetFormKindClaude:
 		kind = state.aiKindOptions()
 		options = kind[:]
+	case hitAISetFormAuthAPIKey, hitAISetFormAuthBearer:
+		auth = state.aiAuthOptions()
+		options = auth[:]
 	case hitAISetRiskLow, hitAISetRiskMedium, hitAISetRiskHigh:
 		risks = state.aiRiskOptions()
 		options = risks[:]
@@ -467,6 +545,16 @@ func (state *State) aiKindOptions() [2]components.SegmentOption {
 	return [...]components.SegmentOption{
 		{ID: hitAISetFormKindOpenAI, Label: m.ProviderKindOpenAI},
 		{ID: hitAISetFormKindClaude, Label: m.ProviderKindClaude},
+	}
+}
+
+// aiAuthOptions is the Anthropic request-header choice. It is shown only for
+// Anthropic: an OpenAI-compatible endpoint is always bearer.
+func (state *State) aiAuthOptions() [2]components.SegmentOption {
+	m := state.messages.AISettings
+	return [...]components.SegmentOption{
+		{ID: hitAISetFormAuthAPIKey, Label: m.FormAuthAPIKey},
+		{ID: hitAISetFormAuthBearer, Label: m.FormAuthBearer},
 	}
 }
 
@@ -595,7 +683,9 @@ func (state *State) aiOpenProviderForm(id string) {
 	state.aiCloseDialog()
 	cfg.dialog, cfg.kind, cfg.preset = aiDialogProvider, store.KindOpenAI, aiPresetCustom
 	cfg.name.Restrict(printableLine, 64)
-	cfg.baseURL.Restrict(printableLine, 300)
+	// The importer accepts a base URL up to MaxURLRunes; the editor must not
+	// silently shorten such a provider when it is opened for an unrelated edit.
+	cfg.baseURL.Restrict(printableLine, aiproviderimport.MaxURLRunes)
 	cfg.apiKey.Restrict(printableLine, 600)
 	cfg.cliPath.Restrict(printableLine, 4096)
 	if id == "" {
@@ -607,6 +697,7 @@ func (state *State) aiOpenProviderForm(id string) {
 		return
 	}
 	cfg.editID, cfg.kind, cfg.hadKey = provider.ID, provider.Kind, provider.HasKey
+	cfg.authStyle = provider.AuthStyle
 	cfg.name.Insert(provider.Name)
 	cfg.baseURL.Insert(provider.BaseURL)
 	cfg.cliPath.Insert(provider.CLIPath)
@@ -661,6 +752,8 @@ func (state *State) aiSubmitProvider() {
 	provider := store.Provider{ID: cfg.editID, Name: name, Kind: cfg.kind, BaseURL: base, APIKey: key, HasKey: key != "", Enabled: true}
 	if cliProvider {
 		provider.CLIPath = strings.TrimSpace(cfg.cliPath.String())
+	} else if cfg.kind == store.KindAnthropic {
+		provider.AuthStyle = cfg.authStyle
 	}
 	// A new provider, or one reached differently, has models nobody has listed yet.
 	refetch := cfg.editID == ""

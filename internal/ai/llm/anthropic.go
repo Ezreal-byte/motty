@@ -42,9 +42,16 @@ func anthropicBase(raw string) (string, error) {
 
 func (p *anthropic) headers(r *http.Request) {
 	r.Header.Set("anthropic-version", anthropicVersion)
-	if p.key != "" {
-		r.Header.Set("x-api-key", p.key)
+	if p.key == "" {
+		return
 	}
+	// Exactly one credential header: relays that accept only a bearer token
+	// reject a request that also carries x-api-key.
+	if p.authStyle == AuthStyleBearer {
+		r.Header.Set("Authorization", "Bearer "+p.key)
+		return
+	}
+	r.Header.Set("x-api-key", p.key)
 }
 
 type anBlock struct {
