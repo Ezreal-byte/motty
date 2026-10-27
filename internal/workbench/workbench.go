@@ -924,6 +924,9 @@ func (state *State) EditorFor(hit ui.ID) *text.Editor {
 			return &state.knownHosts.search
 		}
 	case modalNewHost:
+		if hit == hitDialogTags {
+			return &state.hostTagPicker().control.Query
+		}
 		if isDialogField(hit) {
 			if state.editor.colorPicker.open {
 				return nil
@@ -1477,6 +1480,9 @@ func (state *State) reconnect(session *Session) {
 // clickHostDialog handles the New Host dialog. Clicks on its fields only move
 // focus, which the runtime already did; clicks anywhere else are swallowed.
 func (state *State) clickHostDialog(id ui.ID) {
+	if state.clickHostTags(id) {
+		return
+	}
 	if state.clickHostColorPicker(id) {
 		return
 	}
@@ -1719,6 +1725,19 @@ func (state *State) Pointer(event ui.PointerEvent) (outcome ui.EventResult) {
 }
 
 func (state *State) pointer(event ui.PointerEvent) ui.EventResult {
+	if state.modal == modalNewHost && state.editor.tagPicker.control.Open {
+		// A press outside the open tag picker closes only the picker. The
+		// popup is painted inside the form's scroll area, so its dismiss
+		// backdrop is clipped to that area and cannot own a press that lands
+		// anywhere else; the press is swallowed here so the dialog stays.
+		if event.Kind == ui.PointerDown && event.Button == ui.PointerButtonPrimary && !isHostTagsTarget(event.Target) {
+			state.editor.tagPicker.control.Open = false
+			return ui.EventResult{Handled: true, Repaint: true}
+		}
+		if result := state.editor.tagPicker.control.Pointer(event); result.Handled {
+			return result
+		}
+	}
 	if result := state.hostFormPointer(event); result.Handled {
 		return result
 	}
@@ -1741,6 +1760,17 @@ func (state *State) pointer(event ui.PointerEvent) ui.EventResult {
 		return result
 	}
 	return ui.EventResult{}
+}
+
+// isHostTagsTarget reports whether a press belongs to the open tag picker.
+func isHostTagsTarget(id ui.ID) bool {
+	switch {
+	case id == hitDialogTags, id == hitHostTagsTrigger, id == hitHostTagsScroll:
+		return true
+	case id.Scope() == hitHostTagOptions, id.Scope() == hitHostTagRemove:
+		return true
+	}
+	return false
 }
 
 // isDialogField reports whether a hit is one of the New Host dialog's text fields.
@@ -1791,6 +1821,9 @@ func (state *State) Key(event ui.KeyEvent) (outcome ui.EventResult) {
 }
 
 func (state *State) key(event ui.KeyEvent) ui.EventResult {
+	if result, handled := state.hostTagsKey(event); handled {
+		return result
+	}
 	if result := state.hostPickerKey(event); result.Handled {
 		return result
 	}
