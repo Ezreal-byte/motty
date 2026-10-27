@@ -159,7 +159,7 @@ check_release_body() {
 		return 1
 	fi
 	body=$(gh release view "$tag" --json body --jq .body)
-	if [ "$(gh release view "$tag" --json title --jq .title)" != "Motty $tag" ]; then
+	if [ "$(gh release view "$tag" --json name --jq .name)" != "Motty $tag" ]; then
 		echo "the release title is not \"Motty $tag\"" >&2
 		return 1
 	fi
@@ -189,10 +189,12 @@ if [ -n "$verify_tag" ]; then
 	[ -n "$expect_viva" ] || { echo "--verify needs --expect-viva <sha>: the notes and the build must name the same frame" >&2; exit 2; }
 	version=$(manifest_version)
 	[ -n "$version" ] || { echo "no version in viva.toml" >&2; exit 1; }
+	# The body is cheap to read and the assets are not: refuse a release whose
+	# notes or title are wrong before downloading the matrix.
+	check_release_body "$verify_tag" "$expect_viva"
 	scratch=$(mktemp -d)
 	trap 'rm -rf "$scratch"' EXIT
 	gh release download "$verify_tag" --dir "$scratch"
-	check_release_body "$verify_tag" "$expect_viva"
 	check_release_dir "$scratch" "$version"
 	if [ "$(gh release view "$verify_tag" --json isDraft --jq .isDraft)" = true ]; then
 		echo "== draft $verify_tag verified; publishing it is the last step"
