@@ -1038,8 +1038,10 @@ var chineseAISettings = AISettingsMessages{
 }
 var chineseTools = ToolsMessages{
 	SchemeGroup:       "终端配色",
-	SchemeDescription: "终端的背景、文字和十六种命名颜色。窗口其余部分仍使用自己的主题。",
+	SchemeDescription: "终端的背景、文字和十六种命名颜色。深色和浅色外观各记住一套，切换外观时终端自动换用。",
 	SchemeDefault:     "默认",
+	SchemeLookDark:    "正在设置：深色外观",
+	SchemeLookLight:   "正在设置：浅色外观",
 
 	HighlightGroup:              "关键字高亮",
 	HighlightBuiltin:            "常见词",

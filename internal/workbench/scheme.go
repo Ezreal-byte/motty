@@ -4,9 +4,10 @@ import "github.com/vivaui/viva/ui"
 
 // A terminal color scheme is the terminal's own look: its background and text,
 // the cursor and the sixteen named colors. It does not touch the window around
-// the terminal, so a light scheme can sit in a dark window and the other way
-// round. The first scheme, Default, is whatever the application palette already
-// uses.
+// the terminal. The dark and the light look of the window each keep a scheme of
+// their own, so the terminal changes with the window; a light scheme can still
+// be chosen for the dark look and the other way round. The first scheme,
+// Default, is whatever the application palette already uses.
 
 type colorScheme struct {
 	id         string
@@ -144,13 +145,35 @@ func normalizeSchemeID(id string) string {
 	return defaultSchemeID
 }
 
+// activeScheme is the scheme the terminal wears in the look that is showing.
+func (state *State) activeScheme() string {
+	return state.terminalSchemes[state.appearance]
+}
+
+// migrateTerminalScheme places the single scheme an earlier release saved. It
+// sat in the terminal whatever the window looked like, so it goes to the look
+// its own background suits and the other look keeps Default: nothing changes
+// on screen until the user switches.
+func migrateTerminalScheme(id string) (dark, light string) {
+	dark, light = defaultSchemeID, defaultSchemeID
+	scheme, ok := schemeByID(id)
+	switch {
+	case !ok:
+	case luminance(scheme.background) < 0.5:
+		dark = id
+	default:
+		light = id
+	}
+	return dark, light
+}
+
 // rebuildTerminalLook derives the terminal's palette from the window palette,
 // the chosen scheme and the highlight rules, and starts a new epoch so every
 // prepared line is built again with it.
 func (state *State) rebuildTerminalLook() {
 	look := *state.pal
 	look.termFG = look.text
-	if scheme, ok := schemeByID(state.terminalScheme); ok {
+	if scheme, ok := schemeByID(state.activeScheme()); ok {
 		look.dark = luminance(scheme.background) < 0.5
 		look.terminal = ui.RGB(scheme.background[0], scheme.background[1], scheme.background[2])
 		look.termFG = ui.RGB(scheme.foreground[0], scheme.foreground[1], scheme.foreground[2])
@@ -169,10 +192,10 @@ func luminance(c [3]uint8) float32 {
 
 func (state *State) setTerminalScheme(id string) bool {
 	id = normalizeSchemeID(id)
-	if state.terminalScheme == id {
+	if state.activeScheme() == id {
 		return false
 	}
-	state.terminalScheme = id
+	state.terminalSchemes[state.appearance] = id
 	state.rebuildTerminalLook()
 	return true
 }
@@ -214,7 +237,12 @@ func (state *State) paintSchemeSettings(page *settingsPage) {
 	page.group(m.SchemeGroup, func() {
 		page.rows++
 		f.Column().PadSides(14, 18, 22, 18).Children(func() {
-			f.Text(m.SchemeDescription).FontSize(metrics.FontSizeS).Color(pal.muted).LineHeight(20).MarginSides(0, 0, 14, 0)
+			f.Text(m.SchemeDescription).FontSize(metrics.FontSizeS).Color(pal.muted).LineHeight(20).MarginSides(0, 0, 6, 0)
+			look := m.SchemeLookDark
+			if state.appearance == appearanceLight {
+				look = m.SchemeLookLight
+			}
+			f.Text(look).FontSize(metrics.FontSizeS).Weight(ui.WeightSemibold).Color(pal.text).LineHeight(20).MarginSides(0, 0, 14, 0)
 			for row := 0; row < rows; row++ {
 				f.Row().Height(schemeCardHeight).Gap(schemeCardGap).MarginSides(0, 0, schemeCardGap, 0).Children(func() {
 					for column := 0; column < schemeColumns; column++ {
@@ -235,7 +263,7 @@ func (state *State) paintSchemeSettings(page *settingsPage) {
 func (state *State) declareScheme(page *settingsPage, index int) {
 	f, pal := page.f, state.pal
 	id, name, scheme := state.schemeAt(index)
-	selected := state.terminalScheme == id
+	selected := state.activeScheme() == id
 	background, foreground, swatches := pal.terminal, pal.text, [4]ui.Color{pal.danger, pal.success, pal.warning, pal.accent}
 	if scheme != nil {
 		background = ui.RGB(scheme.background[0], scheme.background[1], scheme.background[2])

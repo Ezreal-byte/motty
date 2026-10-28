@@ -134,8 +134,8 @@ func (state *State) diagnosticReport() string {
 	report.Section("Settings")
 	report.Fact("language", orDefault(saved.Language, "automatic"))
 	report.Fact("theme", orDefault(saved.Theme, "system"))
-	report.Fact("terminal", fmt.Sprintf("%s %s %dpx %q scheme=%s padding=%s scrollback=%d",
-		saved.TerminalOption, saved.TerminalFontFace, saved.TerminalFontSize, saved.TerminalFontFamily, saved.TerminalScheme, saved.TerminalPadding, saved.TerminalScrollback))
+	report.Fact("terminal", fmt.Sprintf("%s %s %dpx %q scheme=%s/%s padding=%s scrollback=%d",
+		saved.TerminalOption, saved.TerminalFontFace, saved.TerminalFontSize, saved.TerminalFontFamily, saved.TerminalSchemeDark, saved.TerminalSchemeLight, saved.TerminalPadding, saved.TerminalScrollback))
 	report.Fact("clipboard", saved.TerminalClipboard)
 	report.Fact("connection", fmt.Sprintf("timeout=%ds keepalive=%ds reconnect=%s restore=%s share=%s",
 		saved.ConnectionTimeoutSeconds, saved.ConnectionKeepAliveSeconds, saved.ConnectionReconnect, saved.RestoreConnect, saved.ShareConnections))

@@ -7,6 +7,8 @@ type ToolsMessages struct {
 	SchemeGroup       string
 	SchemeDescription string
 	SchemeDefault     string
+	SchemeLookDark    string
+	SchemeLookLight   string
 
 	// Keyword highlighting.
 	HighlightGroup              string

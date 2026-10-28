@@ -97,8 +97,8 @@ func TestSchemeChangesTheTerminalNotTheWindow(t *testing.T) {
 
 	state.Click(hitSettings)
 	state.Click(hitSettingsSchemeList.At(1)) // Dracula, the first after Default
-	if state.terminalScheme != "dracula" {
-		t.Fatalf("scheme = %q", state.terminalScheme)
+	if state.activeScheme() != "dracula" {
+		t.Fatalf("scheme = %q", state.activeScheme())
 	}
 	if state.termPal.terminal == dark || state.termPal.terminal != ui.RGB(0x28, 0x2a, 0x36) {
 		t.Errorf("terminal background = %v", state.termPal.terminal)
@@ -128,12 +128,64 @@ func TestSchemeChangesTheTerminalNotTheWindow(t *testing.T) {
 
 	// It is kept, and Default comes back with the first card.
 	restarted := newTestState(t, options)
-	if restarted.terminalScheme != "dracula" {
-		t.Fatalf("restored scheme = %q", restarted.terminalScheme)
+	if restarted.activeScheme() != "dracula" {
+		t.Fatalf("restored scheme = %q", restarted.activeScheme())
 	}
 	state.Click(hitSettingsSchemeList.At(0))
-	if state.terminalScheme != defaultSchemeID || state.termPal.terminal != state.pal.terminal {
-		t.Errorf("default scheme: %q, %v", state.terminalScheme, state.termPal.terminal)
+	if state.activeScheme() != defaultSchemeID || state.termPal.terminal != state.pal.terminal {
+		t.Errorf("default scheme: %q, %v", state.activeScheme(), state.termPal.terminal)
+	}
+}
+
+func TestEachLookKeepsItsOwnTerminalScheme(t *testing.T) {
+	_, options := newWorld(t)
+	state := newTestState(t, options)
+	if state.appearance != appearanceDark {
+		t.Fatal("the window opens dark")
+	}
+
+	state.Click(hitSettings)
+	state.Click(hitSettingsSchemeList.At(1)) // Dracula for the dark look
+	darkTerminal := state.termPal.terminal
+
+	state.Click(hitTheme) // the window turns light and so does the terminal
+	if state.appearance != appearanceLight || state.activeScheme() != defaultSchemeID {
+		t.Fatalf("light look: %v scheme %q", state.appearance, state.activeScheme())
+	}
+	if state.termPal.terminal == darkTerminal || state.termPal.terminal != state.pal.terminal {
+		t.Errorf("the terminal stayed %v in a light window", state.termPal.terminal)
+	}
+	state.Click(hitSettingsSchemeList.At(schemeCount - 1)) // One Light
+
+	state.Click(hitTheme)
+	if state.activeScheme() != "dracula" || state.termPal.terminal != darkTerminal {
+		t.Errorf("dark look came back as %q %v", state.activeScheme(), state.termPal.terminal)
+	}
+
+	restarted := newTestState(t, options)
+	if restarted.terminalSchemes != [2]string{"dracula", "one-light"} {
+		t.Errorf("restored schemes = %q", restarted.terminalSchemes)
+	}
+}
+
+func TestASchemeSavedBeforeLooksHadOneGoesToTheLookItSuits(t *testing.T) {
+	for _, test := range []struct {
+		saved       string
+		dark, light string
+	}{
+		{"dracula", "dracula", defaultSchemeID},
+		{"github-light", defaultSchemeID, "github-light"},
+		{"default", defaultSchemeID, defaultSchemeID},
+		{"no-such-scheme", defaultSchemeID, defaultSchemeID},
+	} {
+		_, options := newWorld(t)
+		if err := saveState(options.StatePath, savedState{Hosts: sampleHosts, TerminalScheme: test.saved}); err != nil {
+			t.Fatal(err)
+		}
+		state := newTestState(t, options)
+		if got := state.terminalSchemes; got != [2]string{test.dark, test.light} {
+			t.Errorf("%q restored as %q", test.saved, got)
+		}
 	}
 }
 
@@ -279,8 +331,8 @@ func TestADamagedStateFileCannotInstallAnUnusableRuleOrSnippet(t *testing.T) {
 	if len(state.snippets.list) != 1 || state.snippets.list[0].Command != "[2Jls" {
 		t.Errorf("snippets = %+v: control characters must not survive into keystrokes", state.snippets.list)
 	}
-	if state.terminalScheme != defaultSchemeID {
-		t.Errorf("scheme = %q", state.terminalScheme)
+	if state.activeScheme() != defaultSchemeID {
+		t.Errorf("scheme = %q", state.activeScheme())
 	}
 }
 

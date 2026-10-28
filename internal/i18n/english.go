@@ -1038,8 +1038,10 @@ var englishAISettings = AISettingsMessages{
 }
 var englishTools = ToolsMessages{
 	SchemeGroup:       "Terminal colors",
-	SchemeDescription: "The terminal's background, text and the sixteen named colors. The window around it keeps its own theme.",
+	SchemeDescription: "The terminal's background, text and the sixteen named colors. The dark and light looks each keep their own, and the terminal switches with the window.",
 	SchemeDefault:     "Default",
+	SchemeLookDark:    "Editing: dark look",
+	SchemeLookLight:   "Editing: light look",
 
 	HighlightGroup:              "Keyword highlighting",
 	HighlightBuiltin:            "Common words",

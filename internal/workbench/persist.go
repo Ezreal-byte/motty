@@ -48,7 +48,9 @@ type savedState struct {
 	WindowY                    int                 `json:"window_y,omitempty"`
 	WindowWidth                int                 `json:"window_width,omitempty"`
 	WindowHeight               int                 `json:"window_height,omitempty"`
-	TerminalScheme             string              `json:"terminal_scheme,omitempty"`
+	TerminalScheme             string              `json:"terminal_scheme,omitempty"` // read only: before the scheme was kept per look
+	TerminalSchemeDark         string              `json:"terminal_scheme_dark,omitempty"`
+	TerminalSchemeLight        string              `json:"terminal_scheme_light,omitempty"`
 	TerminalPadding            string              `json:"terminal_padding,omitempty"`
 	TerminalGutter             string              `json:"terminal_gutter,omitempty"`
 	TerminalNotifications      string              `json:"terminal_notifications,omitempty"`
@@ -331,7 +333,8 @@ func (state *State) snapshot() savedState {
 		TerminalClipboard:          state.terminalClipboard.String(),
 		TerminalCursorSteady:       state.terminalCursorSteady,
 		AIPanelWidth:               state.ai.panelWidth,
-		TerminalScheme:             state.terminalScheme,
+		TerminalSchemeDark:         state.terminalSchemes[appearanceDark],
+		TerminalSchemeLight:        state.terminalSchemes[appearanceLight],
 		TerminalPadding:            state.terminalPad.String(),
 		TerminalGutter:             state.terminalGutter.String(),
 		TerminalNotifications:      notifyString(state.notifyOff),
@@ -590,7 +593,12 @@ func (state *State) restoreShared(saved savedState) {
 	state.connectionReconnect = reconnectPolicyFromString(saved.ConnectionReconnect)
 	state.terminalClipboard = terminalClipboardPolicyFromString(saved.TerminalClipboard)
 	state.terminalCursorSteady = saved.TerminalCursorSteady
-	state.terminalScheme = normalizeSchemeID(saved.TerminalScheme)
+	if saved.TerminalSchemeDark == "" && saved.TerminalSchemeLight == "" && saved.TerminalScheme != "" {
+		state.terminalSchemes[appearanceDark], state.terminalSchemes[appearanceLight] = migrateTerminalScheme(saved.TerminalScheme)
+	} else {
+		state.terminalSchemes[appearanceDark] = normalizeSchemeID(saved.TerminalSchemeDark)
+		state.terminalSchemes[appearanceLight] = normalizeSchemeID(saved.TerminalSchemeLight)
+	}
 	state.terminalPad = terminalPadFromString(saved.TerminalPadding)
 	state.terminalGutter = terminalGutterFromString(saved.TerminalGutter)
 	state.notifyOff = saved.TerminalNotifications == "off"

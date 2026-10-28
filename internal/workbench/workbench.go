@@ -574,10 +574,12 @@ type State struct {
 	theme            ui.Theme
 	// termPal is the terminal's own look: pal with the chosen color scheme and
 	// the highlight rules applied. termEpoch counts its rebuilds.
-	termPal        palette
-	termEpoch      uint16
-	terminalScheme string
-	terminalPad    terminalPad
+	termPal   palette
+	termEpoch uint16
+	// terminalSchemes is the terminal color scheme of each look, indexed by
+	// appearance: the terminal follows the window between light and dark.
+	terminalSchemes [2]string
+	terminalPad     terminalPad
 	// terminalGutter is the per-line number/time strip; wallClock overrides the
 	// time source it stamps lines with.
 	terminalGutter terminalGutter
@@ -743,7 +745,7 @@ func New(options Options) *State {
 		sftpParallel:       DefaultSFTPParallel,
 		terminalClipboard:  defaultTerminalClipboard,
 		shortcuts:          defaultShortcuts(),
-		terminalScheme:     defaultSchemeID,
+		terminalSchemes:    [2]string{defaultSchemeID, defaultSchemeID},
 		syncDelay:          syncDelayDefault,
 		syncRetryBase:      syncRetryBaseDefault,
 		update:             updateState{firstDelay: updateFirstDelayDefault, every: updateIntervalDefault},
