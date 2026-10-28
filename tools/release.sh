@@ -19,7 +19,7 @@
 # runs the file checks on a directory, for tests and for looking at a build
 # before it is uploaded.
 #
-# The packages come from REF (default HEAD), built in a temporary worktree so
+# The packages come from REF (default HEAD), built in a clean temporary clone so
 # uncommitted changes never leak in, with the sibling ../viva at its main branch
 # (--viva-ref picks another ref; the release workflow passes the exact commit it
 # resolved once, so every package of a release uses the same frame).
@@ -254,9 +254,12 @@ fi
 viva_repo=$(cd "$here/../viva" 2>/dev/null && pwd) || { echo "the Viva checkout is expected at ../viva" >&2; exit 1; }
 
 commit=$(git -C "$here" rev-parse --verify "$ref^{commit}")
+commit_time=$(git -C "$here" show -s --format=%cI "$commit")
 short=$(git -C "$here" rev-parse --short "$commit")
-version=$(sed -n 's/^version *= *"\([^"]*\)".*/\1/p' "$here/viva.toml" | head -1)
-[ -n "$version" ] || { echo "no version in viva.toml" >&2; exit 1; }
+# The version of the commit being packaged, not of the working tree: --ref may
+# name another commit while viva.toml is dirty or ahead.
+version=$(git -C "$here" show "$commit:viva.toml" 2>/dev/null | sed -n 's/^version *= *"\([^"]*\)".*/\1/p' | head -1)
+[ -n "$version" ] || { echo "no version in viva.toml at $short" >&2; exit 1; }
 if [ -n "$tag" ] && [ "$tag" != "v$version" ]; then
 	echo "the release tag is $tag but viva.toml says version $version: the tag must be v$version" >&2
 	exit 1
@@ -265,10 +268,13 @@ out=${out:-$here/build/release-$version}
 mkdir -p "$out"
 out=$(cd "$out" && pwd)
 [ -z "$installer" ] || [ -f "$installer" ] || { echo "no such installer: $installer" >&2; exit 1; }
+if [ -n "$installer" ] && [ -n "$tag" ]; then
+	echo "--installer cannot be uploaded: a release asset must be built and verified here" >&2
+	exit 1
+fi
 
 work=$(mktemp -d)
 cleanup() {
-	git -C "$here" worktree remove --force "$work/motty" 2>/dev/null || true
 	git -C "$viva_repo" worktree remove --force "$work/viva" 2>/dev/null || true
 	rm -rf "$work"
 }
@@ -276,23 +282,42 @@ trap cleanup EXIT
 
 echo "== Motty $version from $short ($platforms)"
 git -C "$viva_repo" worktree add -q --detach "$work/viva" "$viva_ref"
-git -C "$here" worktree add -q --detach "$work/motty" "$commit"
+# Go 1.26 does not discover a linked worktree's .git file when stamping VCS
+# information. A local shared clone has a real .git directory and the same
+# committed source, without downloading or copying the object database.
+git clone -q --shared --no-checkout "$here" "$work/motty"
+git -C "$work/motty" checkout -q --detach "$commit"
 (cd "$work/viva" && go build -o "$work/viva-cli" ./cmd/viva)
 
 cd "$work/motty"
-package() { "$work/viva-cli" package "$@" 2>&1 | sed 's/^/   /'; }
+build_package() {
+	local target=$1 arch=$2 program
+	shift 2
+	program="$work/program-$target-$arch/motty"
+	[ "$target" != windows ] || program="$program.exe"
+	# Build once, check the executable itself (including foreign targets), then
+	# package those same bytes. Explicit returns also work inside the Windows
+	# conditional below, where bash suppresses errexit inside called functions.
+	"$work/viva-cli" build --target "$target" --arch "$arch" -o "$program" || return
+	# Package uses a supplied program as it is, signature included, so the
+	# Windows executable is signed here, before the check reads its bytes.
+	[ "$target" != windows ] || "$work/viva-cli" sign --target windows --program "$program" || return
+	go run ./tools/checkbuild -program "$program" -revision "$commit" -time "$commit_time" -target "$target" -arch "$arch" || return
+	"$work/viva-cli" package --target "$target" --arch "$arch" --program "$program" "$@"
+}
+package() { build_package "$@" 2>&1 | sed 's/^/   /'; }
 
 if want mac; then
 	echo "== macOS"
 	for arch in arm64 amd64; do
-		package --arch "$arch" -o "$work/mac-$arch/Motty.app" --format zip,dmg
+		package darwin "$arch" -o "$work/mac-$arch/Motty.app" --format zip,dmg
 		cp "$work/mac-$arch/"motty-*.zip "$work/mac-$arch/"motty-*.dmg "$out/"
 	done
 fi
 if want linux; then
 	echo "== Linux"
 	for arch in amd64 arm64; do
-		package --target linux --arch "$arch" --format tar.gz,deb -o "$out"
+		package linux "$arch" --format tar.gz,deb -o "$out"
 	done
 fi
 if want windows; then
@@ -301,11 +326,12 @@ if want windows; then
 		if [ -n "$installer" ] && [ "$arch" = amd64 ]; then
 			cp "$installer" "$out/"
 			echo "   Windows amd64 installer copied from $installer"
-		elif "$work/viva-cli" package --target windows --arch "$arch" --format nsis -o "$out" >"$work/nsis-$arch.log" 2>&1; then
+		elif package windows "$arch" --format nsis -o "$out" 2>&1 | tee "$work/nsis-$arch.log"; then
 			echo "   Windows $arch installer built"
 		else
 			echo "   no Windows $arch installer: $(tail -1 "$work/nsis-$arch.log" | cut -c1-110)"
 			echo "   (makensis needs to work; a prebuilt amd64 installer can be passed with --installer)"
+			[ "$strict" != 1 ] || exit 1
 		fi
 	done
 fi

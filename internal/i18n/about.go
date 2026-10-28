@@ -7,13 +7,13 @@ type AboutMessages struct {
 
 	Tagline string
 
-	// The facts of the build. BuildDevelopment stands in for the commit when
+	// The facts of the build. BuildUnavailable stands in for the commit when
 	// this copy was built without one.
 	InfoTitle        string
 	Version          string
 	Platform         string
 	Build            string
-	BuildDevelopment string
+	BuildUnavailable string
 	Runtime          string
 
 	// Copying those facts for a bug report.
