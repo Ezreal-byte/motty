@@ -93,7 +93,9 @@ func newDeps(repo string) deps {
 		// command's output here.
 		return strings.TrimSpace(stdout.String() + stderr.String()), nil
 	}
-	client := &http.Client{Timeout: 90 * time.Second}
+	// A release package is around ten megabytes and the mirror can be slow;
+	// the timeout has to cover the whole body, not a single read.
+	client := &http.Client{Timeout: 5 * time.Minute}
 	return deps{
 		gh: func(args ...string) (string, error) { return command("gh", args...) },
 		get: func(url string) ([]byte, error) {
