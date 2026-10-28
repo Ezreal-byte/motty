@@ -215,10 +215,70 @@ func TestOnlyAStandardUserInstallationReplacesItself(t *testing.T) {
 		{"linux system package", "/usr/bin/motty", Env{GOOS: "linux", Writable: writable}, KindNone, ReasonSystemInstall},
 		{"other system", "/x/motty", Env{GOOS: "plan9"}, KindNone, ReasonNotUserInstall},
 	} {
-		install, why := Detect(test.exe, test.env)
-		if install.Kind != test.kind || why != test.why {
-			t.Errorf("%s: %v %v, want %v %v", test.name, install.Kind, why, test.kind, test.why)
-		}
+		t.Run(test.name, func(t *testing.T) {
+			if runtime.GOOS == "windows" && test.env.GOOS == "linux" {
+				t.Skip("Linux absolute paths require POSIX filepath semantics")
+			}
+			install, why := Detect(test.exe, test.env)
+			if install.Kind != test.kind || why != test.why {
+				t.Errorf("%v %v, want %v %v", install.Kind, why, test.kind, test.why)
+			}
+		})
+	}
+}
+
+func TestCustomWindowsInstallsUseRegistrationAndWriteAccess(t *testing.T) {
+	base := t.TempDir()
+	local := filepath.Join(base, "AppData", "Local")
+	standard := filepath.Join(local, "Programs", "Motty")
+	custom := filepath.Join(base, "Other drive", "Program Files", "motty")
+	programFiles := filepath.Join(base, "System Program Files")
+	protected := filepath.Join(programFiles, "Motty")
+	for _, test := range []struct {
+		name, dir, user, machine string
+		uninstaller, writable    bool
+		why                      Reason
+	}{
+		{"legacy default", standard, "", "", true, true, ReasonNone},
+		{"registered default", standard, standard, "", true, true, ReasonNone},
+		{"registered custom", custom, custom, "", true, true, ReasonNone},
+		{"case and trailing separator", custom, strings.ToUpper(custom) + string(filepath.Separator), "", true, true, ReasonNone},
+		{"custom without registration", custom, "", "", true, true, ReasonNotUserInstall},
+		{"copied installation", custom, standard, "", true, true, ReasonNotUserInstall},
+		{"default copy registered elsewhere", standard, custom, "", true, true, ReasonNotUserInstall},
+		{"child of registered directory", filepath.Join(custom, "copy"), custom, "", true, true, ReasonNotUserInstall},
+		{"missing uninstaller", custom, custom, "", false, true, ReasonNotUserInstall},
+		{"read only custom", custom, custom, "", true, false, ReasonNotWritable},
+		{"writable per user in Program Files", protected, protected, "", true, true, ReasonNone},
+		{"read only per user in Program Files", protected, protected, "", true, false, ReasonNotWritable},
+		{"unregistered Program Files", protected, "", "", true, true, ReasonSystemInstall},
+		{"all users custom", custom, "", custom, true, true, ReasonSystemInstall},
+		{"all users takes precedence", custom, custom, custom, true, true, ReasonSystemInstall},
+		{"separate machine installation", custom, custom, protected, true, true, ReasonNone},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			env := Env{
+				GOOS: "windows", LocalAppData: local, ProgramFiles: []string{programFiles},
+				WindowsUserDir: test.user, WindowsMachineDir: test.machine,
+				Writable: func(dir string) bool {
+					if dir != test.dir {
+						t.Errorf("probed another directory: %s", dir)
+					}
+					return test.writable
+				},
+				Exists: func(path string) bool { return test.uninstaller && path == filepath.Join(test.dir, "Uninstall.exe") },
+			}
+			if test.dir == custom {
+				env.LocalAppData = ""
+			} // Custom installs do not depend on the default location.
+			install, why := Detect(filepath.Join(test.dir, "motty.exe"), env)
+			if why != test.why {
+				t.Fatalf("reason=%v, want %v", why, test.why)
+			}
+			if why == ReasonNone && (install.Kind != KindWindowsSetup || install.Root != test.dir) {
+				t.Fatalf("wrong target: %+v", install)
+			}
+		})
 	}
 }
 

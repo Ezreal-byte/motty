@@ -4,9 +4,9 @@
 // copy; then a helper that outlives the program swaps the files in place.
 //
 // Only installations the user owns are replaced: an application bundle in a
-// folder the user can write, the per-user Windows installer's directory, a Linux
-// prefix made by the archive's install.sh. Anything else (a .deb, Program
-// Files, a portable program) is left to the caller to send to the download page.
+// folder the user can write, a registered per-user Windows installation, a Linux
+// prefix made by the archive's install.sh. System-wide installations and portable
+// programs are left to the caller to send to the download page.
 package selfupdate
 
 import (
@@ -82,8 +82,12 @@ type Env struct {
 	GOOS         string
 	LocalAppData string   // %LOCALAPPDATA% on Windows
 	ProgramFiles []string // %ProgramFiles% and its variants
-	Writable     func(dir string) bool
-	Exists       func(path string) bool
+	// WindowsUserDir and WindowsMachineDir come from the NSIS uninstall entry
+	// for this application, in the same 64-bit registry view as the installer.
+	WindowsUserDir    string
+	WindowsMachineDir string
+	Writable          func(dir string) bool
+	Exists            func(path string) bool
 }
 
 // SystemEnv describes the machine this runs on.
@@ -94,8 +98,10 @@ func SystemEnv() Env {
 			programFiles = append(programFiles, dir)
 		}
 	}
+	userDir, machineDir := windowsInstallDirs()
 	return Env{
 		GOOS: runtime.GOOS, LocalAppData: os.Getenv("LOCALAPPDATA"), ProgramFiles: programFiles,
+		WindowsUserDir: userDir, WindowsMachineDir: machineDir,
 		Writable: writable, Exists: exists,
 	}
 }
@@ -149,15 +155,22 @@ func Detect(exe string, env Env) (Install, Reason) {
 		}
 		install.Kind, install.Root = KindMacApp, bundle
 	case "windows":
+		dir := filepath.Dir(exe)
+		registered := env.WindowsUserDir != "" && strings.EqualFold(filepath.Clean(dir), filepath.Clean(env.WindowsUserDir))
+		if env.WindowsMachineDir != "" && strings.EqualFold(filepath.Clean(dir), filepath.Clean(env.WindowsMachineDir)) {
+			return install, ReasonSystemInstall
+		}
 		for _, root := range env.ProgramFiles {
-			if root != "" && under(exe, root) {
+			if !registered && root != "" && under(exe, root) {
 				return install, ReasonSystemInstall
 			}
 		}
-		// %LOCALAPPDATA%\Programs\<Name>\<exe>, with the installer's uninstaller beside it.
-		dir := filepath.Dir(exe)
+		// A custom location must match the per-user installer's record, not
+		// merely contain a copied Uninstall.exe. Keep the old default-location
+		// detection only when no user installation is registered elsewhere.
 		programs := filepath.Join(env.LocalAppData, "Programs")
-		if env.LocalAppData == "" || !strings.EqualFold(filepath.Dir(dir), programs) || !env.Exists(filepath.Join(dir, "Uninstall.exe")) {
+		legacyDefault := env.WindowsUserDir == "" && env.LocalAppData != "" && strings.EqualFold(filepath.Dir(dir), programs)
+		if (!registered && !legacyDefault) || !env.Exists(filepath.Join(dir, "Uninstall.exe")) {
 			return install, ReasonNotUserInstall
 		}
 		if !env.Writable(dir) {

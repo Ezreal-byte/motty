@@ -264,8 +264,11 @@ signature alone, which is what lets Windows update without a code-signing
 certificate.
 
 Only a user-owned installation replaces itself (an app bundle in a writable folder,
-the per-user Windows installer, a Linux `install.sh` prefix). An installation the
-system owns — a distribution package, or a program under `Program Files` — is never
+the per-user Windows installer, a Linux `install.sh` prefix). On Windows, custom
+directories are recognised from the application's per-user uninstall registration
+and still require the uninstaller and write access. The helper passes that exact
+directory to the installer. An installation the
+system owns — a distribution package or an all-users Windows installation — is never
 replaced by the app: the dialog says to update it with the package manager or to run
 the new installer, and a portable copy is sent to the release page. No update path
 asks for administrator rights.

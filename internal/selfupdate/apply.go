@@ -89,12 +89,12 @@ func copyTree(src, dst string) error {
 	})
 }
 
-// applyWindows runs the installer silently. The installer reuses the directory
-// of the existing installation, and refuses to touch a program that still runs,
-// which the helper has already waited out.
+// applyWindows runs the installer silently in the detected installation's exact
+// directory. The helper has already waited for the running program to quit.
 func (job Job) applyWindows() error {
-	cmd := exec.Command(job.Staged, "/S")
+	cmd := exec.Command(job.Staged, "/S", "/D="+job.Root)
 	hide(cmd)
+	installerCommandLine(cmd, job.Root)
 	if output, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("the installer failed: %w %s", err, firstLine(string(output)))
 	}
