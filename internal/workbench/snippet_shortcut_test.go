@@ -17,8 +17,8 @@ func TestASnippetShortcutSendsItFromTheTerminalAndIsKeptOnThisDevice(t *testing.
 	shell := world.conns[0].shell(t)
 	chord := shortcutChord{Modifiers: ui.ModifierMeta | ui.ModifierShift, Key: '1'}
 
-	state.Click(hitSettings)
-	state.Click(hitSettingsSnippetAdd)
+	state.Click(hitSnippets)
+	state.Click(hitSnippetAdd)
 	typeInto(state, hitSnippetName, "Restart nginx")
 	typeInto(state, hitSnippetCommand, "systemctl restart nginx")
 	state.Click(hitSnippetShortcut)
@@ -43,9 +43,9 @@ func TestASnippetShortcutSendsItFromTheTerminalAndIsKeptOnThisDevice(t *testing.
 		t.Fatalf("saved shortcut = %+v", got)
 	}
 
-	// On the Settings page the chord must not type into a terminal that is out of sight.
+	// Away from the terminal the chord must not type into one that is out of sight.
 	if got := pressChord(state, chord); got.Handled || shell.typed() != "" {
-		t.Fatalf("settings page: handled=%v, shell heard %q", got.Handled, shell.typed())
+		t.Fatalf("snippets page: handled=%v, shell heard %q", got.Handled, shell.typed())
 	}
 	state.activeSection = sectionTerminal
 	if got := pressChord(state, chord); !got.Handled || shell.typed() != "systemctl restart nginx\r" {
@@ -67,7 +67,8 @@ func TestASnippetShortcutSendsItFromTheTerminalAndIsKeptOnThisDevice(t *testing.
 	if restarted := newTestState(t, options); len(restarted.snippets.list) != 1 || restarted.snippets.list[0].Shortcut != chord {
 		t.Fatalf("restored snippets = %+v", restarted.snippets.list)
 	}
-	state.Click(hitSnippetEditList.At(0))
+	state.Click(hitSnippets)
+	state.Click(hitSnippetEdit)
 	state.Click(hitSnippetShortcutOff)
 	state.Click(hitSnippetSubmit)
 	if got := pressChord(state, chord); got.Handled {
@@ -108,5 +109,25 @@ func TestResettingShortcutsUnbindsSnippetsTheyNowCollideWith(t *testing.T) {
 	state.Click(hitShortcutReset)
 	if state.snippets.list[0].Shortcut.valid() {
 		t.Fatalf("snippet kept a chord the palette now uses: %+v", state.snippets.list[0])
+	}
+}
+
+func TestSnippetsPageSteadyPaintDoesNotAllocate(t *testing.T) {
+	state := newTestState(t, testOptions(t))
+	state.snippets.list = []snippet{
+		{Name: "Restart nginx", Command: "systemctl restart nginx", Run: true, Shortcut: shortcutChord{Modifiers: ui.ModifierMeta | ui.ModifierShift, Key: '1'}},
+		{Name: "Disk", Command: "df -h"},
+	}
+	state.refreshSnippets()
+	state.activeSection = sectionSnippets
+	var canvas ui.Canvas
+	size := ui.Size{Width: 1400, Height: 900}
+	state.Paint(&canvas, size)
+	allocations := testing.AllocsPerRun(100, func() {
+		canvas.Reset()
+		state.Paint(&canvas, size)
+	})
+	if allocations != 0 {
+		t.Fatalf("snippets page paint allocations = %v", allocations)
 	}
 }

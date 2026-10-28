@@ -189,6 +189,8 @@ func (state *State) Paint(canvas *ui.Canvas, size ui.Size) {
 				state.paintSettingsWorkspace(canvas, workspace)
 			case sectionKnownHosts:
 				state.paintKnownHostsWorkspace(canvas, workspace)
+			case sectionSnippets:
+				state.paintSnippetsWorkspace(canvas, workspace)
 			default:
 				state.paintHostsWorkspace(canvas, workspace)
 			}
@@ -636,6 +638,7 @@ func (state *State) declareNavigation(f *flex.Frame) {
 		{hitProxies, iconGlobe, m.NavProxies, state.activeSection == sectionProxies},
 		{hitPortForwarding, iconForward, m.NavPortForwarding, state.activeSection == sectionForwards},
 		{hitKnownHosts, iconKnown, m.NavKnownHosts, state.activeSection == sectionKnownHosts},
+		{hitSnippets, iconPlay, m.NavSnippets, state.activeSection == sectionSnippets},
 	}
 	f.Column().Width(navigationWidth).Shrink(0).Children(func() {
 		// The logo with the name beside it, painted into this slot after layout.

@@ -32,7 +32,7 @@ func TestChromeHasOnlyTheControlsThatDoSomething(t *testing.T) {
 	// for a feature.
 	wanted := map[ui.ID]bool{
 		hitHosts: true, hitKeychain: true, hitProxies: true, hitPortForwarding: true,
-		hitKnownHosts: true, hitSettings: true, hitWindowSettings: true, hitWindowLocalTerminal: true, hitSearch: true, hitConnect: true,
+		hitKnownHosts: true, hitSnippets: true, hitSettings: true, hitWindowSettings: true, hitWindowLocalTerminal: true, hitSearch: true, hitConnect: true,
 		hitAddHost: true, hitHostFilterAll: true, hitImportMenu: true, hitTheme: true, hitHome: true, hitNewTab: true,
 		hitGitHub: true,
 	}

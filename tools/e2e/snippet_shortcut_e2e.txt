@@ -13,12 +13,10 @@ type secret
 key enter
 waitfor "tester@e2e" 8000
 
-click "Settings"
-waitfor "General" 3000
-click "Terminal"
-waitfor "Quick commands" 3000
-scroll 800 500 0 3000
-settle 300
+click "Hosts"
+click "Snippets"
+waitfor "No snippets" 3000
+shot /tmp/snippet-page-empty.png
 click "Add snippet"
 waitfor "Add a snippet" 3000
 type Say hello
@@ -36,7 +34,8 @@ layout
 shot /tmp/snippet-shortcut-bound.png
 click "Save"
 waitfor "Cmd+Shift+1" 3000
-shot /tmp/snippet-shortcut-settings.png
+layout
+shot /tmp/snippet-page.png
 
 # Back in the terminal, the chord sends the command and presses Enter.
 click "127.0.0.1:2222"

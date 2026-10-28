@@ -342,8 +342,8 @@ func TestSnippetsAreAddedEditedSentAndKept(t *testing.T) {
 	world.connectFirst(t, state)
 	shell := world.conns[0].shell(t)
 
-	state.Click(hitSettings)
-	state.Click(hitSettingsSnippetAdd)
+	state.Click(hitSnippets)
+	state.Click(hitSnippetAdd)
 	state.Click(hitSnippetSubmit)
 	if state.modal != modalSnippet || state.snippets.dialogError != state.messages.Tools.SnippetErrorName {
 		t.Fatalf("modal %d, error %q", state.modal, state.snippets.dialogError)
@@ -383,7 +383,7 @@ func TestSnippetsAreAddedEditedSentAndKept(t *testing.T) {
 	}
 
 	// Edited without Enter, it only types.
-	state.Click(hitSnippetEditList.At(0))
+	state.Click(hitSnippetEdit)
 	if state.modal != modalSnippet || state.snippets.name.String() != "Restart nginx" {
 		t.Fatalf("editing opened modal %d with name %q", state.modal, state.snippets.name.String())
 	}
@@ -397,7 +397,7 @@ func TestSnippetsAreAddedEditedSentAndKept(t *testing.T) {
 	if restarted := newTestState(t, options); len(restarted.snippets.list) != 1 || restarted.snippets.list[0].Run {
 		t.Fatalf("restored snippets = %+v", restarted.snippets.list)
 	}
-	state.Click(hitSnippetDeleteList.At(0))
+	state.Click(hitSnippetRemove)
 	if len(state.snippets.list) != 0 {
 		t.Fatalf("snippets after delete = %+v", state.snippets.list)
 	}

@@ -55,6 +55,7 @@ type Messages struct {
 	NavHosts                  string
 	NavKeychain               string
 	NavProxies                string
+	NavSnippets               string
 	NavPortForwarding         string
 	NavKnownHosts             string
 	NavSettings               string

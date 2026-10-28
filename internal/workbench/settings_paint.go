@@ -305,7 +305,6 @@ func (state *State) paintTerminalSettings(page *settingsPage) {
 		state.paintSchemeSettings(page)
 		state.paintHighlightSettings(page)
 		state.paintAutofillSettings(page)
-		state.paintSnippetSettings(page)
 		state.paintBackgroundSettings(page)
 	})
 }

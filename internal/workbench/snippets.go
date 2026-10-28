@@ -11,8 +11,8 @@ import (
 )
 
 // Snippets are commands the user keeps to send to a terminal later: from the
-// command palette, as if typed. They live in the state file, and are managed in
-// Settings.
+// command palette or a shortcut, as if typed. They live in the state file, and
+// are managed on their own page of the sidebar.
 
 type snippet struct {
 	Name    string
@@ -22,6 +22,9 @@ type snippet struct {
 	// Shortcut sends the snippet from the terminal; the zero chord is none. It is
 	// kept on this device only: the modifier that is free differs by platform.
 	Shortcut shortcutChord
+
+	// cells is what the page's table shows of it, made by refreshSnippets.
+	cells [3]string
 }
 
 const (
@@ -34,7 +37,9 @@ const (
 var snippetsHits = tree.Feature("snippets")
 
 var (
-	hitSettingsSnippetAdd = tree.ID(snippetsHits, "settings-snippet-add")
+	hitSnippetAdd         = tree.ID(snippetsHits, "snippet-add")
+	hitSnippetEdit        = tree.ID(snippetsHits, "snippet-edit")
+	hitSnippetRemove      = tree.ID(snippetsHits, "snippet-remove")
 	hitSnippetName        = tree.ID(snippetsHits, "snippet-name")
 	hitSnippetCommand     = tree.ID(snippetsHits, "snippet-command")
 	hitSnippetRun         = tree.ID(snippetsHits, "snippet-run")
@@ -47,9 +52,8 @@ var (
 )
 
 var (
-	hitSnippetEditList   = tree.Sub(snippetsHits, tree.Name("snippet-edit")) // + snippet index
-	hitSnippetDeleteList = tree.Sub(snippetsHits, tree.Name("snippet-delete"))
-	hitSnippetSendList   = tree.Sub(snippetsHits, tree.Name("snippet-send")) // the command palette's entries
+	hitSnippetRowList  = tree.Sub(snippetsHits, tree.Name("snippet-row"))  // + snippet index
+	hitSnippetSendList = tree.Sub(snippetsHits, tree.Name("snippet-send")) // the command palette's entries
 )
 
 type snippetsUI struct {
@@ -63,6 +67,11 @@ type snippetsUI struct {
 	shortcut    shortcutChord
 	capturing   bool // the next chord pressed becomes shortcut
 	dialogError string
+
+	// The page: the selected row, its layout and the count under the table.
+	selected  int
+	layout    flex.View
+	countText string
 }
 
 // cleanSnippetText makes one line of what was typed: a snippet is sent as
@@ -123,6 +132,7 @@ func (state *State) dropSnippetChordsTaken() {
 			state.snippets.list[index].Shortcut = shortcutChord{}
 		}
 	}
+	state.refreshSnippets()
 }
 
 func (state *State) openSnippetDialog(index int) {
@@ -199,12 +209,15 @@ func (state *State) submitSnippet() {
 	}
 	if form.editing >= 0 && form.editing < len(form.list) {
 		form.list[form.editing] = entry
+		form.selected = form.editing
 	} else if len(form.list) >= maxSnippets {
 		form.dialogError = m.SnippetErrorTooMany
 		return
 	} else {
 		form.list = append(form.list, entry)
+		form.selected = len(form.list) - 1
 	}
+	state.refreshSnippets()
 	state.closeModal()
 	state.save()
 }
@@ -215,6 +228,8 @@ func (state *State) deleteSnippet(index int) {
 		return
 	}
 	state.snippets.list = append(list[:index:index], list[index+1:]...)
+	state.refreshSnippets()
+	state.status = fmt.Sprintf(state.messages.Tools.StatusSnippetRemovedFmt, list[index].Name)
 	state.save()
 }
 
@@ -308,26 +323,4 @@ func (state *State) paintSnippetDialog(canvas *ui.Canvas, viewport ui.Rect) {
 		components.ButtonAction{ID: hitSnippetSubmit, Label: m.SnippetSave},
 	)
 	dialog.End()
-}
-
-// paintSnippetSettings is the Snippets group of Settings.
-func (state *State) paintSnippetSettings(page *settingsPage) {
-	m := state.messages.Tools
-	list := state.snippets.list
-	page.group(m.SnippetsGroup, func() {
-		for index, entry := range list {
-			command := entry.Command
-			if entry.Run {
-				command = "⏎ " + command
-			}
-			if entry.Shortcut.valid() {
-				command = entry.Shortcut.label() + "  ·  " + command
-			}
-			page.actionRow(entry.Name, command, false,
-				components.ButtonAction{ID: hitSnippetEditList.At(index), Label: m.SnippetEdit, Variant: components.ButtonOutline},
-				components.ButtonAction{ID: hitSnippetDeleteList.At(index), Label: m.SnippetDelete, Variant: components.ButtonOutline})
-		}
-		page.actionRow(m.SnippetsRow, m.SnippetsDescription, len(list) >= maxSnippets,
-			components.ButtonAction{ID: hitSettingsSnippetAdd, Label: m.SnippetAdd, Variant: components.ButtonOutline})
-	})
 }

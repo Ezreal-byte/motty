@@ -26,6 +26,7 @@ var (
 	hitHosts                   = tree.ID(shellHits, "hosts")
 	hitKeychain                = tree.ID(shellHits, "keychain")
 	hitProxies                 = tree.ID(shellHits, "proxies")
+	hitSnippets                = tree.ID(shellHits, "snippets")
 	hitPortForwarding          = tree.ID(shellHits, "port-forwarding")
 	hitKnownHosts              = tree.ID(shellHits, "known-hosts")
 	hitSettings                = tree.ID(shellHits, "settings")
@@ -378,6 +379,7 @@ const (
 	sectionProxies
 	sectionSettings
 	sectionKnownHosts
+	sectionSnippets
 	// sectionDebug is the development-only component gallery: its page is built
 	// only with the dev tag (see debug.go), but the section keeps its place so
 	// the other sections do not renumber between builds.
@@ -1252,6 +1254,9 @@ func (state *State) Click(id ui.ID) {
 	case id == hitPortForwarding:
 		state.activeSection = sectionForwards
 		state.save()
+	case id == hitSnippets:
+		state.activeSection = sectionSnippets
+		state.save()
 	case id == hitKnownHosts:
 		state.openKnownHosts()
 	case state.devClick(id):
@@ -1332,6 +1337,7 @@ func (state *State) Click(id ui.ID) {
 		state.openShortcutCapture(shortcutAction(uint32(item(id))) + 1)
 	case tree.Within(id.Scope(), proxiesHits):
 		state.clickProxies(id)
+	case state.clickSnippetsPage(id):
 	case tree.Within(id.Scope(), settingsHits) || tree.Within(id.Scope(), toolbarSettingsHits):
 		state.clickSettings(id)
 	case tree.Within(id.Scope(), forwardsHits):

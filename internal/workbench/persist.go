@@ -677,6 +677,8 @@ func (state *State) workspaceName() string {
 		return "forwards"
 	case sectionProxies:
 		return "proxies"
+	case sectionSnippets:
+		return "snippets"
 	case sectionSettings:
 		if state.settingsCategory == settingsShortcuts {
 			return "shortcuts"
@@ -719,6 +721,8 @@ func (state *State) restoreWorkspace(workspace string) {
 		state.activeSection = sectionForwards
 	case "proxies":
 		state.activeSection = sectionProxies
+	case "snippets":
+		state.activeSection = sectionSnippets
 	case "settings":
 		state.activeSection = sectionSettings
 	case "shortcuts":

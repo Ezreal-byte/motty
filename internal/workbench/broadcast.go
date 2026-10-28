@@ -121,12 +121,6 @@ func (state *State) clickTerminalTools(id ui.ID) bool {
 		state.openHighlightDialog()
 	case id.Scope() == hitHighlightDeleteList:
 		state.deleteHighlightRule(item(id))
-	case id == hitSettingsSnippetAdd:
-		state.openSnippetDialog(-1)
-	case id.Scope() == hitSnippetEditList:
-		state.openSnippetDialog(item(id))
-	case id.Scope() == hitSnippetDeleteList:
-		state.deleteSnippet(item(id))
 	case id.Scope() == hitSnippetSendList:
 		state.sendSnippet(item(id))
 	default:

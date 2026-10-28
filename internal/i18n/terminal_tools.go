@@ -42,9 +42,15 @@ type ToolsMessages struct {
 	ColorMagenta                string
 
 	// Snippets.
-	SnippetsGroup             string
-	SnippetsRow               string
-	SnippetsDescription       string
+	SnippetsTitle             string
+	SnippetsPageDescription   string
+	SnippetEmpty              string
+	SnippetEmptySub           string
+	SnippetCountFmt           string
+	SnippetColumnName         string
+	SnippetColumnShortcut     string
+	SnippetColumnCommand      string
+	StatusSnippetRemovedFmt   string
 	SnippetAdd                string
 	SnippetEdit               string
 	SnippetDelete             string

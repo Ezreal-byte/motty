@@ -346,5 +346,6 @@ func (state *State) restoreTerminalTools(saved savedState) {
 			}
 		}
 	}
+	state.refreshSnippets()
 	state.recompileHighlights()
 }

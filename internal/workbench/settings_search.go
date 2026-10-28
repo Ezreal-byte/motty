@@ -156,7 +156,6 @@ func (state *State) eachSettingsEntry(add func(settingsEntry)) {
 	row(settingsTerminal, tools.HighlightBuiltin, tools.HighlightBuiltinDescription)
 	row(settingsTerminal, tools.HighlightCustom, tools.HighlightCustomDescription)
 	row(settingsTerminal, m2.Row, m2.RowDescription)
-	row(settingsTerminal, tools.SnippetsRow, tools.SnippetsDescription)
 	row(settingsTerminal, tools.BgRow, tools.BgRowNone)
 	row(settingsTerminal, tools.BgVisibility, "")
 

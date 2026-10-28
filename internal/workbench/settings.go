@@ -205,6 +205,7 @@ func (state *State) setLanguage(language i18n.Language) bool {
 	state.refreshIdentityCells()
 	state.refreshForwards()
 	state.refreshProxies()
+	state.refreshSnippets()
 	for index := range state.sessions {
 		state.sessions[index].reconnectText = ""
 		state.describe(&state.sessions[index])
