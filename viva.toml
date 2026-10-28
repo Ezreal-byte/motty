@@ -5,7 +5,7 @@
 [app]
 name = "Motty Upgrade Test"
 id = "dev.motty.upgrade-test"
-version = "0.1.901"
+version = "0.1.902"
 executable = "motty"
 package = "./cmd/motty"
 icon = "assets/icon.png"
