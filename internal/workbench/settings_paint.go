@@ -92,6 +92,7 @@ func (state *State) paintSettingsWorkspace(canvas *ui.Canvas, bounds ui.Rect) {
 	pal, view := state.pal, &state.settings
 	navWidth := min(settingsNavWidthMax, max(bounds.Width*0.26, 150))
 	areaWidth := max(bounds.Width-navWidth-1, 0)
+	view.pageView = bounds.Height
 	maxScroll := max(state.settingsContent-bounds.Height, 0)
 	state.settingsScroll = min(max(state.settingsScroll, 0), maxScroll)
 	offset := state.settingsScroll

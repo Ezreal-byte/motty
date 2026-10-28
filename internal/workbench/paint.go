@@ -14,6 +14,10 @@ import (
 
 const sectionCardMargin = float32(7)
 
+// workspaceBorder is the hairline the workspace slot draws around the page a
+// section paints, and the inset that keeps that page's content inside it.
+const workspaceBorder = float32(1)
+
 const (
 	iconHosts uint8 = iota
 	iconDesktop
@@ -139,7 +143,7 @@ func (state *State) Paint(canvas *ui.Canvas, size ui.Size) {
 			f.Row().Grow(1).Children(func() {
 				state.declareNavigation(f)
 				workspaceSlot = f.Slot().Grow(1).MarginSides(0, cardRight, sectionCardMargin, 0).
-					Radius(radius.surface).Border(1, pal.windowStroke).Background(pal.workspace)
+					Radius(radius.surface).Border(workspaceBorder, pal.windowStroke).Background(pal.workspace)
 			})
 		}
 	})
@@ -153,7 +157,7 @@ func (state *State) Paint(canvas *ui.Canvas, size ui.Size) {
 		state.paintWorkspacePanes(canvas, size)
 		state.paintAIPanel(canvas, size)
 	} else {
-		workspace := workspaceSlot.Rect()
+		workspace := workspaceSlot.Rect().Inset(ui.All(workspaceBorder))
 		canvas.Clip(workspace)
 		if !state.devPaintPage(canvas, workspace) {
 			switch state.activeSection {

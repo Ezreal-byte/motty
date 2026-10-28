@@ -62,6 +62,11 @@ type settingsUI struct {
 	navView    float32
 	navRect    ui.Rect
 
+	// pageView is how tall the page's own window was when it was last painted:
+	// the workspace content box, inside the slot's border. The wheel and the
+	// paint both clamp to it, so the end of the page is reachable either way.
+	pageView float32
+
 	// aboutCopied says the About page's build facts have been put on the
 	// clipboard in this visit, so its button says so.
 	aboutCopied bool

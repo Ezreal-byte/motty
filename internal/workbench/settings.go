@@ -159,7 +159,7 @@ func (state *State) scrollSettings(event ui.ScrollEvent) ui.EventResult {
 		return ui.EventResult{Handled: true, Repaint: view.navScroll != before}
 	}
 	before := state.settingsScroll
-	state.settingsScroll = min(max(before+step, 0), max(state.settingsContent-state.viewport.Height+windowBarHeight+7, 0))
+	state.settingsScroll = min(max(before+step, 0), max(state.settingsContent-view.pageView, 0))
 	return ui.EventResult{Handled: true, Repaint: state.settingsScroll != before}
 }
 

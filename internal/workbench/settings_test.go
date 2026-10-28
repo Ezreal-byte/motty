@@ -302,3 +302,48 @@ func TestSettingsPageScrollsWhenTheWindowIsShort(t *testing.T) {
 		t.Fatalf("scroll = %v, want the top", state.settingsScroll)
 	}
 }
+
+func TestSettingsScrollDoesNotOverlapWorkspaceBorder(t *testing.T) {
+	state := newTestState(t, testOptions(t))
+	state.Click(hitSettings)
+	size := ui.Size{Width: 1000, Height: 640}
+	state.selectSettingsCategory(settingsTerminal)
+	// Paint once so the page knows how tall it is and how much room it has, then
+	// take the wheel to the end: a later paint must not pull the page back.
+	var canvas ui.Canvas
+	state.Paint(&canvas, size)
+	state.scrollSettings(ui.ScrollEvent{DeltaY: 10000, Precise: true})
+	scrolled := state.settingsScroll
+	if scrolled <= 0 {
+		t.Fatal("the wheel did not scroll the settings page")
+	}
+	// The wheel must reach the end the paint allows: the page's content box, not
+	// the window's own height.
+	if want := max(state.settingsContent-state.settings.pageView, 0); scrolled != want {
+		t.Fatalf("the wheel stopped at %v, but the page ends at %v", scrolled, want)
+	}
+	var again ui.Canvas
+	state.Paint(&again, size)
+	if state.settingsScroll != scrolled {
+		t.Fatalf("paint moved the page from %v to %v: the wheel and the paint clamp disagree", scrolled, state.settingsScroll)
+	}
+
+	// Every settings rectangle is clipped to the workspace content box, so none
+	// can draw over the slot's own border.
+	foundSettingsRect := false
+	for _, r := range again.Rectangles() {
+		if r.Color != state.pal.surface {
+			continue
+		}
+		foundSettingsRect = true
+		if !r.HasClip {
+			t.Fatalf("settings surface rectangle has no clip: %+v", r)
+		}
+		if r.ClipOf.Y < windowBarHeight+workspaceBorder {
+			t.Fatalf("settings surface rectangle ClipOf.Y = %v, expected at least %v", r.ClipOf.Y, windowBarHeight+workspaceBorder)
+		}
+	}
+	if !foundSettingsRect {
+		t.Fatal("did not find any settings surface rectangles")
+	}
+}
