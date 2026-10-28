@@ -36,7 +36,6 @@ type sftpIconButton struct {
 	disabled bool
 	style    iconButtonStyle
 	behind   ui.Color
-	tint     ui.Color
 }
 
 func (state *State) paintSFTPIconButtons(canvas *ui.Canvas, buttons []sftpIconButton) {
@@ -46,7 +45,7 @@ func (state *State) paintSFTPIconButtons(canvas *ui.Canvas, buttons []sftpIconBu
 		if behind.Alpha == 0 {
 			behind = state.pal.workspace
 		}
-		state.paintTintedIconButton(canvas, button.id, button.icon, button.box.Rect(), button.hint, button.disabled, button.style, behind, button.tint)
+		state.paintIconButton(canvas, button.id, button.icon, button.box.Rect(), button.hint, button.disabled, button.style, behind)
 	}
 }
 
@@ -234,7 +233,7 @@ func (state *State) paintSFTPPage(canvas *ui.Canvas, size ui.Size, session *Sess
 	headerBounds := header.Rect()
 	canvas.Fill(ui.Rect{X: headerBounds.X, Y: headerBounds.Y + headerBounds.Height - 1, Width: headerBounds.Width, Height: 1}, headerBorder)
 	for i := 0; i < headerButtonCount; i++ {
-		buttons[i].behind, buttons[i].tint = headerBackground, sftpToolAccent(buttons[i].id)
+		buttons[i].behind = headerBackground
 	}
 	state.paintSFTPIconButtons(canvas, buttons[:buttonCount])
 	if folder.headerMenuOpen {

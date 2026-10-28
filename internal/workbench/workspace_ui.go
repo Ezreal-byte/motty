@@ -352,9 +352,9 @@ func (state *State) paintEmptyContextSFTP(canvas *ui.Canvas, size ui.Size, sessi
 
 	headerBounds := header.Rect()
 	canvas.Fill(ui.Rect{X: headerBounds.X, Y: headerBounds.Y + headerBounds.Height - 1, Width: headerBounds.Width, Height: 1}, headerBorder)
-	state.paintTintedIconButton(canvas, hitSFTPClose, iconClose, closeButton.Rect(), messages.TipSFTPClose, false, iconButtonQuiet, headerBackground, sftpToolAccent(hitSFTPClose))
+	state.paintIconButton(canvas, hitSFTPClose, iconClose, closeButton.Rect(), messages.TipSFTPClose, false, iconButtonQuiet, headerBackground)
 	moveIcon, moveHint := state.sftpPanelMoveAction()
-	state.paintTintedIconButton(canvas, hitSFTPPanelSide, moveIcon, sideButton.Rect(), moveHint, false, iconButtonQuiet, headerBackground, sftpToolAccent(hitSFTPPanelSide))
+	state.paintIconButton(canvas, hitSFTPPanelSide, moveIcon, sideButton.Rect(), moveHint, false, iconButtonQuiet, headerBackground)
 	if session != nil {
 		titleBounds := sessionTitle.Rect()
 		canvas.Label(elide(canvas, session.Title, metrics.FontSizeS, ui.WeightRegular, titleBounds.Width), titleBounds, ui.TextStyle{Size: metrics.FontSizeS, Color: pal.muted})

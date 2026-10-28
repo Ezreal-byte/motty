@@ -169,7 +169,7 @@ func (state *State) paintTerminalPage(canvas *ui.Canvas, size ui.Size, session *
 	default:
 		for index := range tools {
 			tool := &tools[index]
-			state.paintTintedIconButton(canvas, tool.id, tool.icon, tool.slot.Rect(), tool.hint, tool.disabled, tool.style, barBackground, terminalToolAccent(tool.id))
+			state.paintIconButton(canvas, tool.id, tool.icon, tool.slot.Rect(), tool.hint, tool.disabled, tool.style, barBackground)
 		}
 		spot := light.Rect()
 		if session.busy {
