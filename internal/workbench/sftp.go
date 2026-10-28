@@ -132,11 +132,14 @@ type sftpView struct {
 	listings     []sftpListing
 	listingBytes int // approximate bytes held by listings
 	// listingLimitBytes overrides maxSFTPListingBytes in tests.
-	listingLimitBytes int
-	prefetching       map[string]struct{}
-	waiting           string
-	pathRequest       string // the directory submitted through the path input, awaiting its listing
-	abandonedPath     string // a path request the user canceled while it was in flight
+	listingLimitBytes     int
+	prefetching           map[string]struct{}
+	waiting               string
+	pathRequest           string // the directory submitted through the path input, awaiting its listing
+	abandonedPath         string // a path request the user canceled while it was in flight
+	terminalPath          string // an explicit navigation, never a shell report or background refresh
+	terminalPromptVersion uint64
+	terminalSyncSkipped   bool
 }
 
 // sftpListing is one folder as it was last read.
@@ -179,6 +182,11 @@ func (state *State) openSFTP(session *Session) {
 	view.worker = sftpclient.NewWorker(func() (sftpclient.Remote, error) { return openRemoteFiles(connection, transfer) }, state.notifyFor(session))
 	state.configureSFTPWorker(view)
 	session.files = view
+	if session.term != nil {
+		if cwd, ok := session.term.screen.WorkingDirectory(); ok {
+			state.terminalDirectory(session.ID, cwd)
+		}
+	}
 	if !view.worker.List("") {
 		view.busy = false
 		view.errorText = state.messages.SFTPUnavailable
@@ -295,7 +303,7 @@ func (state *State) clickSFTP(id ui.ID) {
 		view.forgetListings() // refresh means: trust nothing remembered
 		state.listSFTP(view, view.path)
 	case id == hitSFTPUp && !view.busy:
-		state.openSFTPDirectory(view, path.Dir(view.path))
+		state.navigateSFTPDirectory(view, path.Dir(view.path))
 	case id == hitSFTPDownload && !view.busy:
 		state.downloadSFTP(view)
 	case id == hitSFTPUpload && !view.busy:
@@ -317,7 +325,7 @@ func (state *State) clickSFTP(id ui.ID) {
 	case id.Scope() == hitSFTPBreadcrumbList && !view.busy:
 		index := item(id)
 		if index < len(view.crumbs) {
-			state.openSFTPDirectory(view, view.crumbs[index].path)
+			state.navigateSFTPDirectory(view, view.crumbs[index].path)
 		}
 	case id.Scope() == hitSFTPEntryList && !view.busy:
 		index := view.first + item(id)
@@ -481,7 +489,7 @@ func (state *State) openSelectedSFTP(view *sftpView) {
 	}
 	remotePath := path.Join(view.path, entry.Name)
 	if entry.IsDir() {
-		state.openSFTPDirectory(view, remotePath)
+		state.navigateSFTPDirectory(view, remotePath)
 		return
 	}
 	if state.options.OpenContentWindow != nil {
@@ -697,6 +705,7 @@ func (state *State) applySFTPListing(view *sftpView, remotePath string, rows []s
 	} else {
 		state.refreshSFTPFilterStatus(view, &view.sftpFolder)
 	}
+	state.syncTerminalDirectory(view)
 }
 
 // finishSFTPPrefetch takes in a folder read ahead of need: it is remembered, shown
@@ -711,6 +720,7 @@ func (state *State) finishSFTPPrefetch(view *sftpView, result sftpclient.Result)
 	}
 	if result.Err != nil {
 		if waited {
+			view.terminalPath = ""
 			if errors.Is(result.Err, sftpclient.ErrCanceled) {
 				view.status = state.messages.SFTPCanceled
 			} else {
@@ -1075,6 +1085,9 @@ func (state *State) pumpSFTP(session *Session) {
 				// looking at, whatever the late result says.
 				view.abandonedPath = ""
 				continue
+			}
+			if result.Operation == sftpclient.OperationList && result.Err != nil && result.Path == view.terminalPath {
+				view.terminalPath = ""
 			}
 			if result.Operation == sftpclient.OperationList && view.pathRequest != "" && result.Path == view.pathRequest {
 				view.pathRequest = ""

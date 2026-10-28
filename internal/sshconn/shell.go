@@ -30,6 +30,11 @@ type ShellConfig struct {
 	Term string
 	// Command starts in this PTY instead of the remote login shell when nonempty.
 	Command string
+	// IntegrateShell enables session-local Bash/Zsh directory reporting. An
+	// unsupported shell keeps the ordinary shell request; Command takes priority.
+	IntegrateShell bool
+	// IntegrationToken binds prompt readiness to this shell, not nested logins.
+	IntegrationToken string
 	// Notify is called after output arrives and when the shell ends. It may be
 	// called from any goroutine and must not block; the owner then calls Drain
 	// on its own thread.
@@ -71,6 +76,10 @@ func (conn *Conn) OpenShell(config ShellConfig) (*Shell, error) {
 	if client == nil {
 		return nil, errors.New("sshconn: not connected")
 	}
+	command := config.Command
+	if command == "" && config.IntegrateShell {
+		command = conn.shellIntegrationCommand(config.IntegrationToken)
+	}
 	session, err := client.NewSession()
 	if err != nil {
 		return nil, err
@@ -111,14 +120,18 @@ func (conn *Conn) OpenShell(config ShellConfig) (*Shell, error) {
 		return nil, err
 	}
 	var startErr error
-	if config.Command == "" {
+	if command == "" {
 		startErr = session.Shell()
 	} else {
-		startErr = session.Start(config.Command)
+		startErr = session.Start(command)
 	}
 	if startErr != nil {
 		shell.releaseX11()
 		session.Close()
+		if config.Command == "" && command != "" {
+			config.IntegrateShell = false
+			return conn.OpenShell(config)
+		}
 		return nil, startErr
 	}
 	go shell.sendLoop(stdin)

@@ -229,6 +229,9 @@ type ToolsMessages struct {
 	FilesKeepTimesDescription       string
 	FilesFollow                     string
 	FilesFollowDescription          string
+	FilesTerminalFollow             string
+	FilesTerminalFollowDescription  string
+	FilesTerminalFollowSkipped      string
 	FilesFollowSetup                string
 	FilesFollowSetupDescription     string
 	FilesFollowSetupCopy            string

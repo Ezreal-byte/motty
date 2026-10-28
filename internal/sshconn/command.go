@@ -83,18 +83,55 @@ func (conn *Conn) runCommand(ctx context.Context, command string, maxOutputBytes
 	if client == nil {
 		return nil, false, errors.New("sshconn: not connected")
 	}
-	session, err := client.NewSession()
+	operationCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	if conn.ctx != nil {
+		stop := context.AfterFunc(conn.ctx, cancel)
+		defer stop()
+	}
+	cancelError := func() error {
+		if conn.ctx != nil && conn.ctx.Err() != nil {
+			return ErrCanceled
+		}
+		return ctx.Err()
+	}
+	session, err := openCommandSession(operationCtx, client)
 	if err != nil {
+		if operationCtx.Err() != nil {
+			return nil, false, cancelError()
+		}
 		return nil, false, err
 	}
-	defer session.Close()
+	defer func() {
+		if operationCtx.Err() != nil {
+			go session.Close()
+		} else {
+			session.Close()
+		}
+	}()
 
 	output := commandOutput{limit: maxOutputBytes}
 	session.Stdout = &output
 	if withStderr {
 		session.Stderr = &output
 	}
-	if err := session.Start(command); err != nil {
+	if operationCtx.Err() != nil {
+		return nil, false, cancelError()
+	}
+	started := make(chan error, 1)
+	go func() {
+		if err := operationCtx.Err(); err != nil {
+			started <- err
+			return
+		}
+		started <- session.Start(command)
+	}()
+	select {
+	case err = <-started:
+	case <-operationCtx.Done():
+		return nil, false, cancelError()
+	}
+	if err != nil {
 		return nil, false, err
 	}
 	waited := make(chan error, 1)
@@ -102,19 +139,39 @@ func (conn *Conn) runCommand(ctx context.Context, command string, maxOutputBytes
 
 	select {
 	case err = <-waited:
-	case <-ctx.Done():
-		_ = session.Close()
-		<-waited
+	case <-operationCtx.Done():
 		data, exceeded = output.result()
-		return data, exceeded, ctx.Err()
-	case <-conn.ctx.Done():
-		_ = session.Close()
-		<-waited
-		data, exceeded = output.result()
-		return data, exceeded, ErrCanceled
+		return data, exceeded, cancelError()
 	}
 	data, exceeded = output.result()
 	return data, exceeded, err
+}
+
+// SSH channel-open and exec acknowledgments can block independently of command
+// execution. Cancellation must reach the caller during establishment too. A
+// late channel is closed rather than leaked into a timed-out request.
+func openCommandSession(ctx context.Context, client *ssh.Client) (*ssh.Session, error) {
+	type result struct {
+		session *ssh.Session
+		err     error
+	}
+	opened := make(chan result)
+	go func() {
+		session, err := client.NewSession()
+		select {
+		case opened <- result{session, err}:
+		case <-ctx.Done():
+			if session != nil {
+				session.Close()
+			}
+		}
+	}()
+	select {
+	case result := <-opened:
+		return result.session, result.err
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
 }
 
 // commandOutput remains bounded even when a hostile command ignores its

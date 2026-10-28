@@ -158,7 +158,7 @@ func (state *State) showInFiles(session *Session, target string) {
 	case view.local:
 		state.listLocal(view, filepath.FromSlash(dir))
 	default:
-		state.openSFTPDirectory(view, dir)
+		state.navigateSFTPDirectory(view, dir)
 	}
 }
 

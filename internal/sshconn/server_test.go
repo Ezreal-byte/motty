@@ -46,9 +46,11 @@ type testServer struct {
 	// shell, when set, runs for every session that asks for a shell, with the
 	// pty it requested. command handles exec requests. Without either every
 	// session channel is refused.
-	shell     func(*fakeShell)
-	command   func(string, ssh.Channel)
-	lastShell *fakeShell // the most recent shell session, guarded by mu
+	shell           func(*fakeShell)
+	command         func(string, ssh.Channel)
+	refuseCommand   func(string) bool
+	beforeExecReply func(string)
+	lastShell       *fakeShell // the most recent shell session, guarded by mu
 	// x11 makes sessions accept "x11-req" and record it; refuseX11 answers it
 	// with a refusal instead.
 	x11, refuseX11 bool
@@ -598,6 +600,12 @@ func serveSession(server *testServer, conn ssh.Conn, channel ssh.Channel, reques
 			}
 			system := payload.Command == remoteSystemCommand
 			accepted := !started && ((system && server.exec != nil) || (!system && server.command != nil))
+			if server.refuseCommand != nil && server.refuseCommand(payload.Command) {
+				accepted = false
+			}
+			if accepted && server.beforeExecReply != nil {
+				server.beforeExecReply(payload.Command)
+			}
 			request.Reply(accepted, nil)
 			if accepted {
 				started = true

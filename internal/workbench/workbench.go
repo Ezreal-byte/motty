@@ -532,20 +532,21 @@ type State struct {
 	updateStarted bool
 	loginOn       bool
 	// The file panel's settings and the folders kept for each host.
-	sftpParallel      int
-	sftpKeepTimesOff  bool
-	sftpFollowOff     bool
-	sftpPathInput     bool
-	sftpPanelAutoOpen bool
-	sftpPanelSide     layoutcore.ContextSide
-	sftpBookmarks     []sftpBookmark
-	transferLeftover  []byte
-	secrets           secretsUI
-	shareConnections  shareConnectionsPolicy
-	tooltip           components.HoverTooltip
-	selectTypeahead   selectTypeahead
-	restorePending    bool // restored tabs have not yet been connected (see connectRestoredSessions)
-	terminalClipboard terminalClipboardPolicy
+	sftpParallel       int
+	sftpKeepTimesOff   bool
+	sftpFollowOff      bool
+	sftpTerminalFollow bool
+	sftpPathInput      bool
+	sftpPanelAutoOpen  bool
+	sftpPanelSide      layoutcore.ContextSide
+	sftpBookmarks      []sftpBookmark
+	transferLeftover   []byte
+	secrets            secretsUI
+	shareConnections   shareConnectionsPolicy
+	tooltip            components.HoverTooltip
+	selectTypeahead    selectTypeahead
+	restorePending     bool // restored tabs have not yet been connected (see connectRestoredSessions)
+	terminalClipboard  terminalClipboardPolicy
 	// terminalCursorSteady keeps the terminal cursor from blinking.
 	terminalCursorSteady bool
 

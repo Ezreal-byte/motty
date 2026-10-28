@@ -2,6 +2,7 @@ package workbench
 
 import (
 	"bytes"
+	"crypto/rand"
 	"errors"
 	"fmt"
 	"time"
@@ -57,18 +58,27 @@ type terminal struct {
 	// between two reads.
 	zmodemTail []byte
 
-	told            announcement
-	skippedEndpoint sshconn.Endpoint
-	skippedRole     sshconn.EndpointRole
-	skipsTold       int
-	live            bool             // the shell has spoken, or ended: the screen is the page to show
-	inputSent       bool             // the user, or an autofill answer, wrote to the shell: it did not end on its own
-	ended           bool             // the shell finished, or never started
-	shellOpened     time.Duration    // when the shell was asked for, to give a silent one up
-	opening         chan shellResult // a shell being opened in the background, until pump collects it
-	blink           cursorBlink
-	wheelX          float32 // horizontal wheel travel not yet worth a whole cell
-	wheelY          float32 // vertical wheel travel not yet worth a whole cell
+	told                  announcement
+	skippedEndpoint       sshconn.Endpoint
+	skippedRole           sshconn.EndpointRole
+	skipsTold             int
+	live                  bool             // the shell has spoken, or ended: the screen is the page to show
+	inputSent             bool             // the user, or an autofill answer, wrote to the shell: it did not end on its own
+	ended                 bool             // the shell finished, or never started
+	shellOpened           time.Duration    // when the shell was asked for, to give a silent one up
+	opening               chan shellResult // a shell being opened in the background, until pump collects it
+	followPath            string           // latest shell directory awaiting a safe attached file panel
+	promptReady           bool
+	promptStarted         bool
+	promptDirty           bool
+	promptVersion         uint64 // invalidates a reverse navigation while its directory is being listed
+	folderToken           string
+	folderIntegrationSeen bool
+	commandReporting      bool
+	submittedLines        int
+	blink                 cursorBlink
+	wheelX                float32 // horizontal wheel travel not yet worth a whole cell
+	wheelY                float32 // vertical wheel travel not yet worth a whole cell
 
 	// label is the accessible name of the terminal, rebuilt only when the
 	// language or the address it is made from changes.
@@ -231,6 +241,10 @@ func (t *terminal) syncRemaining() time.Duration {
 }
 
 func (state *State) configureTerminal(session *Session) {
+	if session.term.folderToken == "" {
+		session.term.resetFolderSync()
+	}
+	session.term.screen.SetPromptToken(session.term.folderToken)
 	session.term.openLink = state.openTerminalLink
 	session.term.clock = state.now
 	// An image decoded off the window thread asks for the frame that shows it.
@@ -252,6 +266,40 @@ func (state *State) configureTerminal(session *Session) {
 	session.term.screen.SetCwdChange(func(cwd term.Cwd) {
 		state.terminalDirectory(sessionID, cwd)
 	})
+	session.term.screen.SetPromptStart(func() {
+		if current, ok := state.sessionByIDPointer(sessionID); ok && current.term != nil {
+			current.term.promptVersion++
+			current.term.folderIntegrationSeen = true
+			current.term.promptStarted = true
+			current.term.promptReady = false
+		}
+	})
+	session.term.screen.SetPromptReady(func() {
+		if current, ok := state.sessionByIDPointer(sessionID); ok && current.term != nil {
+			t := current.term
+			t.promptReady = t.promptStarted && !t.promptDirty && t.commandReporting && t.submittedLines == 0
+		}
+	})
+	session.term.screen.SetCommandStart(func() {
+		if current, ok := state.sessionByIDPointer(sessionID); ok && current.term != nil {
+			t := current.term
+			t.commandReporting = true
+			t.promptReady, t.promptStarted = false, false
+			t.promptVersion++
+			if t.submittedLines > 0 {
+				t.submittedLines--
+			}
+		}
+	})
+}
+
+func (t *terminal) resetFolderSync() {
+	t.folderToken = rand.Text()
+	t.screen.SetPromptToken(t.folderToken)
+	t.promptReady, t.promptStarted, t.promptDirty = false, false, false
+	t.folderIntegrationSeen, t.commandReporting = false, false
+	t.submittedLines, t.followPath = 0, ""
+	t.promptVersion++
 }
 
 // Local messages are drawn with the terminal's own colors, so a connection's
@@ -289,6 +337,12 @@ func (t *terminal) send(p []byte) bool {
 	if t.shell == nil || len(p) == 0 {
 		return false
 	}
+	if t.takeOutput != nil {
+		t.takeOutput()
+		if t.shell == nil {
+			return false
+		}
+	}
 	if t.exec != nil && userInterrupts(p) {
 		t.finishExec(false, false) // the user took the terminal back; the keys go on to the shell
 	}
@@ -306,6 +360,7 @@ func (t *terminal) send(p []byte) bool {
 	accepted := t.shell.Write(p)
 	if accepted {
 		t.inputSent = true
+		t.noteShellInput(p)
 		t.recording.append(t.recordingNow(), terminalRecordingInput, p)
 	}
 	return accepted
@@ -324,6 +379,9 @@ func (t *terminal) sendAssistant(p []byte) bool {
 	t.screen.ScrollToBottom()
 	accepted := t.shell.Write(p)
 	t.inputSent = t.inputSent || accepted
+	if accepted {
+		t.noteShellInput(p)
+	}
 	return accepted
 }
 
@@ -335,7 +393,35 @@ func (t *terminal) sendSecret(p []byte) bool {
 	}
 	accepted := t.shell.Write(p)
 	t.inputSent = t.inputSent || accepted
+	if accepted {
+		t.noteShellInput(p)
+	}
 	return accepted
+}
+
+func (t *terminal) noteShellInput(p []byte) {
+	atPrompt := t.promptReady
+	t.promptReady, t.promptStarted = false, false
+	t.promptVersion++
+	// A subsequent prompt must not discard text queued after the last Enter.
+	// Cursor movement/deletion is conservative too: only submit/interrupt clears
+	// the dirty line; a mere PS1 redraw never authorizes an automatic command.
+	for i, b := range p {
+		switch b {
+		case '\r', '\n':
+			if b == '\n' && i > 0 && p[i-1] == '\r' {
+				continue
+			}
+			if t.promptDirty || !atPrompt {
+				t.submittedLines++
+			}
+			t.promptDirty, atPrompt = false, false
+		case 3:
+			t.promptDirty, t.submittedLines = false, 0
+		default:
+			t.promptDirty = true
+		}
+	}
 }
 
 func (t *terminal) sendProtocol(p []byte) bool {
@@ -372,6 +458,9 @@ func (state *State) openShell(session *Session) {
 	}
 	cols, rows := t.screen.Size()
 	config := sshconn.ShellConfig{Cols: cols, Rows: rows, Notify: state.notifyFor(session), Command: session.containerCommand}
+	config.IntegrateShell = session.host.isSSH() && session.host.System != sshconn.SystemWindows &&
+		session.containerCommand == "" && (!state.sftpFollowOff || state.sftpTerminalFollow)
+	config.IntegrationToken = t.folderToken
 	if session.host.ForwardX11 && session.host.isSSH() {
 		environ := x11fwd.CurrentEnviron()
 		config.X11 = &environ

@@ -178,9 +178,11 @@ func (state *State) submitSFTPPath(view *sftpView) {
 	// Manual entry validates the directory on the server, even if an older
 	// listing is cached. A removed cached folder must not appear to open.
 	view.pathRequest = destination
+	state.requestTerminalDirectory(view, destination)
 	state.listSFTP(view, destination)
 	if !view.busy {
 		view.pathRequest = ""
+		view.terminalPath = ""
 		state.showSFTPPathErrorAt(view, destination, errors.New(state.messages.SFTPUnavailable))
 	}
 }

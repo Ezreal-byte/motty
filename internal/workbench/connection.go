@@ -534,6 +534,8 @@ func (state *State) finishStartingConnection(session *Session, automatic bool) {
 	} else {
 		t := session.term
 		t.shell, t.ended, t.live, t.inputSent, t.told = nil, false, false, false, toldNothing
+		t.resetFolderSync()
+		t.rx = t.rx[:0]
 		t.skippedEndpoint, t.skippedRole, t.skipsTold = sshconn.Endpoint{}, sshconn.EndpointTarget, 0
 		t.preedit = app.TextState{}
 		t.write([]byte("\r\n"))
@@ -571,6 +573,7 @@ func (state *State) Wake() {
 		state.pumpRemoteStats(session)
 		state.pumpDesktop(session)
 		state.pump(session)
+		state.followTerminalDirectory(session)
 		if session.term != nil {
 			session.term.find.refreshIfChanged(session.term.screen, state.messages, findNow)
 		}

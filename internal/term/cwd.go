@@ -25,6 +25,27 @@ type Cwd struct {
 // must not block.
 func (t *Terminal) SetCwdChange(fn func(Cwd)) { t.cwdFn = fn }
 
+// SetPromptReady receives OSC 133 B, the end of a shell prompt. Like CwdChange,
+// it runs during Write on the owner's thread and must not block.
+func (t *Terminal) SetPromptReady(fn func()) { t.promptReadyFn = fn }
+
+// SetPromptStart receives OSC 133 A from the shell's prompt hook, rather than
+// from readline repainting the already existing prompt.
+func (t *Terminal) SetPromptStart(fn func()) { t.promptStartFn = fn }
+
+// SetPromptToken confines readiness to this shell's integration, not a nested
+// SSH login or a program that also implements the standard OSC 133 markers.
+func (t *Terminal) SetPromptToken(token string) {
+	if token != t.promptToken {
+		t.cwd = Cwd{}
+	}
+	t.promptToken = token
+}
+
+// SetCommandStart receives the owning shell's OSC 133 C before execution,
+// including commands that readline takes from previously submitted typeahead.
+func (t *Terminal) SetCommandStart(fn func()) { t.commandStartFn = fn }
+
 // WorkingDirectory is the last directory the shell reported, or false.
 func (t *Terminal) WorkingDirectory() (Cwd, bool) { return t.cwd, t.cwd.Path != "" }
 

@@ -419,6 +419,20 @@ func (t *Terminal) endOSC() {
 		t.osc9(text)
 	case 99:
 		t.osc99(text)
+	case 133:
+		suffix := ""
+		if t.promptToken != "" {
+			suffix = ";motty=" + t.promptToken
+		}
+		if string(text) == "A"+suffix && t.promptStartFn != nil {
+			t.promptStartFn()
+		}
+		if string(text) == "B"+suffix && t.promptReadyFn != nil {
+			t.promptReadyFn()
+		}
+		if string(text) == "C"+suffix && t.commandStartFn != nil {
+			t.commandStartFn()
+		}
 	case 777:
 		t.osc777(text)
 	case 10, 11:

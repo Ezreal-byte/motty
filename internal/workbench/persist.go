@@ -55,6 +55,7 @@ type savedState struct {
 	SFTPParallel               int                 `json:"sftp_parallel,omitempty"`
 	SFTPKeepTimes              string              `json:"sftp_keep_times,omitempty"`
 	SFTPFollow                 string              `json:"sftp_follow,omitempty"`
+	SFTPTerminalFollow         bool                `json:"sftp_terminal_follow,omitempty"`
 	SFTPPathInput              bool                `json:"sftp_path_input,omitempty"`
 	SFTPPanelAutoOpen          bool                `json:"sftp_panel_auto_open,omitempty"`
 	SFTPPanelSide              string              `json:"sftp_panel_side,omitempty"`
@@ -339,6 +340,7 @@ func (state *State) snapshot() savedState {
 		SFTPParallel:               state.sftpParallel,
 		SFTPKeepTimes:              notifyString(state.sftpKeepTimesOff),
 		SFTPFollow:                 notifyString(state.sftpFollowOff),
+		SFTPTerminalFollow:         state.sftpTerminalFollow,
 		SFTPPathInput:              state.sftpPathInput,
 		SFTPPanelAutoOpen:          state.sftpPanelAutoOpen,
 		SFTPPanelSide:              sftpPanelSideString(state.sftpPanelSide),
