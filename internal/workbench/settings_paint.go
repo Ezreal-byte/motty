@@ -238,6 +238,7 @@ func (state *State) paintGeneralSettings(page *settingsPage) {
 			if state.options.StartAtLogin != nil {
 				state.paintLoginSetting(page)
 			}
+			state.paintToolbarSettingsRows(page)
 		})
 		state.paintUpdateSettings(page)
 	})

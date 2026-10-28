@@ -238,6 +238,8 @@ func (state *State) Paint(canvas *ui.Canvas, size ui.Size) {
 		state.paintFormDialog(canvas, viewport)
 	case modalRemoteTools:
 		state.paintRemoteTools(canvas, viewport)
+	case modalToolbarSettings:
+		state.paintToolbarSettings(canvas, viewport)
 	case modalRemoteClipboard:
 		state.paintRemoteClipboardDialog(canvas, viewport)
 	case modalFileTransfer:
@@ -315,11 +317,12 @@ type barTab struct {
 
 // barGeometry is what a first pass over the window bar says about its tabs: the
 // room they and the new-tab button share (area), the row they clip to, and how
-// wide each is. It depends only on the window's width and the number of tabs, so
-// it is kept until one changes.
+// wide each is. It depends on the window's width, the number of tabs and the
+// window entries the user shows, so it is kept until one of them changes.
 type barGeometry struct {
 	width             float32
 	tabCount          int
+	barButtons        int
 	leading, trailing float32
 	valid             bool
 	area, row         ui.Rect
@@ -332,8 +335,10 @@ type barGeometry struct {
 func (state *State) windowBarGeometry(canvas *ui.Canvas, width float32) barGeometry {
 	chrome := &state.chrome
 	leading, trailing := app.TitlebarInsets()
+	buttons := state.windowBarButtons()
 	geometry := &chrome.geometry
 	if geometry.valid && geometry.width == width && geometry.tabCount == len(state.workspaceTabs) &&
+		geometry.barButtons == buttons &&
 		geometry.leading == leading && geometry.trailing == trailing {
 		return *geometry
 	}
@@ -343,7 +348,7 @@ func (state *State) windowBarGeometry(canvas *ui.Canvas, width float32) barGeome
 	})
 	f.End()
 	*geometry = barGeometry{
-		width: width, tabCount: len(state.workspaceTabs), leading: leading, trailing: trailing, valid: true,
+		width: width, tabCount: len(state.workspaceTabs), barButtons: buttons, leading: leading, trailing: trailing, valid: true,
 		area: chrome.probeArea.Rect(), row: chrome.probeRow.Rect(), tabWidth: barTabMax,
 	}
 	if len(chrome.probeBar.tabs) > 0 {
@@ -452,17 +457,27 @@ func (state *State) declareWindowBar(f *flex.Frame, bar *windowBar, probe, pictu
 			}
 		})
 		f.Row().Shrink(0).MarginSides(0, 0, 0, 10).Gap(2).Children(func() {
+			bar.transfers, bar.assistant = flex.Box{}, flex.Box{}
 			transferLabel := m.Transfers.Title
 			if state.transfers.buttonLabel != "" {
 				transferLabel = state.transfers.buttonLabel
 			}
-			bar.transfers = state.barButton(f, probe, hitTransferCenter, iconTransfer, transferLabel)
-			bar.assistant = f.Slot().Size(barButtonSize, barButtonSize)
-			state.barButton(f, probe, hitWindowLocalTerminal, iconTerminal, m.LocalTerminal)
-			state.barButton(f, probe, hitCommandPalette, iconSearch, m.CommandPaletteTitle)
-			state.barButton(f, probe, hitTheme, themeIcon, themeLabel)
-			state.barButton(f, probe, hitGitHub, iconGitHub, m.LabelGitHub)
-			state.barButton(f, probe, hitWindowSettings, iconSettings, m.NavSettings)
+			for _, entry := range state.toolbars.entries(toolbarWindow) {
+				if !entry.Enabled {
+					continue
+				}
+				spec, _ := toolbarSpecFor(toolbarWindow, entry.Key)
+				switch spec.id {
+				case hitTransferCenter:
+					bar.transfers = state.barButton(f, probe, spec.id, spec.icon, transferLabel)
+				case hitAIToggle:
+					bar.assistant = f.Slot().Size(barButtonSize, barButtonSize)
+				case hitTheme:
+					state.barButton(f, probe, spec.id, themeIcon, themeLabel)
+				default:
+					state.barButton(f, probe, spec.id, spec.icon, state.toolbarLabel(spec.id))
+				}
+			}
 		})
 	})
 }
@@ -517,7 +532,9 @@ func (state *State) paintWindowBarParts(canvas *ui.Canvas, strip ui.Rect) {
 		state.openTabMenuOn(canvas, tab.workspace.ID, tab.id, tab.closeID)
 	}
 	canvas.Unclip()
-	state.paintAIBarButton(canvas, state.chrome.bar.assistant.Rect().X)
+	if state.toolbarVisible(toolbarWindow, hitAIToggle) {
+		state.paintAIBarButton(canvas, state.chrome.bar.assistant.Rect().X)
+	}
 	state.paintTransferBadge(canvas)
 }
 

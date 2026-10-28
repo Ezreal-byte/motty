@@ -22,8 +22,10 @@ var (
 )
 
 // maxSettingsEntries bounds the index: the settings, the assistant's groups,
-// one entry per keyboard shortcut and what the About page holds.
-const maxSettingsEntries = 96
+// one entry per keyboard shortcut and what the About page holds. The test keeps
+// a quarter of it free, so adding entries fails loudly here instead of becoming
+// silently unsearchable when the array fills.
+const maxSettingsEntries = 128
 
 // settingsEntry is one thing a user may look for.
 type settingsEntry struct {
@@ -127,6 +129,9 @@ func (state *State) eachSettingsEntry(add func(settingsEntry)) {
 
 	if state.options.StartAtLogin != nil {
 		row(settingsGeneral, tools.GeneralLogin, tools.GeneralLoginDescription)
+	}
+	for _, label := range []string{m.Toolbars.Window, m.Toolbars.Terminal, m.Toolbars.SFTP} {
+		row(settingsGeneral, label, m.Toolbars.Description)
 	}
 	row(settingsGeneral, tools.GeneralUpdateStartup, tools.GeneralUpdateStartupDescription)
 	row(settingsGeneral, tools.GeneralUpdate, tools.GeneralUpdateDescription)
