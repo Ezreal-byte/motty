@@ -19,6 +19,14 @@ const (
 	terminalClipboardAllow
 )
 
+// defaultTerminalClipboard lets a program replace the clipboard without asking.
+// Writing cannot read anything back, readers are denied unconditionally (see
+// term's osc52), and programs that copy on selection (Claude Code, tmux with
+// set-clipboard) send a write per selection: asking each time would turn every
+// drag into a modal. Terminals that support OSC 52, such as kitty, allow writes
+// by default for the same reason.
+const defaultTerminalClipboard = terminalClipboardAllow
+
 func (policy terminalClipboardPolicy) String() string {
 	switch policy {
 	case terminalClipboardBlock:
@@ -34,10 +42,14 @@ func terminalClipboardPolicyFromString(value string) terminalClipboardPolicy {
 	switch value {
 	case terminalClipboardBlock.String():
 		return terminalClipboardBlock
+	case terminalClipboardAsk.String():
+		return terminalClipboardAsk
 	case terminalClipboardAllow.String():
 		return terminalClipboardAllow
 	default:
-		return terminalClipboardAsk
+		// An unset or unknown value means the state predates the choice: follow
+		// the default rather than freezing an older, stricter one.
+		return defaultTerminalClipboard
 	}
 }
 
@@ -87,6 +99,12 @@ func (state *State) clickRemoteClipboard(id ui.ID) {
 	switch id {
 	case hitClipboardAllow:
 		state.setRemoteClipboard(request.text)
+	case hitClipboardAlways:
+		// The same choice the setting offers, made from the dialog that asked:
+		// saved so the next program that copies stops asking too.
+		state.terminalClipboard = terminalClipboardAllow
+		state.save()
+		state.setRemoteClipboard(request.text)
 	case hitClipboardDismiss, hitClipboardClose, hitClipboardCancel:
 		state.status = state.messages.StatusClipboardBlocked
 	default:
@@ -124,6 +142,7 @@ func (state *State) paintRemoteClipboardDialog(canvas *ui.Canvas, viewport ui.Re
 	f.End()
 	dialog.Actions(layout,
 		components.ButtonAction{ID: hitClipboardCancel, Label: messages.Cancel, Variant: components.ButtonSecondary},
+		components.ButtonAction{ID: hitClipboardAlways, Label: messages.ClipboardAlwaysAllow, Variant: components.ButtonOutline},
 		components.ButtonAction{ID: hitClipboardAllow, Label: messages.ClipboardAllowOnce},
 	)
 	dialog.End()

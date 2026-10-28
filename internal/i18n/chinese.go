@@ -389,6 +389,7 @@ var ChineseMessages = Messages{
 	ClipboardRequestTitle:          "远端剪贴板请求",
 	ClipboardRequestDescriptionFmt: "%s 想要替换你的本地剪贴板。允许前请核对文本。",
 	ClipboardAllowOnce:             "仅允许本次",
+	ClipboardAlwaysAllow:           "始终允许",
 
 	HostKeyTitle:          "信任此主机?",
 	HostKeyDescriptionFmt: "%s 是首次连接。信任之前请核对指纹。",

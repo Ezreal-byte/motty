@@ -273,12 +273,12 @@ func (state *State) paintTerminalSettings(page *settingsPage) {
 		selectedScrollback = hitSettingsScrollback10000
 	}
 	clipboard := state.settingsClipboardOptions()
-	selectedClipboard := hitSettingsClipboardAsk
+	selectedClipboard := hitSettingsClipboardAllow
 	switch state.terminalClipboard {
 	case terminalClipboardBlock:
 		selectedClipboard = hitSettingsClipboardBlock
-	case terminalClipboardAllow:
-		selectedClipboard = hitSettingsClipboardAllow
+	case terminalClipboardAsk:
+		selectedClipboard = hitSettingsClipboardAsk
 	}
 	page.groups(func() {
 		page.group("", func() {

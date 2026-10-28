@@ -389,6 +389,7 @@ var EnglishMessages = Messages{
 	ClipboardRequestTitle:          "Remote clipboard request",
 	ClipboardRequestDescriptionFmt: "%s wants to replace your local clipboard. Review the text before allowing it.",
 	ClipboardAllowOnce:             "Allow once",
+	ClipboardAlwaysAllow:           "Always allow",
 
 	HostKeyTitle:          "Trust this host?",
 	HostKeyDescriptionFmt: "%s is new to this app. Check the fingerprint before you trust it.",

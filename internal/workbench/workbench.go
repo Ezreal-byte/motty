@@ -112,6 +112,7 @@ var (
 	hitClipboardClose          = tree.ID(shellHits, "clipboard-close")
 	hitClipboardCancel         = tree.ID(shellHits, "clipboard-cancel")
 	hitClipboardAllow          = tree.ID(shellHits, "clipboard-allow")
+	hitClipboardAlways         = tree.ID(shellHits, "clipboard-always")
 	hitShortcutReset           = tree.ID(shellHits, "shortcut-reset")
 	hitShortcutCaptureDismiss  = tree.ID(shellHits, "shortcut-capture-dismiss")
 	hitShortcutCaptureCancel   = tree.ID(shellHits, "shortcut-capture-cancel")
@@ -740,7 +741,7 @@ func New(options Options) *State {
 		terminalScrollback: scrollbackLines,
 		hostCatalog:        hostCatalog{systemUser: systemLogin(), connectionTimeout: 10 * time.Second},
 		sftpParallel:       DefaultSFTPParallel,
-		terminalClipboard:  terminalClipboardAsk,
+		terminalClipboard:  defaultTerminalClipboard,
 		shortcuts:          defaultShortcuts(),
 		terminalScheme:     defaultSchemeID,
 		syncDelay:          syncDelayDefault,

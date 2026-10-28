@@ -453,6 +453,7 @@ type Messages struct {
 	ClipboardRequestTitle          string
 	ClipboardRequestDescriptionFmt string
 	ClipboardAllowOnce             string
+	ClipboardAlwaysAllow           string
 
 	// Status bar.
 	StatusReadyIdle    string
