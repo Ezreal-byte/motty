@@ -448,7 +448,7 @@ func (state *State) paintAIPanel(canvas *ui.Canvas, size ui.Size) {
 	}
 	viewport := state.baseWorkspacePixelBounds(size)
 	drawer := components.BeginDrawer(canvas, state.Theme(), viewport, components.DrawerOptions{
-		Layer: dialogLayer, Scope: dialogScope, DismissID: hitAIDrawerDismiss,
+		Layer: drawerLayer, Scope: dialogScope, DismissID: hitAIDrawerDismiss,
 		Side: components.DrawerRight, ContentExtent: min(aiPanelWidth, size.Width*0.92),
 		InitialFocusID: hitAIInput,
 	})

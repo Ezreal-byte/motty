@@ -355,8 +355,13 @@ const (
 	barTitleSize    = float32(13) // the name in a pane's bar: a size under the assistant's title
 	navigationWidth = float32(204)
 	popupLayer      = uint16(300) // a popup inside a page: above the page's text, below dialogs
-	dialogLayer     = uint16(600)
-	tooltipLayer    = uint16(900)
+	// A layer paints all its shapes and then all its text, so two overlays on
+	// one layer are not stacked: the earlier one's text lands on the later
+	// one's surface. Drawers paint before the modal pass, so they take a layer
+	// below dialogLayer and never share it with a dialog.
+	drawerLayer  = uint16(500)
+	dialogLayer  = uint16(600)
+	tooltipLayer = uint16(900)
 )
 
 const (
