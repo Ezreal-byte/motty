@@ -93,6 +93,9 @@ func TestRemoteNativeWindowDoesNotBlockTheWorkbenchAndKeepsItsServer(t *testing.
 			t.Fatal("opening native tools blocked the workbench or failed to create a window")
 		}
 		w := state.remoteWindows[0]
+		if config := host.windows[0].config; config.MinWidth != remoteToolsMinWidth || config.MinHeight != remoteToolsMinHeight {
+			t.Fatalf("remote tools window lost its native size limits: %+v", config)
+		}
 		host.until(t, func() bool { return !w.ui.remote.loading })
 		if len(w.ui.remote.rows) != 3 || !strings.Contains(host.windows[0].config.Title, state.sessions[0].Address) {
 			t.Fatal("native window lost source data or identity")

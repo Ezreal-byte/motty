@@ -25,6 +25,7 @@ type sftpNativeHost struct {
 	scale   float64
 }
 type sftpNativeWindow struct {
+	config app.Config
 	view   *headless.Session
 	closed func()
 	done   bool
@@ -36,7 +37,7 @@ func (h *sftpNativeHost) OpenWindow(config app.Config, canvas *ui.Canvas, closed
 	if err != nil {
 		return nil, err
 	}
-	w := &sftpNativeWindow{view: view, closed: closed}
+	w := &sftpNativeWindow{config: config, view: view, closed: closed}
 	h.windows = append(h.windows, w)
 	return w, nil
 }
@@ -76,6 +77,9 @@ func dualSFTPFixture(t *testing.T, scale float64) (*State, *sftpWindow, *workben
 	}
 	if w == nil {
 		t.Fatal("no native transfer window")
+	}
+	if config := host.windows[0].config; config.MinWidth != sftpWindowMinWidth || config.MinHeight != sftpWindowMinHeight {
+		t.Fatalf("transfer window lost its native size limits: %+v", config)
 	}
 	localDir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(localDir, "中文上传.yml"), []byte("name: 中文\n"), 0600); err != nil {

@@ -257,6 +257,8 @@ func openWorkbenchWindow(application *app.Application, status *tray, hub *workbe
 		}
 	}
 	window := state.WindowColor()
+	width = max(width, workbench.MinimumWindowWidth)
+	height = max(height, workbench.MinimumWindowHeight)
 	var canvas ui.Canvas
 	state.Paint(&canvas, ui.Size{Width: float32(width), Height: float32(height)})
 
@@ -291,6 +293,8 @@ func openWorkbenchWindow(application *app.Application, status *tray, hub *workbe
 		Tree:           workbench.Tree(),
 		Width:          width,
 		Height:         height,
+		MinWidth:       workbench.MinimumWindowWidth,
+		MinHeight:      workbench.MinimumWindowHeight,
 		Origin:         origin,
 		WindowMode:     app.WindowCustomTitlebar,
 		TitlebarHeight: workbench.TitlebarHeight,

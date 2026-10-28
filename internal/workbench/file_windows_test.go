@@ -123,6 +123,11 @@ func TestDocumentLongPathsAndFooterEncodingMenu(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
+				// A small screen can cap the native minimum below the requested
+				// size. Drive that viewport after initial config normalization.
+				if err := view.Resize(int(size.Width), int(size.Height)); err != nil {
+					t.Fatal(err)
+				}
 				checkBounds := func(bounds ui.Rect) {
 					t.Helper()
 					if bounds.X < 0 || bounds.Y < 0 || bounds.Width <= 0 || bounds.Height <= 0 || bounds.X+bounds.Width > size.Width+.01 || bounds.Y+bounds.Height > size.Height+.01 {
@@ -312,6 +317,9 @@ func TestDocumentWindowSaveStaysOnCapturedConnectionAfterTabSwitch(t *testing.T)
 			t.Fatal("document operation did not settle")
 		}
 		until(func() bool { return len(host.windows) == 1 })
+		if config := host.windows[0].config; config.MinWidth != fileWindowMinWidth || config.MinHeight != fileWindowMinHeight {
+			t.Fatalf("document window lost its native size limits: %+v", config)
+		}
 		var document *fileDocument
 		for _, d := range state.fileWindows.documents {
 			document = d
