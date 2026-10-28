@@ -123,7 +123,7 @@ func TestHostMenuIsAsWideAsItsLabelsAskInBothLanguages(t *testing.T) {
 	for _, chinese := range []bool{false, true} {
 		state := newTestState(t, testOptions(t))
 		if chinese {
-			state.Click(hitLanguage)
+			useChinese(t, state)
 		}
 		rightClickHost(state, state.hosts[0].ID)
 		canvas, _ := paintedTexts(state)

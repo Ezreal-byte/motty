@@ -104,7 +104,7 @@ func TestLanguageSwitchRetargetsCatalog(t *testing.T) {
 	if state.messages.ColumnName != "NAME" {
 		t.Fatalf("default language = %q", state.messages.ColumnName)
 	}
-	state.Click(hitLanguage)
+	useChinese(t, state)
 	if state.messages.ColumnName != "名称" {
 		t.Fatalf("after switch = %q", state.messages.ColumnName)
 	}

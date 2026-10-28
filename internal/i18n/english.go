@@ -322,7 +322,7 @@ var EnglishMessages = Messages{
 	HostStateConnecting:            "Connecting",
 	HostStateConnected:             "Connected",
 	HostStateFailed:                "Failed",
-	LabelLanguage:                  "Switch language",
+	LabelGitHub:                    "GitHub",
 	LabelThemeToLight:              "Switch to light theme",
 	LabelThemeToDark:               "Switch to dark theme",
 	LabelNewTab:                    "New tab",

@@ -322,7 +322,7 @@ var ChineseMessages = Messages{
 	HostStateConnecting:            "连接中",
 	HostStateConnected:             "已连接",
 	HostStateFailed:                "连接失败",
-	LabelLanguage:                  "切换语言",
+	LabelGitHub:                    "GitHub",
 	LabelThemeToLight:              "切换到浅色主题",
 	LabelThemeToDark:               "切换到深色主题",
 	LabelNewTab:                    "新标签页",

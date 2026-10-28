@@ -94,7 +94,7 @@ func TestAddedHostsAndChoicesSurviveARestart(t *testing.T) {
 	if len(first.hosts) != 1 {
 		t.Fatalf("host was not added: %q", first.dialogError)
 	}
-	first.Click(hitLanguage)
+	useChinese(t, first)
 	first.Click(hitTheme)
 
 	second := newTestState(t, options)
@@ -235,7 +235,6 @@ func TestStateFromANewerBuildIsLeftAloneAndNeverSavedOver(t *testing.T) {
 			// The user can dismiss the dialog and carry on; nothing they do changes the file.
 			state.Click(hitStateNoticeOK)
 			state.Click(hitTheme)
-			state.Click(hitLanguage)
 			if got, err := os.ReadFile(options.StatePath); err != nil || !bytes.Equal(got, content) {
 				t.Fatalf("the newer build's file was changed (%v)", err)
 			}

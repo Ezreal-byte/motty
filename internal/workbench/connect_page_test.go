@@ -320,7 +320,7 @@ func TestTheConnectionPageStaysInsideItsCard(t *testing.T) {
 				if !dark {
 					state.Click(hitTheme)
 				}
-				state.Click(hitLanguage)
+				useChinese(t, state)
 				fake := connect(t, state, world)
 				state.sessions[0].Title = "Production database primary replica in the Frankfurt datacenter"
 				fake.set(func(s *sshconn.Status) { *s = status })

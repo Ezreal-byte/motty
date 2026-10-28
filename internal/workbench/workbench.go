@@ -62,7 +62,7 @@ var (
 	hitHostImportDismiss       = tree.ID(shellHits, "host-import-dismiss")
 	hitHostImportClose         = tree.ID(shellHits, "host-import-close")
 	hitHostImportDone          = tree.ID(shellHits, "host-import-done")
-	hitLanguage                = tree.ID(shellHits, "language")
+	hitGitHub                  = tree.ID(shellHits, "github")
 	hitTheme                   = tree.ID(shellHits, "theme")
 	hitDialogDismiss           = tree.ID(shellHits, "dialog-dismiss")
 	hitDialogClose             = tree.ID(shellHits, "dialog-close")
@@ -1242,10 +1242,8 @@ func (state *State) Click(id ui.ID) {
 		state.importSSHConfig()
 	case id == hitLocalTerminal || id == hitWindowLocalTerminal:
 		state.openLocalTerminal()
-	case id == hitLanguage:
-		if state.chooseLanguage(state.language.Next()) {
-			state.save()
-		}
+	case id == hitGitHub:
+		state.openExternal(aboutRepoURL)
 	case id == hitTheme:
 		// The button flips the look that is showing, which is a choice.
 		if state.appearance.toggled() == appearanceLight {

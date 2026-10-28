@@ -33,7 +33,8 @@ func TestChromeHasOnlyTheControlsThatDoSomething(t *testing.T) {
 	wanted := map[ui.ID]bool{
 		hitHosts: true, hitKeychain: true, hitProxies: true, hitPortForwarding: true,
 		hitKnownHosts: true, hitSettings: true, hitWindowSettings: true, hitWindowLocalTerminal: true, hitSearch: true, hitConnect: true,
-		hitAddHost: true, hitHostFilterAll: true, hitImportMenu: true, hitLanguage: true, hitTheme: true, hitHome: true, hitNewTab: true,
+		hitAddHost: true, hitHostFilterAll: true, hitImportMenu: true, hitTheme: true, hitHome: true, hitNewTab: true,
+		hitGitHub: true,
 	}
 	// A development build also declares the component gallery.
 	for _, id := range devOnlyShellHits() {
@@ -52,6 +53,28 @@ func TestChromeHasOnlyTheControlsThatDoSomething(t *testing.T) {
 	}
 	for id := range wanted {
 		t.Errorf("hit %d is not painted", id)
+	}
+}
+
+// The window bar has a GitHub button beside the other icon buttons: it names
+// itself like the rest and opens the project's page in the browser.
+func TestWindowBarGitHubButtonOpensTheRepository(t *testing.T) {
+	state := newTestState(t, testOptions(t))
+	var opened []string
+	state.options.OpenURL = func(url string) error { opened = append(opened, url); return nil }
+
+	canvas, _ := paintedTexts(state)
+	hit, ok := hitByID(canvas, hitGitHub)
+	if !ok {
+		t.Fatal("the window bar does not paint a GitHub button")
+	}
+	if hit.Label != state.messages.LabelGitHub || hit.Hint != state.messages.LabelGitHub {
+		t.Fatalf("the button reads %q with hint %q", hit.Label, hit.Hint)
+	}
+
+	state.Click(hitGitHub)
+	if len(opened) != 1 || opened[0] != aboutRepoURL {
+		t.Fatalf("the button opened %v, want %q", opened, aboutRepoURL)
 	}
 }
 

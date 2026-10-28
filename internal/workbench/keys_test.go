@@ -176,7 +176,7 @@ func TestLanguageSwitchRefreshesIdentityCells(t *testing.T) {
 	if got := state.identities[0].cells[2]; got != state.messages.KeyPassphraseProtected {
 		t.Fatalf("English protection = %q", got)
 	}
-	state.Click(hitLanguage)
+	useChinese(t, state)
 	if got := state.identities[0].cells[2]; got != state.messages.KeyPassphraseProtected {
 		t.Fatalf("Chinese protection = %q", got)
 	}

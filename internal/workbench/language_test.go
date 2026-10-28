@@ -76,11 +76,13 @@ func TestChoosingTheLanguageAlreadyShowingStillCountsAsAChoice(t *testing.T) {
 	}
 }
 
-func TestTheLanguageButtonIsAChoiceToo(t *testing.T) {
-	options := withSystemLanguages(freshOptions(t), "en-US")
-	first := newTestState(t, options)
-	first.Click(hitLanguage)
-	if first.language != i18n.Chinese || !first.languageChosen {
-		t.Fatalf("language %v chosen %v", first.language, first.languageChosen)
-	}
+// useChinese switches the catalog the way a user does: the window bar no longer
+// has a language button, so Settings is where the choice is made. The page the
+// caller was on is put back so the test carries on where it was.
+func useChinese(t testing.TB, state *State) {
+	t.Helper()
+	section := state.activeSection
+	state.Click(hitSettings)
+	state.Click(hitSettingsLanguageChinese)
+	state.activeSection = section
 }

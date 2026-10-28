@@ -363,7 +363,7 @@ type Messages struct {
 
 	// Accessible names of the window-bar buttons and tabs. LabelTerminalFmt
 	// names a terminal and takes its address.
-	LabelLanguage           string
+	LabelGitHub             string
 	LabelThemeToLight       string
 	LabelThemeToDark        string
 	LabelNewTab             string
@@ -771,12 +771,4 @@ func For(language Language) Messages {
 		messages.About = englishAbout
 		return messages
 	}
-}
-
-// Next cycles English → Chinese → English.
-func (language Language) Next() Language {
-	if language == English {
-		return Chinese
-	}
-	return English
 }
