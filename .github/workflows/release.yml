@@ -1,7 +1,10 @@
 # Builds the release packages when a version tag is pushed, verifies the whole
 # matrix, and publishes it. The notes come from docs/releases/<version>.md, which
-# is written and reviewed in the commit the tag points at; the macOS packages are
-# built on a Mac and signed, notarized and stapled when the secrets below are set;
+# is written and reviewed in the commit the tag points at; the tag body carries
+# those same notes, and the draft release is created from them by whoever pushes
+# the tag — this workflow waits for that draft before it builds anything. The
+# macOS packages are built on a Mac and signed, notarized and stapled when the
+# secrets below are set;
 # the Linux and Windows ones are cross-built on Ubuntu, with the Windows programs
 # and installer signed when a certificate is set. Without a secret the matching
 # step simply does not sign.
@@ -48,16 +51,16 @@ jobs:
           echo "vivaui/viva main is $commit"
           echo "commit=$commit" >> "$GITHUB_OUTPUT"
 
-  draft:
-    name: Draft release
+  release-ready:
+    name: Release draft ready
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
 
-      # The notes live in the release commit, so they are written and reviewed
-      # before the build instead of typed into a draft afterwards. A tag whose
-      # commit has no notes stops here.
-      - name: Check the version and the notes
+      # The version and the notes live in the release commit; the tag body must
+      # carry those same notes. A tag whose commit or body disagrees stops here,
+      # before any package is built.
+      - name: Check the tag and its notes
         run: |
           version=$(sed -n 's/^version *= *"\([^"]*\)".*/\1/p' viva.toml | head -1)
           if [ "v$version" != "$GITHUB_REF_NAME" ]; then
@@ -69,30 +72,69 @@ jobs:
             echo "::error::$notes is missing: the release notes belong in the release commit"
             exit 1
           fi
-          cp "$notes" "$RUNNER_TEMP/notes.md"
+          git for-each-ref --format='%(contents)' "refs/tags/$GITHUB_REF_NAME" > "$RUNNER_TEMP/tag-body.md"
+          python3 - "$notes" "$RUNNER_TEMP/tag-body.md" <<'EOF'
+          import sys
 
-      - name: Create or update the draft release
+          def normalized(path):
+              lines = open(path, encoding="utf-8").read().splitlines()
+              while lines and not lines[-1].strip():
+                  lines.pop()
+              return "\n".join(lines) + "\n"
+
+          if normalized(sys.argv[1]) != normalized(sys.argv[2]):
+              raise SystemExit("the tag body is not the committed release notes")
+          print("tag body carries the committed notes")
+          EOF
+
+      # The draft is created from those notes when the tag is pushed, before the
+      # packages exist. This job waits for it and holds its body to the notes;
+      # the checksums job later appends the Viva line, which is ignored here.
+      - name: Wait for the draft release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          state=$(gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft 2>/dev/null || true)
-          case "$state" in
-          true)
-            gh release edit "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --notes-file "$RUNNER_TEMP/notes.md"
-            ;;
-          false)
-            echo "::error::$GITHUB_REF_NAME is already published; a published release is never rewritten"
+          for attempt in $(seq 1 90); do
+            state=$(gh release view "$GITHUB_REF_NAME" --json isDraft --jq .isDraft 2>/dev/null || true)
+            case "$state" in
+            true) echo "draft $GITHUB_REF_NAME is ready"; exit 0 ;;
+            false) echo "::error::$GITHUB_REF_NAME is already published; a published release is never rewritten"; exit 1 ;;
+            esac
+            [ "$attempt" != 1 ] || echo "waiting for the draft release..."
+            sleep 10
+          done
+          echo "::error::no draft release for $GITHUB_REF_NAME after 15 minutes; create it from docs/releases/<version>.md with gh release create --draft --verify-tag, then rerun this workflow"
+          exit 1
+
+      - name: Check the draft matches the committed notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version=$(sed -n 's/^version *= *"\([^"]*\)".*/\1/p' viva.toml | head -1)
+          title=$(gh release view "$GITHUB_REF_NAME" --json name --jq .name)
+          if [ "$title" != "Motty $GITHUB_REF_NAME" ]; then
+            echo "::error::the draft title is not \"Motty $GITHUB_REF_NAME\""
             exit 1
-            ;;
-          *)
-            gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" \
-              --draft --verify-tag --title "Motty $GITHUB_REF_NAME" --notes-file "$RUNNER_TEMP/notes.md"
-            ;;
-          esac
+          fi
+          gh release view "$GITHUB_REF_NAME" --json body --jq .body > "$RUNNER_TEMP/body.md"
+          python3 - "docs/releases/$version.md" "$RUNNER_TEMP/body.md" <<'EOF'
+          import sys
+
+          def normalized(path):
+              lines = [line for line in open(path, encoding="utf-8").read().splitlines()
+                       if not line.startswith("Built against vivaui/viva ")]
+              while lines and not lines[-1].strip():
+                  lines.pop()
+              return "\n".join(lines) + "\n"
+
+          if normalized(sys.argv[1]) != normalized(sys.argv[2]):
+              raise SystemExit("the draft body is not the committed release notes")
+          print("draft body matches the committed notes")
+          EOF
 
   build:
     name: ${{ matrix.name }}
-    needs: [draft, viva]
+    needs: [release-ready, viva]
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false

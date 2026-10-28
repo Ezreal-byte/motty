@@ -1,22 +1,38 @@
 # Releasing Motty
 
 A release is a version tag. The commit the tag points at carries the version bump
-and the release notes in `docs/releases/<version>.md`; pushing `v<version>` builds
-every package, signs what it has the secrets to sign, verifies the finished
-matrix, and publishes it. The tag is the approval — the notes were read in the
-commit, and the workflow checks the artifacts before anything goes public.
+and the release notes in `docs/releases/<version>.md`; the tag's body is those
+same notes. Pushing `v<version>` starts the release: a draft is created from the
+committed notes, the workflow waits for it, builds every package, signs what it
+has the secrets to sign, verifies the finished matrix, and publishes it. The tag
+is the approval — the notes were read in the commit, and the workflow checks the
+artifacts before anything goes public.
 
 ```sh
-# 1. bump viva.toml and internal/update/update.go, write
-#    docs/releases/<version>.md, commit and push
-# 2. tag exactly v<version> and push the tag
-git tag v0.1.3 && git push origin v0.1.3
-# 3. when the workflow is green the packages are on the mirror, the release is
-#    public and the update feed names it
+# 1. write docs/releases/<version>.md, then bump both version files and run the
+#    preflight (clean main, tag free, last release, exact-head tests):
+go run ./tools/releaseprep -version 0.1.7
+# 2. commit, and tag with the notes as the tag body. --cleanup=verbatim keeps
+#    the "## " headings that git tag would otherwise strip as comments:
+git commit -am "chore(release): 0.1.7"
+git push origin main
+git tag -a --cleanup=verbatim v0.1.7 -F docs/releases/0.1.7.md
+git push origin refs/tags/v0.1.7
+# 3. create the draft the workflow is waiting for, from the same notes:
+gh release create v0.1.7 --repo t8y2/motty --draft --verify-tag \
+  --title "Motty v0.1.7" --notes-file docs/releases/0.1.7.md
+# 4. when the workflow is green the packages are on the mirror, the release is
+#    public and the update feed names it; check it end to end:
+go run ./tools/releaseverify -tag v0.1.7
 ```
 
-`tools/release.sh` refuses a tag that is not `v` plus the version in `viva.toml`,
-and the draft job refuses a tag whose commit has no notes file.
+`tools/releaseprep` refuses a dirty or non-main checkout, a tag that already
+exists, a version that is not newer than the last published release, and an
+exact-head `tests.yml` that is not green (`-allow-ci-pending` only skips queued or
+running tests, never a failure). It never commits, tags or creates anything.
+`tools/release.sh` still refuses a tag that is not `v` plus the version in
+`viva.toml`, and the *Release draft ready* job refuses a tag whose commit or body
+does not carry the committed notes.
 
 The application is built from a clean local clone with a real `.git` directory.
 Go 1.26 does not automatically stamp Git metadata from the `.git` file of a
@@ -35,7 +51,7 @@ covered by this executable check; the automated release workflow does not use it
 | Job | Runs on | Does |
 | --- | --- | --- |
 | Pin viva | Ubuntu | resolves `vivaui/viva` main to one commit |
-| Draft release | Ubuntu | creates the draft with the notes from `docs/releases/<version>.md` |
+| Release draft ready | Ubuntu | checks the tag body is the committed notes, waits for the draft release, and holds its body to those notes |
 | macOS | macOS 15 (arm64) | `.dmg` and `.zip` for arm64 and amd64; signed, notarized and stapled |
 | Linux and Windows | Ubuntu | `.tar.gz` and `.deb` (amd64, arm64), and an NSIS installer for Windows amd64 and arm64; the Windows programs and the installers signed |
 | Checksums | Ubuntu | signs every package of the release, writes `SIGNATURES` and `SHA256SUMS`, and verifies the whole release |
@@ -75,8 +91,9 @@ and, when a change touches windows, input or updates, a headless run are still
 what keeps a release worth publishing.
 
 If a job fails, the draft stays and nothing is published. Fix the cause, delete
-the draft and the tag, and tag again; once the *Publish* job has published the
-release a fix is a new patch version, not an edit. The one step with a different
+the draft and the tag, and tag again. A missing draft is not a failure in the
+build: create it from the notes and rerun the workflow. Once the *Publish* job
+has published the release a fix is a new patch version, not an edit. The one step with a different
 recovery is *Announce*: if the copy and the publish went through but `latest.json`
 did not, the release is public on the previous feed — run *Actions → Mirror
 release → Run workflow* with the tag to finish it without touching the release.
@@ -84,8 +101,9 @@ release → Run workflow* with the tag to finish it without touching the release
 ## The release notes
 
 `docs/releases/<version>.md` is the text of the GitHub release, in the same
-commit as the version bump and the tag. The draft job copies it in, and the
-checksums job appends the `Built against vivaui/viva <sha>.` line, so the file
+commit as the version bump; the annotated tag carries the same text verbatim, so
+the notes are what was reviewed, and the draft release is created from the file.
+The checksums job appends the `Built against vivaui/viva <sha>.` line, so the file
 itself never carries that line. Write it for the people who read the update
 dialog — what they can do now that they could not before — in Chinese, with the
 `## 新功能 / 改进 / 修复 / 安装` sections the earlier releases use. The notes in
