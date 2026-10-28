@@ -76,6 +76,10 @@ win32-input-mode。连字在固定网格内按单元格整形。标签可以重�
 WindTerm、Electerm 导入。TOTP/HOTP 种子可以存入保险库并自动填充。密码和私钥口令
 进入 AES-256-GCM 保险库，密钥放在系统密钥存储，或由 Argon2id 主密码包裹。
 
+<p align="center">
+  <a href="assets/readme-hosts.webp"><img src="assets/readme-hosts.webp" width="720" alt="主机列表，带分组标签和远程桌面标记" /></a>
+</p>
+
 ### 🗂 文件不用另开应用
 
 SFTP 支持多选、递归上传/下载、受限传输队列、续传、取消/重试、重命名、删除、

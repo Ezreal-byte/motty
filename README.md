@@ -88,6 +88,10 @@ vault and filled automatically. Saved passwords and key passphrases go into an
 AES-256-GCM vault; the vault key lives in the system secret store or behind an
 Argon2id master password.
 
+<p align="center">
+  <a href="assets/readme-hosts.webp"><img src="assets/readme-hosts.webp" width="720" alt="Host list with tags and a remote-desktop host" /></a>
+</p>
+
 ### 🗂 Files without another app
 
 SFTP browsing with multi-select, recursive upload/download, a bounded transfer
