@@ -3,6 +3,7 @@ package workbench
 import (
 	"context"
 	"errors"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"sync"
@@ -91,6 +92,29 @@ func TestAnUpdateThatCanBeInstalledIsInstalledAndTheApplicationQuits(t *testing.
 	waitUpdate(t, state, func() bool { return quits == 1 })
 	if updater.launches() != 1 || state.update.install.phase != installRestarting || len(opened) != 0 {
 		t.Fatalf("launched %d, phase %d, opened %q", updater.launches(), state.update.install.phase, opened)
+	}
+}
+
+func TestARegisteredCustomWindowsInstallUsesTheInAppUpdater(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "Program Files", "Motty 自定义")
+	install, reason := selfupdate.Detect(filepath.Join(dir, "motty.exe"), selfupdate.Env{
+		GOOS: "windows", WindowsUserDir: dir,
+		Exists:   func(path string) bool { return path == filepath.Join(dir, "Uninstall.exe") },
+		Writable: func(path string) bool { return path == dir },
+	})
+	updater, quits, opened := &fakeUpdater{reason: reason}, 0, []string(nil)
+	updater.prepare = func(context.Context, func(selfupdate.Progress), func(selfupdate.Phase)) (selfupdate.Staged, error) {
+		return selfupdate.Staged{Install: install, Version: "99.0.0"}, nil
+	}
+	state := updateWindow(t, updater, &quits, &opened)
+	_, texts := paintedTexts(state)
+	if !contains(texts, state.messages.Tools.UpdateInstall) || contains(texts, state.messages.Tools.GeneralUpdateDownload) {
+		t.Fatal("a registered custom installation still falls back to the browser")
+	}
+	state.Click(hitUpdateInstall)
+	waitUpdate(t, state, func() bool { return quits == 1 })
+	if updater.launches() != 1 || len(opened) != 0 {
+		t.Fatalf("custom install launched %d times and opened %q", updater.launches(), opened)
 	}
 }
 
