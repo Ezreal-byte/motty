@@ -256,8 +256,10 @@ viva_repo=$(cd "$here/../viva" 2>/dev/null && pwd) || { echo "the Viva checkout 
 commit=$(git -C "$here" rev-parse --verify "$ref^{commit}")
 commit_time=$(git -C "$here" show -s --format=%cI "$commit")
 short=$(git -C "$here" rev-parse --short "$commit")
-version=$(sed -n 's/^version *= *"\([^"]*\)".*/\1/p' "$here/viva.toml" | head -1)
-[ -n "$version" ] || { echo "no version in viva.toml" >&2; exit 1; }
+# The version of the commit being packaged, not of the working tree: --ref may
+# name another commit while viva.toml is dirty or ahead.
+version=$(git -C "$here" show "$commit:viva.toml" 2>/dev/null | sed -n 's/^version *= *"\([^"]*\)".*/\1/p' | head -1)
+[ -n "$version" ] || { echo "no version in viva.toml at $short" >&2; exit 1; }
 if [ -n "$tag" ] && [ "$tag" != "v$version" ]; then
 	echo "the release tag is $tag but viva.toml says version $version: the tag must be v$version" >&2
 	exit 1
@@ -266,6 +268,10 @@ out=${out:-$here/build/release-$version}
 mkdir -p "$out"
 out=$(cd "$out" && pwd)
 [ -z "$installer" ] || [ -f "$installer" ] || { echo "no such installer: $installer" >&2; exit 1; }
+if [ -n "$installer" ] && [ -n "$tag" ]; then
+	echo "--installer cannot be uploaded: a release asset must be built and verified here" >&2
+	exit 1
+fi
 
 work=$(mktemp -d)
 cleanup() {
@@ -293,6 +299,9 @@ build_package() {
 	# package those same bytes. Explicit returns also work inside the Windows
 	# conditional below, where bash suppresses errexit inside called functions.
 	"$work/viva-cli" build --target "$target" --arch "$arch" -o "$program" || return
+	# Package uses a supplied program as it is, signature included, so the
+	# Windows executable is signed here, before the check reads its bytes.
+	[ "$target" != windows ] || "$work/viva-cli" sign --target windows --program "$program" || return
 	go run ./tools/checkbuild -program "$program" -revision "$commit" -time "$commit_time" -target "$target" -arch "$arch" || return
 	"$work/viva-cli" package --target "$target" --arch "$arch" --program "$program" "$@"
 }
@@ -317,7 +326,7 @@ if want windows; then
 		if [ -n "$installer" ] && [ "$arch" = amd64 ]; then
 			cp "$installer" "$out/"
 			echo "   Windows amd64 installer copied from $installer"
-		elif package windows "$arch" --format nsis -o "$out" >"$work/nsis-$arch.log" 2>&1; then
+		elif package windows "$arch" --format nsis -o "$out" 2>&1 | tee "$work/nsis-$arch.log"; then
 			echo "   Windows $arch installer built"
 		else
 			echo "   no Windows $arch installer: $(tail -1 "$work/nsis-$arch.log" | cut -c1-110)"

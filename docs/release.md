@@ -23,7 +23,10 @@ Go 1.26 does not automatically stamp Git metadata from the `.git` file of a
 linked worktree. Before each generated executable is packaged, `tools/checkbuild`
 reads its Go build information and checks the exact commit, commit time, clean
 source status and target OS/architecture. Viva packages that checked executable
-through `--program`. This check also works for cross-compiled Windows binaries.
+through `--program`, so the Windows executable is Authenticode-signed with the
+configured options before the check reads it: Viva uses a supplied program as it
+is and would otherwise package it unsigned. The check also works for
+cross-compiled Windows binaries.
 The optional `--installer` input is an externally built installer and is not
 covered by this executable check; the automated release workflow does not use it.
 
