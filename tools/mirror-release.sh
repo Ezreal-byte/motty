@@ -190,13 +190,26 @@ done
 # The mirror holds a package only when the versioned URL answers with the size
 # the file has here. The feed must never name bytes that were not uploaded, so
 # --announce refuses instead of writing a latest.json the update would fail on.
+# The CDN answers the occasional 502 under load, which is not a missing file:
+# a size is confirmed by one of four tries before the run gives up on it.
+size_on_mirror() { # key
+	curl -fsSI "$mirror/$1" 2>/dev/null | tr -d '\r' \
+		| awk 'tolower($1) == "content-length:" { print $2 }' | tail -1
+}
+
 verify_uploaded() {
 	missing=0
 	while IFS="$(printf '\t')" read -r stable name; do
 		[ -n "$name" ] || continue
 		want=$(size_of "$dir/$name")
-		got=$(curl -fsSI "$mirror/releases/$tag/$name" | tr -d '\r' \
-			| awk 'tolower($1) == "content-length:" { print $2 }' | tail -1)
+		got=
+		attempt=1
+		while [ "$attempt" -le 4 ]; do
+			got=$(size_on_mirror "releases/$tag/$name")
+			[ "$got" = "$want" ] && break
+			sleep $((attempt * 2))
+			attempt=$((attempt + 1))
+		done
 		if [ "$got" != "$want" ]; then
 			echo "mirror does not hold releases/$tag/$name at $want bytes (got ${got:-nothing})" >&2
 			missing=1
