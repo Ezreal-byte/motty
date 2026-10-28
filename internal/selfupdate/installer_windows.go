@@ -5,6 +5,9 @@ import (
 	"syscall"
 )
 
+// installerCommandLine sets the one command line the installer is started with.
+// Call it after hide: hide replaces SysProcAttr, and this keeps whatever flags
+// it set.
 func installerCommandLine(cmd *exec.Cmd, dir string) {
 	// NSIS consumes /D= and the rest of the command line as the directory.
 	// It must be last and unquoted, even when the path contains spaces:

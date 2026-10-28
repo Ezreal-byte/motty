@@ -35,6 +35,7 @@ func TestWindowsInstallerKeepsTheExactCustomDirectory(t *testing.T) {
 		`D:\Program Files\motty`,
 		`D:\开发 工具\Motty & SSH`,
 		`C:\Users\me\AppData\Local\Programs\Motty`,
+		`D:\`,
 	} {
 		t.Run(root, func(t *testing.T) {
 			output := filepath.Join(t.TempDir(), "command-line.txt")
