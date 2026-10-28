@@ -389,6 +389,11 @@ ls -l "$out" | awk 'NR>1 {printf "   %10d  %s\n", $5, $9}'
 
 [ -n "$tag" ] || exit 0
 
+# The packages were built in a clone whose origin is this checkout's path, not
+# GitHub, so gh cannot tell which repository to talk to from there. The release
+# belongs to the checkout that has the GitHub remote.
+cd "$here"
+
 echo "== release $tag"
 assets=("$out"/motty*)
 # Only a run that built every platform in one place uploads a manifest. The
