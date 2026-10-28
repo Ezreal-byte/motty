@@ -35,12 +35,18 @@ type sftpIconButton struct {
 	hint     string
 	disabled bool
 	style    iconButtonStyle
+	behind   ui.Color
+	tint     ui.Color
 }
 
 func (state *State) paintSFTPIconButtons(canvas *ui.Canvas, buttons []sftpIconButton) {
 	for index := range buttons {
 		button := &buttons[index]
-		state.paintIconButton(canvas, button.id, button.icon, button.box.Rect(), button.hint, button.disabled, button.style, state.pal.workspace)
+		behind := button.behind
+		if behind.Alpha == 0 {
+			behind = state.pal.workspace
+		}
+		state.paintTintedIconButton(canvas, button.id, button.icon, button.box.Rect(), button.hint, button.disabled, button.style, behind, button.tint)
 	}
 }
 
@@ -54,6 +60,7 @@ func (state *State) paintSFTPPage(canvas *ui.Canvas, size ui.Size, session *Sess
 		return
 	}
 	pal, messages := state.pal, state.messages
+	headerBackground, headerBorder := state.connectionBarColors(session, false)
 	folder, local := view.active(), view.local
 
 	// What the page shows decides its parts. The selection bar and the file
@@ -101,8 +108,8 @@ func (state *State) paintSFTPPage(canvas *ui.Canvas, size ui.Size, session *Sess
 	addHeader(hitSFTPPanelSide, moveIcon, moveHint, false)
 	addHeader(hitSFTPClose, iconClose, messages.TipSFTPClose, false)
 	headerTools = state.orderToolbarTools(toolbarSFTP, headerTools, false)
-	buttonCount := 0
-	var crumbs, filterSlot, popupTop, listSlot, spinnerSlot, moreButton flex.Box
+	buttonCount, headerButtonCount := 0, 0
+	var header, crumbs, filterSlot, popupTop, listSlot, spinnerSlot, moreButton flex.Box
 
 	f := state.filesLayout.Begin(canvas, state.Theme(), ui.Rect{Y: windowBarHeight, Width: size.Width, Height: max(0, size.Height-windowBarHeight)})
 	// icon declares an icon button where it goes; it is painted after End.
@@ -114,7 +121,7 @@ func (state *State) paintSFTPPage(canvas *ui.Canvas, size ui.Size, session *Sess
 		// One row for the panel: its name, then the actions on the folder and
 		// refresh and close, from the right. The words "Files" and the address say
 		// nothing the tab does not already; the room goes to the list.
-		f.Row().Height(infoBarHeight).Shrink(0).Items(flex.Center).Children(func() {
+		header = f.Row().FillWidth().Height(infoBarHeight).Shrink(0).MarginSides(0, -sftpPad, 0, -sftpPad).PadX(sftpPad).Background(headerBackground).Items(flex.Center).Children(func() {
 			f.Text(title).FontSize(metrics.FontSizeM).Weight(ui.WeightSemibold).Color(pal.text).Ellipsis().Grow(1).Height(20).MarginSides(0, 8, 0, 0)
 			f.Row().Gap(4).Shrink(0).Children(func() {
 				for _, tool := range headerTools {
@@ -129,6 +136,7 @@ func (state *State) paintSFTPPage(canvas *ui.Canvas, size ui.Size, session *Sess
 				icon(sftpHeaderButton, hitSFTPHeaderMore, iconEllipsis, messages.Tools.FilesMore, false, iconButtonQuiet)
 			})
 		})
+		headerButtonCount = buttonCount
 
 		// Where we are: one level up, then the tail of the path as many folders as
 		// fit. The bookmark controls close the row on the right: the list of the
@@ -223,6 +231,11 @@ func (state *State) paintSFTPPage(canvas *ui.Canvas, size ui.Size, session *Sess
 		}
 	}
 
+	headerBounds := header.Rect()
+	canvas.Fill(ui.Rect{X: headerBounds.X, Y: headerBounds.Y + headerBounds.Height - 1, Width: headerBounds.Width, Height: 1}, headerBorder)
+	for i := 0; i < headerButtonCount; i++ {
+		buttons[i].behind, buttons[i].tint = headerBackground, sftpToolAccent(buttons[i].id)
+	}
 	state.paintSFTPIconButtons(canvas, buttons[:buttonCount])
 	if folder.headerMenuOpen {
 		state.paintSFTPHeaderMenu(canvas, ui.Size{Width: size.Width, Height: size.Height}, moreButton.Rect(), folder)

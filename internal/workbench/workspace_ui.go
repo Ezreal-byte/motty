@@ -318,17 +318,18 @@ func (state *State) paintContextSFTP(canvas *ui.Canvas, bounds ui.Rect, session 
 // and close button as the list, then what the panel needs to start.
 func (state *State) paintEmptyContextSFTP(canvas *ui.Canvas, size ui.Size, session *Session) {
 	pal, messages := state.pal, state.messages
+	headerBackground, headerBorder := state.connectionBarColors(session, false)
 	bounds := ui.Rect{Y: windowBarHeight, Width: size.Width, Height: max(size.Height-windowBarHeight, 0)}
 	canConnect := session != nil && (session.isLocal() || session.hasServer() && session.conn != nil && session.phase == sshconn.PhaseConnected)
 	// The message sits a little above the middle of the panel.
 	middle := bounds.Height * 0.38
 
-	var closeButton, sideButton, sessionTitle, openButton flex.Box
+	var header, closeButton, sideButton, sessionTitle, openButton flex.Box
 	buttonWidth := min(max(size.Width-2*sftpPad, 0), 160)
 	f := state.filesLayout.Begin(canvas, state.Theme(), bounds)
 	f.Stack().Fill().Background(pal.workspace).Children(func() {
 		f.Column().Fill().PadX(sftpPad).Children(func() {
-			f.Row().Height(infoBarHeight).Shrink(0).Gap(8).Items(flex.Center).Children(func() {
+			header = f.Row().FillWidth().Height(infoBarHeight).Shrink(0).MarginSides(0, -sftpPad, 0, -sftpPad).PadX(sftpPad).Background(headerBackground).Gap(8).Items(flex.Center).Children(func() {
 				f.Text(messages.SFTPFiles).FontSize(metrics.FontSizeM).Weight(ui.WeightSemibold).Color(pal.text).LineHeight(20).Grow(1)
 				sideButton = f.Slot().Size(sftpHeaderButton, sftpHeaderButton)
 				closeButton = f.Slot().Size(sftpHeaderButton, sftpHeaderButton)
@@ -349,9 +350,11 @@ func (state *State) paintEmptyContextSFTP(canvas *ui.Canvas, size ui.Size, sessi
 	})
 	f.End()
 
-	state.paintIconButton(canvas, hitSFTPClose, iconClose, closeButton.Rect(), messages.TipSFTPClose, false, iconButtonQuiet, pal.workspace)
+	headerBounds := header.Rect()
+	canvas.Fill(ui.Rect{X: headerBounds.X, Y: headerBounds.Y + headerBounds.Height - 1, Width: headerBounds.Width, Height: 1}, headerBorder)
+	state.paintTintedIconButton(canvas, hitSFTPClose, iconClose, closeButton.Rect(), messages.TipSFTPClose, false, iconButtonQuiet, headerBackground, sftpToolAccent(hitSFTPClose))
 	moveIcon, moveHint := state.sftpPanelMoveAction()
-	state.paintIconButton(canvas, hitSFTPPanelSide, moveIcon, sideButton.Rect(), moveHint, false, iconButtonQuiet, pal.workspace)
+	state.paintTintedIconButton(canvas, hitSFTPPanelSide, moveIcon, sideButton.Rect(), moveHint, false, iconButtonQuiet, headerBackground, sftpToolAccent(hitSFTPPanelSide))
 	if session != nil {
 		titleBounds := sessionTitle.Rect()
 		canvas.Label(elide(canvas, session.Title, metrics.FontSizeS, ui.WeightRegular, titleBounds.Width), titleBounds, ui.TextStyle{Size: metrics.FontSizeS, Color: pal.muted})

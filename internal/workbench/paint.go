@@ -316,6 +316,7 @@ type barTab struct {
 	badge, light flex.Box
 	workspace    layoutcore.WorkspaceInfo
 	id, closeID  ui.ID
+	background   ui.Color
 }
 
 // barGeometry is what a first pass over the window bar says about its tabs: the
@@ -423,6 +424,19 @@ func (state *State) declareWindowBar(f *flex.Frame, bar *windowBar, probe, pictu
 						case hovered:
 							fill, foreground = pal.tabHover, pal.text
 						}
+						if pane, ok := state.deck.Pane(workspace.ID, workspace.ActivePane); ok {
+							if session, ok := state.sessionByIDPointer(uint32(pane.SessionID)); ok {
+								amount := float32(.08)
+								if active {
+									amount = .18
+								} else if hovered {
+									amount = .12
+								}
+								fill = tintHostSurface(fill, session.host.Color, amount)
+								edge = tintHostSurface(edge, session.host.Color, .35)
+							}
+						}
+						entry.background = fill
 						first := float32(0)
 						if index == 0 {
 							first = -scroll
@@ -520,13 +534,7 @@ func (state *State) paintWindowBarParts(canvas *ui.Canvas, strip ui.Rect) {
 			session, _ = state.sessionByIDPointer(uint32(pane.SessionID))
 		}
 		if session != nil {
-			fill := state.pal.tab
-			switch active := state.activeSection == sectionTerminal && state.deck.ActiveWorkspace() == tab.workspace.ID; {
-			case active:
-				fill = state.pal.tabActive
-			case canvas.Hovered() == tab.id || canvas.Hovered() == tab.closeID:
-				fill = state.pal.tabHover
-			}
+			fill := tab.background
 			state.paintHostCatalogIcon(canvas, session.host, tab.badge.Rect(), fill)
 			kind, dot := state.sessionLight(session)
 			light := tab.light.Rect()
@@ -1234,6 +1242,11 @@ func (state *State) paintHostTreeRow(canvas *ui.Canvas, row, content ui.Rect, ho
 	rowBackground := pal.workspace
 	if host.ID == state.selectedHostID || canvas.Hovered() == id {
 		rowBackground = pal.surfaceSoft
+	}
+	if hostAccent(host.Color).Alpha > 0 {
+		rowBackground = tintHostSurface(rowBackground, host.Color, .10)
+		canvas.Rounded(row, radius.control, rowBackground)
+		paintHostColorMark(canvas, row, host.Color)
 	}
 	// The columns follow the row's width: the name, then the address and the tags
 	// further right. The status is pinned to the row's right edge so it is never
