@@ -921,6 +921,9 @@ func (state *State) EditorFor(hit ui.ID) *text.Editor {
 		if hit == hitDialogTags {
 			return &state.hostTagPicker().control.Query
 		}
+		if hit == hitDialogGroup {
+			return &state.hostGroupPicker().control.Query
+		}
 		if isDialogField(hit) {
 			if state.editor.colorPicker.open {
 				return nil
@@ -1475,6 +1478,9 @@ func (state *State) reconnect(session *Session) {
 // clickHostDialog handles the New Host dialog. Clicks on its fields only move
 // focus, which the runtime already did; clicks anywhere else are swallowed.
 func (state *State) clickHostDialog(id ui.ID) {
+	if state.clickHostGroupPicker(id) {
+		return
+	}
 	if state.clickHostTags(id) {
 		return
 	}
@@ -1723,6 +1729,15 @@ func (state *State) Pointer(event ui.PointerEvent) (outcome ui.EventResult) {
 }
 
 func (state *State) pointer(event ui.PointerEvent) ui.EventResult {
+	if state.modal == modalNewHost && state.editor.groupPicker.control.Open {
+		if event.Kind == ui.PointerDown && event.Button == ui.PointerButtonPrimary && !isHostGroupPickerTarget(event.Target) {
+			state.editor.groupPicker.control.Open = false
+			return ui.EventResult{Handled: true, Repaint: true}
+		}
+		if result := state.editor.groupPicker.control.Pointer(event); result.Handled {
+			return result
+		}
+	}
 	if state.modal == modalNewHost && state.editor.tagPicker.control.Open {
 		// A press outside the open tag picker closes only the picker. The
 		// popup is painted inside the form's scroll area, so its dismiss
@@ -1822,6 +1837,9 @@ func (state *State) Key(event ui.KeyEvent) (outcome ui.EventResult) {
 }
 
 func (state *State) key(event ui.KeyEvent) ui.EventResult {
+	if result, handled := state.hostGroupPickerKey(event); handled {
+		return result
+	}
 	if result := state.toolbarSettingsKey(event); result.Handled {
 		return result
 	}

@@ -23,6 +23,7 @@ type hostEditor struct {
 	// the vault or copied into Host; a successful submit stores it separately.
 	password    text.Editor
 	group       text.Editor
+	groupPicker hostGroupPicker
 	tags        text.Editor
 	tagPicker   hostTagPicker
 	icon        hostIcon
@@ -211,6 +212,7 @@ func (editor *hostEditor) load(host Host) {
 	editor.group = text.Editor{}
 	editor.tags = text.Editor{}
 	editor.tagPicker = hostTagPicker{}
+	editor.groupPicker = hostGroupPicker{}
 	editor.icon, editor.iconOpen = hostIconAuto, false
 	editor.port = text.Editor{}
 	editor.algorithms = text.Editor{}
@@ -302,6 +304,7 @@ func (editor *hostEditor) reset() {
 	editor.group = text.Editor{}
 	editor.tags = text.Editor{}
 	editor.tagPicker = hostTagPicker{}
+	editor.groupPicker = hostGroupPicker{}
 	editor.icon, editor.system, editor.iconOpen = hostIconAuto, sshconn.SystemUnknown, false
 	editor.port = text.Editor{}
 	editor.algorithms = text.Editor{}

@@ -1580,7 +1580,7 @@ func (state *State) paintHostDialog(canvas *ui.Canvas, viewport ui.Rect) {
 	state.paintHostProtocolSwitch(canvas, protocol.Rect())
 	state.paintDialogField(canvas, hitDialogLabel, fieldLabel, m.FieldLabel, m.FieldLabelPlaceholder, label.Rect())
 	state.paintHostEndpointRows(canvas, endpoint.Rect().X, endpoint.Rect().Y, endpoint.Rect().Width, rowHeight)
-	state.paintDialogField(canvas, hitDialogGroup, fieldGroup, m.FieldGroup, m.FieldGroupPlaceholder, group.Rect())
+	state.paintHostGroupPicker(canvas, group.Rect())
 	state.paintHostTags(canvas, tags.Rect())
 	state.paintHostIconChoice(canvas, iconField.Rect())
 	state.paintHostColorChoice(canvas, colorField.Rect())
