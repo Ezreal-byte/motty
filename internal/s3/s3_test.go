@@ -370,3 +370,10 @@ func TestAFirstUploadDoesNotOverwriteAnObjectAnotherComputerCreatedFirst(t *test
 		}
 	}
 }
+
+func TestARedirectIsNotASuccess(t *testing.T) {
+	response := &http.Response{StatusCode: http.StatusFound, Status: "302 Found", Body: io.NopCloser(strings.NewReader(""))}
+	if _, err := check(response); err == nil {
+		t.Fatal("a redirect the client did not follow was reported as a working bucket")
+	}
+}

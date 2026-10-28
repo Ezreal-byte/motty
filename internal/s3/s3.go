@@ -169,6 +169,10 @@ func check(response *http.Response) (code string, err error) {
 	case response.StatusCode == http.StatusUnauthorized || response.StatusCode == http.StatusForbidden:
 		code, detail := failure(response)
 		return code, fmt.Errorf("%w (%s)", cloudsync.ErrUnauthorized, strings.TrimPrefix(detail.Error(), "s3: the server answered "))
+	case response.StatusCode >= 300 && response.StatusCode < 400:
+		// A redirect the client did not follow (another host, or too many hops)
+		// is not a success: nothing was verified.
+		return "", fmt.Errorf("s3: the server answered %s", response.Status)
 	case response.StatusCode >= 400:
 		return failure(response)
 	}
