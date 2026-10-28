@@ -1439,3 +1439,35 @@ func TestALargeLinkedListingResolvesAfterItIsShown(t *testing.T) {
 		return false
 	})
 }
+
+// The terminal pane is painted shifted by the files panel, so a wheel over its
+// left part lands on window coordinates that are also inside the panel's
+// width. That wheel is the terminal's: the panel only owns what is over it.
+func TestTheWheelOverTheTerminalBesideTheFilesPanelScrollsTheTerminal(t *testing.T) {
+	state, session, fake, _ := openTestSFTP(t)
+	shell := fake.shell(t)
+	var output strings.Builder
+	for line := 1; line <= 200; line++ {
+		output.WriteString("line\r\n")
+	}
+	shell.say(output.String())
+	state.Wake()
+	size := ui.Size{Width: 1400, Height: 900}
+	var canvas ui.Canvas
+	state.Paint(&canvas, size)
+	panel := state.contextRect
+	if panel.Width == 0 {
+		t.Fatal("the paint reported no files panel")
+	}
+	rows := len(session.files.rows)
+	first := session.files.first
+	over := pagedIdentity(state, session, hitTerminalList.At(int(session.ID)))
+	x, y := panel.X+panel.Width+panel.Width/2, panel.Y+200
+	result := state.Scroll(ui.ScrollEvent{X: x, Y: y, DeltaY: -3 * state.cellHeight, Precise: true, Viewport: size, Target: over})
+	if got := session.term.screen.ViewOffset(); got != 3 || !result.Repaint {
+		t.Fatalf("a wheel over the terminal beside the panel: offset %d, %+v", got, result)
+	}
+	if session.files.first != first || len(session.files.rows) != rows {
+		t.Fatal("the wheel over the terminal moved the file list")
+	}
+}

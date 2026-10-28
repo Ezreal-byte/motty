@@ -1104,6 +1104,14 @@ func (state *State) Scroll(event ui.ScrollEvent) ui.EventResult {
 		}
 		return ui.EventResult{}
 	}
+	// Empty space of the files panel names no control, so the panel is told
+	// apart by where the pointer is. That is a window position: once a pane
+	// shifts the event into its own coordinates, it would also match the part
+	// of the terminal that lies as far from the pane's edge as the panel is wide.
+	if session, ok := state.sessionByIDPointer(state.activeSessionID); ok && session.files != nil &&
+		state.activeSection == sectionTerminal && pointInRect(event.X, event.Y, state.contextRect) {
+		return state.scrollSFTP(session.files, event)
+	}
 	if session, local, ok := state.decodePaneHit(event.Target); ok {
 		// The wheel scrolls the pane under the pointer and leaves the active
 		// pane where it is: activation is for a press.
@@ -1135,9 +1143,6 @@ func (state *State) scroll(event ui.ScrollEvent) ui.EventResult {
 		return state.scrollHosts(event)
 	}
 	session, ok := state.sessionByIDPointer(state.activeSessionID)
-	if ok && session.files != nil && pointInRect(event.X, event.Y, state.contextRect) {
-		return state.scrollSFTP(session.files, event)
-	}
 	if hovered := state.terminalSession(event.Target); hovered != nil {
 		session, ok = hovered, true
 	}
