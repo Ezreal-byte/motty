@@ -21,6 +21,84 @@ export type ChangelogEntry = {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '0.1.5',
+    date: '2026-10-28',
+    sections: [
+      {
+        title: { en: 'New', zh: '新功能' },
+        items: [
+          {
+            en: 'Settings > General customizes the window, terminal and SFTP toolbars: which buttons are shown and in what order, dragged or moved with the keyboard, applied immediately, with enable all, disable all and restore defaults.',
+            zh: '设置 > 通用可以自定义窗口、终端和 SFTP 工具栏：显示哪些按钮、按什么顺序，拖动或用方向键排序，改动立即生效，并可全选、全不选、恢复默认。',
+          },
+          {
+            en: 'A connection’s color now marks its host card and its tab, and the file window header uses the same color as the terminal.',
+            zh: '连接的颜色现在出现在主机卡片和标签页上，文件窗口头部也和终端一致。',
+          },
+          {
+            en: 'A file panel can filter the current folder by name with a match count, show or hide hidden files, and edit its path directly with Command/Ctrl+L.',
+            zh: '文件面板能按名字筛选当前目录并显示命中数，可以切换隐藏文件，Command/Ctrl+L 直接编辑路径。',
+          },
+          {
+            en: 'Settings > MCP separates the HTTP server, which uses the sessions open in Motty, from the standalone service a client starts (`mcp-serve`, over the hosts you opened to agents); each has its own client list, preview and copy button.',
+            zh: '设置 > MCP 把 HTTP 服务（用窗口里打开的会话）和客户端启动的独立服务（`mcp-serve`，用已授权主机）分开，各有自己的客户端、预览和复制按钮。',
+          },
+          {
+            en: 'Both transports can grant full access: commands, reads, writes and deletes run without approval. It is saved only after a risk confirmation, stays flagged while configured, and for the standalone service adds `sftp_write` and `sftp_remove` and takes effect when the client restarts it.',
+            zh: '两种接入都能开完全权限：执行命令、读写删除文件都不再逐次审批。选择时先风险确认，配置期间持续标红；独立服务下还提供 `sftp_write`、`sftp_remove`，要等客户端重启服务才生效。',
+          },
+          {
+            en: 'The assistant keeps its primary connection when you switch tabs; acting on another session needs an @ reference or an explicit request, and cross-connection commands and file changes show their real target for approval.',
+            zh: 'AI 助手的主连接不随标签页切换而改变；操作别的会话要用 @ 或明确要求，跨连接的命令和文件改动在审批时会显示真实目标。',
+          },
+          {
+            en: 'The Docker view says when Docker is not installed, sorts by column, and can refresh every 5 seconds to 5 minutes.',
+            zh: 'Docker 页面在服务器没装 Docker 时给出空状态和提示，列可以点标题排序，自动刷新间隔从 5 秒到 5 分钟。',
+          },
+          {
+            en: 'Release notes in the update dialog are rendered Markdown, with clickable links.',
+            zh: '更新对话框里的 release notes 改为渲染后的 Markdown，链接可以点开。',
+          },
+        ],
+      },
+      {
+        title: { en: 'Improved', zh: '改进' },
+        items: [
+          {
+            en: 'The Ask level is spelled out: low-risk actions run, the rest need approval in the AI panel, and critical ones need a typed confirmation.',
+            zh: '「询问」级别的含义写清楚了：低风险操作自动执行，其余在 AI 助手面板批准，极高风险操作需要输入确认文字。',
+          },
+          {
+            en: 'Custom Windows install directories update in place now, keeping the original directory; an older build that could only offer a download has to be replaced by hand once.',
+            zh: '自定义安装目录的 Windows 版本也能原地更新并沿用原目录；之前只能拿浏览器下载的旧版本需要手动装一次这一版。',
+          },
+          {
+            en: 'On Apple Silicon under Rosetta the update installs the arm64 package.',
+            zh: 'Apple Silicon 上以 Rosetta 运行更新时，装的是 arm64 包。',
+          },
+          {
+            en: 'The status icon is created after the first window is up.',
+            zh: '状态图标在第一个窗口就绪之后才创建。',
+          },
+        ],
+      },
+      {
+        title: { en: 'Fixed', zh: '修复' },
+        items: [
+          {
+            en: 'Page content stays inside the workspace border while scrolling.',
+            zh: '页面滚动时内容不再越出工作区边框。',
+          },
+          {
+            en: 'Transfer progress and results stay in the detached file window’s own footer.',
+            zh: '独立文件窗口里，传输的进度和结果留在它自己的底部。',
+          },
+          { en: 'The assistant drawer no longer sits over dialogs.', zh: 'AI 助手抽屉不再压到对话框上。' },
+        ],
+      },
+    ],
+  },
+  {
     version: '0.1.4',
     date: '2026-10-28',
     sections: [
