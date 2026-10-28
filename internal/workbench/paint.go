@@ -91,6 +91,13 @@ const (
 	iconChevronLeft
 )
 
+// terminalPage reports whether the window shows the panes of a workspace rather
+// than a section card under the navigation rail. A terminal section without a
+// workspace still shows the section, so it is not a terminal page.
+func (state *State) terminalPage() bool {
+	return state.activeSection == sectionTerminal && state.deck.ActiveWorkspace() != 0
+}
+
 // Paint renders the application from state using stable hit identities.
 func (state *State) Paint(canvas *ui.Canvas, size ui.Size) {
 	canvas.SetTree(&tree)
@@ -122,7 +129,7 @@ func (state *State) Paint(canvas *ui.Canvas, size ui.Size) {
 	// own ground, so with one set only the bar is shell-colored; the shell behind
 	// them must not cover it.
 	picture := state.paintBackground(canvas, size)
-	terminal := state.activeSection == sectionTerminal && state.deck.ActiveWorkspace() != 0
+	terminal := state.terminalPage()
 	chrome := &state.chrome
 	geometry := state.windowBarGeometry(canvas, size.Width)
 	active := layoutcore.WorkspaceID(0)

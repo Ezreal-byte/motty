@@ -86,7 +86,6 @@ var (
 const (
 	aiPanelWidth  = float32(380)            // the preferred width of the docked panel
 	aiPanelMin    = float32(300)            // the least it can be dragged to
-	aiPanelMax    = float32(760)            // and the most
 	aiDockAt      = float32(900)            // narrower windows get a drawer instead
 	aiCopiedFor   = 1500 * time.Millisecond // how long a copy button shows its check
 	aiMinTerminal = float32(360)            // the panes keep at least this much beside the panel
@@ -256,7 +255,7 @@ func (state *State) aiPanelVisible() bool {
 // no host is open, and zero while a workspace exists: the panel then belongs to
 // the workspace's terminals (aiReserve).
 func (state *State) aiSectionReserve(size ui.Size) float32 {
-	if state.activeSection == sectionTerminal {
+	if state.terminalPage() {
 		return 0
 	}
 	if reserve := state.aiReserve(0, size); reserve > 0 {
@@ -273,16 +272,27 @@ func (state *State) aiReserve(workspaceID layoutcore.WorkspaceID, size ui.Size) 
 	if !state.ai.open || size.Width < aiDockAt {
 		return 0
 	}
+	panel := state.aiPanelExtent(size) + 1
+	if state.aiSharedWidth(workspaceID, size)-panel < aiMinTerminal {
+		return 0
+	}
+	return panel
+}
+
+// aiSharedWidth is the width the docked panel divides with the content beside it:
+// the panes of a workspace, which may have a context panel of their own, or a
+// section card, which sits under the fixed navigation rail. A workspace ID of
+// zero names a section, as aiSectionReserve does.
+func (state *State) aiSharedWidth(workspaceID layoutcore.WorkspaceID, size ui.Size) float32 {
 	base := state.baseWorkspacePixelBounds(size)
+	if workspaceID == 0 {
+		return base.Width - navigationWidth
+	}
 	available := base.Width
 	if context, ok := state.deck.Context(workspaceID); ok && context.Open {
 		available -= state.contextPanelExtent(base, context.Width) + 1
 	}
-	panel := state.aiPanelExtent(size) + 1
-	if available-panel < aiMinTerminal {
-		return 0
-	}
-	return panel
+	return available
 }
 
 // aiPanelExtent is the width of the docked panel: what the user dragged it to,
@@ -295,16 +305,15 @@ func (state *State) aiPanelExtent(size ui.Size) float32 {
 	return min(max(state.ai.panelWidth, least), most)
 }
 
-// aiPanelLimits is how narrow and how wide the panel may be: the panes keep their
-// minimum beside it.
+// aiPanelLimits is how narrow and how wide the panel may be: the content beside
+// it keeps its minimum, and nothing else caps it. A wide window therefore gives a
+// panel as wide as the user drags it, which long answers and code blocks need.
 func (state *State) aiPanelLimits(size ui.Size) (least, most float32) {
-	base := state.baseWorkspacePixelBounds(size)
-	available := base.Width
-	if context, ok := state.deck.Context(state.deck.ActiveWorkspace()); ok && context.Open {
-		available -= state.contextPanelExtent(base, context.Width) + 1
+	workspaceID := state.deck.ActiveWorkspace()
+	if !state.terminalPage() {
+		workspaceID = 0
 	}
-	most = min(aiPanelMax, size.Width*0.6, available-aiMinTerminal-1)
-	return min(aiPanelMin, most), max(most, aiPanelMin)
+	return aiPanelMin, max(state.aiSharedWidth(workspaceID, size)-aiMinTerminal-1, aiPanelMin)
 }
 
 // aiPanelSync resizes the terminals when the panel's claim on the window

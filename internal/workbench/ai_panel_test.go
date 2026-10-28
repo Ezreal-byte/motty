@@ -979,6 +979,78 @@ func TestDraggingTheEdgesResizesThePanelAndTheMessageBox(t *testing.T) {
 	}
 }
 
+// TestThePanelWidensToWhatThePanesDoNotNeed guards the promised range: the panel
+// is not held to a narrow constant, only to the room the panes keep.
+func TestThePanelWidensToWhatThePanesDoNotNeed(t *testing.T) {
+	state, _ := panelState(t, nil)
+	withModel(t, state)
+	state.ai.open = true
+	wide := ui.Size{Width: 1920, Height: 1080}
+	canvas, _ := paintAt(state, wide)
+	divider := panelHit(t, canvas, hitAIDivider)
+	x, y := divider.Bounds.X+divider.Bounds.Width/2, divider.Bounds.Y+100
+	pointer := func(kind ui.PointerEventKind, at float32) {
+		state.Pointer(ui.PointerEvent{Kind: kind, Target: hitAIDivider, X: at, Y: y, Viewport: wide, Captured: true, Button: ui.PointerButtonPrimary})
+	}
+	pointer(ui.PointerDown, x)
+	pointer(ui.PointerMove, x-2000)
+	pointer(ui.PointerUp, x-2000)
+	want := wide.Width - aiMinTerminal - 1
+	if got := state.aiPanelExtent(wide); got != want {
+		t.Fatalf("panel is %v wide in a %v window, want %v", got, wide.Width, want)
+	}
+	canvas, _ = paintAt(state, wide)
+	terminal := panelHit(t, canvas, terminalHit(state, 0))
+	if terminal.Bounds.Width < aiMinTerminal-1 {
+		t.Fatalf("the terminal keeps only %v beside the panel", terminal.Bounds.Width)
+	}
+	if columns := terminalColumns(state); float32(columns) < aiMinTerminal/state.cellWidth/2 {
+		t.Fatalf("the terminal is down to %d columns", columns)
+	}
+	// A narrow window still docks the panel, and the drag stops at the same room.
+	narrow := ui.Size{Width: 1000, Height: 700}
+	paintAt(state, narrow)
+	if state.aiReserve(state.deck.ActiveWorkspace(), narrow) == 0 {
+		t.Fatal("the panel became a drawer in a window that has room for it")
+	}
+	if got, most := state.aiPanelExtent(narrow), narrow.Width-aiMinTerminal-1; got != most {
+		t.Fatalf("panel is %v wide in a %v window, want %v", got, narrow.Width, most)
+	}
+}
+
+// TestAWidePanelLeavesTheSectionItsRoom guards the other side of the same
+// share: the panel stands beside a section card there, so the fixed navigation
+// rail is not room it may take, and the card keeps its own width.
+func TestAWidePanelLeavesTheSectionItsRoom(t *testing.T) {
+	_, options := newWorld(t)
+	options.AIStorePath = filepath.Join(t.TempDir(), "ai.db")
+	state := newTestState(t, options)
+	t.Cleanup(state.Close)
+	withModel(t, state)
+	state.ai.open = true
+	wide := ui.Size{Width: 1920, Height: 1080}
+	canvas, _ := paintAt(state, wide)
+	divider := panelHit(t, canvas, hitAIDivider)
+	x, y := divider.Bounds.X+divider.Bounds.Width/2, divider.Bounds.Y+100
+	pointer := func(kind ui.PointerEventKind, at float32) {
+		state.Pointer(ui.PointerEvent{Kind: kind, Target: hitAIDivider, X: at, Y: y, Viewport: wide, Captured: true, Button: ui.PointerButtonPrimary})
+	}
+	pointer(ui.PointerDown, x)
+	pointer(ui.PointerMove, 0)
+	pointer(ui.PointerUp, 0)
+	if got, want := state.aiPanelExtent(wide), wide.Width-navigationWidth-aiMinTerminal-1; got != want {
+		t.Fatalf("panel is %v wide beside a section in a %v window, want %v", got, wide.Width, want)
+	}
+	canvas, _ = paintAt(state, wide)
+	panel := state.ai.panel.rect
+	// The card keeps the share less its own margins and border, and never runs
+	// under the panel.
+	room := aiMinTerminal - 2*(sectionCardMargin+workspaceBorder)
+	if section := state.hostsBounds; section.Width < room || section.X+section.Width > panel.X {
+		t.Fatalf("the section is %+v beside a panel at %+v", section, panel)
+	}
+}
+
 func TestAThoughtInProgressShowsItIsThinkingAndAFinishedOneDoesNot(t *testing.T) {
 	state, _ := panelState(t, nil)
 	withModel(t, state)
