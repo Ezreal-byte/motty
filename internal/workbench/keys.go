@@ -105,6 +105,8 @@ func (state *State) clickKeys(id ui.ID) {
 		state.importKeys()
 	case id == hitKeysRemove:
 		state.removeSelectedIdentity()
+	case id == hitKeysPassphrase:
+		state.openKeyPassphraseForm()
 	}
 }
 
@@ -153,13 +155,72 @@ func (state *State) importKeys() {
 	}
 }
 
+// openKeyPassphraseForm asks for the passphrase of the selected encrypted key to
+// keep in the vault, so connecting does not ask for it again. An empty field
+// removes what is saved. The passphrase is kept by the key's path, the name the
+// connection looks it up under.
+func (state *State) openKeyPassphraseForm() {
+	identity, ok := state.identityByID(state.selectedIdentityID)
+	if !ok || !identity.Encrypted {
+		return
+	}
+	m := state.messages
+	state.openForm(formDialog{
+		title: m.KeySavePassphraseTitle, description: fmt.Sprintf(m.KeySavePassphraseFmt, identity.Name), submit: m.KeySavePassphraseSubmit,
+		run: func(state *State, form *formDialog) string { return state.keepKeyPassphrase(identity, form.value(0)) },
+	}, formField{label: m.KeyPassphraseLabel, secure: true})
+}
+
+// keepKeyPassphrase saves, or with an empty passphrase forgets, the passphrase
+// of identity. A passphrase that does not open the key is refused: it would
+// only fail at the next connection, after the saved one is tried and forgotten.
+func (state *State) keepKeyPassphrase(identity identityRecord, passphrase string) string {
+	m := state.messages
+	vaultFile := state.secrets.vault
+	if vaultFile == nil {
+		return m.VaultUnavailable
+	}
+	if passphrase != "" {
+		secret := []byte(passphrase)
+		_, err := keyidentity.Load(identity.Path, secret)
+		clear(secret)
+		if err != nil {
+			return m.KeyPassphraseWrong
+		}
+	}
+	if vaultFile.HasMasterPassword() && !vaultFile.Unlocked() {
+		state.openVaultUnlock(nil, func() {
+			if message := state.keepKeyPassphrase(identity, passphrase); message != "" {
+				state.status = message
+			}
+		})
+		return ""
+	}
+	name := passphraseSecretName(identity.Path)
+	var err error
+	if passphrase == "" {
+		err = vaultFile.Delete(name)
+	} else {
+		err = vaultFile.Set(name, passphrase)
+	}
+	if err != nil {
+		return fmt.Sprintf(m.VaultSaveFailedFmt, state.vaultErrorText(err))
+	}
+	if passphrase == "" {
+		state.status = fmt.Sprintf(m.KeyPassphraseRemovedFmt, identity.Name)
+	} else {
+		state.status = fmt.Sprintf(m.KeyPassphraseSavedFmt, identity.Name)
+	}
+	return ""
+}
+
 func (state *State) removeSelectedIdentity() {
 	for index, identity := range state.identities {
 		if identity.ID != state.selectedIdentityID {
 			continue
 		}
 		for _, host := range state.hosts {
-			if host.Auth == authPrivateKey && host.Identity == identity.Fingerprint {
+			if host.Auth == authPrivateKey && identity.Fingerprint != "" && host.Identity == identity.Fingerprint {
 				state.status = fmt.Sprintf(state.messages.KeyInUseFmt, host.Label)
 				return
 			}

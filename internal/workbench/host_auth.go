@@ -105,7 +105,11 @@ func (state *State) paintHostIdentityChoice(canvas *ui.Canvas, bounds ui.Rect) {
 			value = identity.Name
 		}
 	}
-	content := components.BeginField(canvas, theme, bounds).Paint(state.messages.FieldIdentity, "", "")
+	hint := ""
+	if state.hostKeyNeedsPassphrase(editor.identity) {
+		hint = state.messages.KeyPassphraseHostHint
+	}
+	content := components.BeginField(canvas, theme, bounds).Paint(state.messages.FieldIdentity, hint, "")
 	state.rememberHostControl(hitDialogIdentity, content)
 	portal := state.beginHostFormPopup(canvas, editor.identityOpen)
 	defer state.endHostFormPopup(canvas, portal)
@@ -128,7 +132,10 @@ func (state *State) paintHostIdentityChoice(canvas *ui.Canvas, bounds ui.Rect) {
 	for _, identity := range state.identities {
 		selectControl.AddItem(components.SelectItem{
 			ID: hitDialogIdentityItemList.At(int(identity.ID)), Label: identity.Name,
-			Selected: editor.identity == identity.Fingerprint, Disabled: identity.Error != "",
+			// A key whose fingerprint is unknown until it is unlocked (an encrypted
+			// PKCS#8 or old PEM file) cannot be told apart from "any key" here.
+			Selected: identity.Fingerprint != "" && editor.identity == identity.Fingerprint,
+			Disabled: identity.Error != "" || identity.Fingerprint == "",
 		})
 	}
 	selectControl.AddItem(components.SelectItem{ID: hitDialogIdentityImport, Label: state.messages.AuthImportKey})
@@ -189,4 +196,16 @@ func (state *State) clickHostAuthentication(id ui.ID) bool {
 	}
 	state.dialogError = ""
 	return true
+}
+
+// hostKeyNeedsPassphrase reports whether connecting with the key pinned by
+// fingerprint, or with any imported key when it is empty, may ask for a
+// passphrase.
+func (state *State) hostKeyNeedsPassphrase(fingerprint string) bool {
+	for _, identity := range state.identities {
+		if identity.Error == "" && identity.Encrypted && (fingerprint == "" || identity.Fingerprint == fingerprint) {
+			return true
+		}
+	}
+	return false
 }

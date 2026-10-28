@@ -14,11 +14,12 @@ func (state *State) paintKeysWorkspace(canvas *ui.Canvas, bounds ui.Rect) {
 		titleLeast = float32(220)
 		gap        = float32(10)
 	)
-	labeled := toolbarButtonWidth(canvas, messages.KeyRemove, false) + gap + toolbarButtonWidth(canvas, messages.KeyImport, true) + gap + titleLeast
+	labeled := toolbarButtonWidth(canvas, messages.KeySavePassphrase, true) + gap + toolbarButtonWidth(canvas, messages.KeyRemove, false) + gap + toolbarButtonWidth(canvas, messages.KeyImport, true) + gap + titleLeast
 	condensed := labeled > bounds.Width-36
+	passphraseWidth, passphraseIcon := toolbarButtonLayout(canvas, messages.KeySavePassphrase, iconLock, iconLock, condensed)
 	removeWidth, removeIcon := toolbarButtonLayout(canvas, messages.KeyRemove, 0, iconTrash, condensed)
 	importWidth, importIcon := toolbarButtonLayout(canvas, messages.KeyImport, iconPlus, iconPlus, condensed)
-	titleRoom := max(bounds.Width-36-removeWidth-gap-importWidth, 0)
+	titleRoom := max(bounds.Width-36-passphraseWidth-gap-removeWidth-gap-importWidth, 0)
 	statusColor, statusValue := pal.muted, ""
 	if selected, ok := state.identityByID(state.selectedIdentityID); ok {
 		statusValue = selected.Path
@@ -27,7 +28,12 @@ func (state *State) paintKeysWorkspace(canvas *ui.Canvas, bounds ui.Rect) {
 		}
 	}
 
-	var content, importButton, removeButton flex.Box
+	selectedEncrypted := false
+	if selected, ok := state.identityByID(state.selectedIdentityID); ok {
+		selectedEncrypted = selected.Encrypted
+	}
+
+	var content, importButton, removeButton, passphraseButton flex.Box
 	f := state.keysLayout.Begin(canvas, state.Theme(), bounds)
 	f.Column().Fill().PadSides(12, 18, 0, 18).Children(func() {
 		f.Row().Children(func() {
@@ -35,6 +41,7 @@ func (state *State) paintKeysWorkspace(canvas *ui.Canvas, bounds ui.Rect) {
 				f.Text(messages.KeyTitle).FontSize(18).Weight(ui.WeightSemibold).Color(pal.text).LineHeight(28).Width(min(bounds.Width*0.45, titleRoom)).Ellipsis()
 				f.Paragraph(messages.KeyDescription, 2).FontSize(metrics.FontSizeS).Color(pal.muted).LineHeight(22).Width(min(bounds.Width*0.62, titleRoom))
 			})
+			passphraseButton = f.Slot().Size(passphraseWidth, toolbarHeight).MarginSides(0, gap, 0, 0).Shrink(0)
 			removeButton = f.Slot().Size(removeWidth, toolbarHeight).MarginSides(0, gap, 0, 0).Shrink(0)
 			importButton = f.Slot().Size(importWidth, toolbarHeight).Shrink(0)
 		})
@@ -49,6 +56,7 @@ func (state *State) paintKeysWorkspace(canvas *ui.Canvas, bounds ui.Rect) {
 	})
 	f.End()
 
+	state.paintToolbarButton(canvas, hitKeysPassphrase, passphraseButton.Rect().X, passphraseButton.Rect().Y, passphraseWidth, messages.KeySavePassphrase, passphraseIcon, false, selectedEncrypted, condensed)
 	state.paintToolbarButton(canvas, hitKeysImport, importButton.Rect().X, importButton.Rect().Y, importWidth, messages.KeyImport, importIcon, true, true, condensed)
 	state.paintToolbarButton(canvas, hitKeysRemove, removeButton.Rect().X, removeButton.Rect().Y, removeWidth, messages.KeyRemove, removeIcon, false, state.selectedIdentityID != 0, condensed)
 

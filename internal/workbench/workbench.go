@@ -148,9 +148,10 @@ var (
 
 // Key management: its page and the rows of its table.
 var (
-	hitKeysImport = tree.ID(keysHits, "keys-import")
-	hitKeysRemove = tree.ID(keysHits, "keys-remove")
-	hitKeyRowList = tree.Sub(keysHits, tree.Name("key-row"))
+	hitKeysImport     = tree.ID(keysHits, "keys-import")
+	hitKeysRemove     = tree.ID(keysHits, "keys-remove")
+	hitKeysPassphrase = tree.ID(keysHits, "keys-passphrase")
+	hitKeyRowList     = tree.Sub(keysHits, tree.Name("key-row"))
 )
 
 // Local forwarding: its page and dialog.

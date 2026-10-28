@@ -1030,7 +1030,10 @@ func (state *State) clickKeyPassphrase(id ui.ID) {
 		state.secrets.save = !state.secrets.save
 	case hitKeyPassphraseSubmit:
 		state.submitKeyPassphrase()
-	case hitKeyPassphraseSkip, hitKeyPassphraseClose, hitKeyPassphraseDismiss:
+	case hitKeyPassphraseDismiss:
+		// A click beside the dialog or Escape must not drop the key: the login
+		// then fails with nothing to show for it. Skip and the close button do.
+	case hitKeyPassphraseSkip, hitKeyPassphraseClose:
 		session := state.promptSession()
 		if session != nil && session.conn != nil {
 			session.conn.SkipIdentity()

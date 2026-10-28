@@ -534,6 +534,14 @@ type Messages struct {
 	KeyPassphraseRetry          string
 	KeyPassphraseSkip           string
 	KeyUnlock                   string
+	KeySavePassphrase           string
+	KeySavePassphraseTitle      string
+	KeySavePassphraseFmt        string
+	KeySavePassphraseSubmit     string
+	KeyPassphraseWrong          string
+	KeyPassphraseSavedFmt       string
+	KeyPassphraseRemovedFmt     string
+	KeyPassphraseHostHint       string
 
 	// Local SSH port forwarding.
 	ForwardTitle                  string

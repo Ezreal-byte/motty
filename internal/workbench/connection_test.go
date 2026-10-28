@@ -621,6 +621,26 @@ func TestEncryptedIdentitiesWithTheSameAttemptEachPrompt(t *testing.T) {
 	}
 }
 
+func TestStrayDismissDoesNotSkipTheKeyPrompt(t *testing.T) {
+	world, options := newWorld(t)
+	state := newTestState(t, options)
+	fake := connect(t, state, world)
+	fake.set(func(status *sshconn.Status) {
+		status.Phase = sshconn.PhaseKeyPassphrasePrompt
+		status.Attempt = 1
+		status.IdentityPath = "/keys/work"
+	})
+	state.Wake()
+	state.Click(hitKeyPassphraseDismiss)
+	if state.modal != modalKeyPassphrase || fake.skippedIdentities != 0 {
+		t.Fatalf("a click beside the dialog dropped the key: modal %d, skipped %d", state.modal, fake.skippedIdentities)
+	}
+	state.Click(hitKeyPassphraseSkip)
+	if fake.skippedIdentities != 1 {
+		t.Fatalf("Skip did not skip the key: skipped %d", fake.skippedIdentities)
+	}
+}
+
 func TestAPromptThatCanNoLongerBeAnsweredIsDismissed(t *testing.T) {
 	world, options := newWorld(t)
 	state := newTestState(t, options)
