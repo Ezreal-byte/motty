@@ -43,7 +43,7 @@ func (state *State) paintTerminalPage(canvas *ui.Canvas, size ui.Size, session *
 	barHeight := state.terminalInfoBarHeight(session.ID)
 	geometry := terminalLayoutWithInfoBar(size, state.cellWidth, state.cellHeight, barHeight, state.padding())
 	inactive := state.paneIsInactive(session.ID)
-	barBackground, barBorder := state.terminalBarColors(session, inactive)
+	barBackground, barBorder := state.connectionBarColors(session, inactive)
 	inSplit := state.paneInSplit(session.ID)
 	finding := !inactive && session.term.find.open
 
@@ -169,7 +169,7 @@ func (state *State) paintTerminalPage(canvas *ui.Canvas, size ui.Size, session *
 	default:
 		for index := range tools {
 			tool := &tools[index]
-			state.paintTintedIconButton(canvas, tool.id, tool.icon, tool.slot.Rect(), tool.hint, tool.disabled, tool.style, barBackground, terminalToolAccent(tool.id))
+			state.paintIconButton(canvas, tool.id, tool.icon, tool.slot.Rect(), tool.hint, tool.disabled, tool.style, barBackground)
 		}
 		spot := light.Rect()
 		if session.busy {

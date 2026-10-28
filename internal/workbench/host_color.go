@@ -67,9 +67,12 @@ func (state *State) paintHostColorChoice(canvas *ui.Canvas, bounds ui.Rect) {
 	components.BeginColorPicker(canvas, state.Theme(), p.trigger, state.hostPickerOptions(canvas)).PaintTrigger()
 }
 
-// Color stays on the header, never on the terminal cells or status light.
-func (state *State) terminalBarColors(session *Session, inactive bool) (ui.Color, ui.Color) {
+// Connection color marks the chrome, never terminal cells or status lights.
+func (state *State) connectionBarColors(session *Session, inactive bool) (ui.Color, ui.Color) {
 	background, border := state.pal.workspace, state.pal.line
+	if session == nil {
+		return background, border
+	}
 	accent := hostAccent(session.host.Color)
 	if accent.Alpha == 0 {
 		return background, border
@@ -81,23 +84,15 @@ func (state *State) terminalBarColors(session *Session, inactive bool) (ui.Color
 	return background.Mix(accent, amount), border.Mix(accent, 0.45)
 }
 
-func terminalToolAccent(id ui.ID) ui.Color {
-	switch id {
-	case hitPaneSplitVertical, hitPaneSplitHorizontal:
-		return hostAccent("#3b82f6")
-	case hitBroadcast:
-		return hostAccent("#a855f7")
-	case hitRemoteStats:
-		return hostAccent("#22c55e")
-	case hitSFTPOpen:
-		return hostAccent("#eab308")
-	case hitSFTPDetach:
-		return hostAccent("#06b6d4")
-	case hitConnExport, hitTerminalRecordingExport:
-		return hostAccent("#a855f7")
-	case hitTerminalRecord:
-		return hostAccent("#ef4444")
-	default:
-		return ui.Color{}
+func tintHostSurface(background ui.Color, color string, amount float32) ui.Color {
+	if accent := hostAccent(color); accent.Alpha > 0 {
+		return background.Mix(accent, amount)
+	}
+	return background
+}
+
+func paintHostColorMark(canvas *ui.Canvas, bounds ui.Rect, color string) {
+	if accent := hostAccent(color); accent.Alpha > 0 {
+		canvas.Rounded(ui.Rect{X: bounds.X + 3, Y: bounds.Y + 10, Width: 3, Height: max(bounds.Height-20, 0)}, 1.5, accent)
 	}
 }

@@ -15,10 +15,6 @@ const (
 // both what assistive technology reads and the tooltip that appears when the
 // pointer rests on it: an icon alone does not say what it does.
 func (state *State) paintIconButton(canvas *ui.Canvas, id ui.ID, icon uint8, bounds ui.Rect, hint string, disabled bool, style iconButtonStyle, behind ui.Color) {
-	state.paintTintedIconButton(canvas, id, icon, bounds, hint, disabled, style, behind, ui.Color{})
-}
-
-func (state *State) paintTintedIconButton(canvas *ui.Canvas, id ui.ID, icon uint8, bounds ui.Rect, hint string, disabled bool, style iconButtonStyle, behind, tint ui.Color) {
 	pal := state.pal
 	if int(icon) >= len(lucideIcons) {
 		return
@@ -28,10 +24,6 @@ func (state *State) paintTintedIconButton(canvas *ui.Canvas, id ui.ID, icon uint
 	focused := !disabled && canvas.FocusVisible() == id
 	foreground := pal.muted
 	var soft, wash ui.Color
-	if tint.Alpha > 0 {
-		soft = withAlpha(tint, 0.13)
-		foreground = tint.Mix(pal.text, 0.45)
-	}
 	switch style {
 	case iconButtonDanger:
 		foreground = pal.danger

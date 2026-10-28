@@ -216,14 +216,20 @@ func (state *State) paintHostCard(canvas *ui.Canvas, card ui.Rect, host Host) {
 	pal := state.pal
 	id := hitHostList.At(int(host.ID))
 	selected := host.ID == state.selectedHostID
+	background, edge, edgeWidth := pal.surface, withAlpha(pal.line, 0.8), float32(1)
 	switch {
 	case selected:
-		canvas.RoundedBorder(card, radius.surface, 1.5, pal.accent, pal.accentSoft)
+		background, edge, edgeWidth = pal.accentSoft, pal.accent, 1.5
 	case canvas.Hovered() == id:
-		canvas.RoundedBorder(card, radius.surface, 1, withAlpha(pal.line, 0.9), pal.surfaceSoft)
-	default:
-		canvas.RoundedBorder(card, radius.surface, 1, withAlpha(pal.line, 0.8), pal.surface)
+		background, edge = pal.surfaceSoft, withAlpha(pal.line, 0.9)
 	}
+	// The icon badge picks its fill from the exact card background
+	// (hostBadgeFill); give it the pre-tint one so a selected card keeps the
+	// contrasting badge instead of accentSoft-on-accentSoft.
+	badgeBackground := background
+	background = tintHostSurface(background, host.Color, .10)
+	canvas.RoundedBorder(card, radius.surface, edgeWidth, edge, background)
+	paintHostColorMark(canvas, card, host.Color)
 	canvas.HitWithOptions(id, card, host.Label, ui.HitOptions{Role: ui.RoleButton, Selected: selected})
 	state.hostRowEvents(canvas, id, host)
 	if canvas.FocusVisible() == id {
@@ -235,10 +241,6 @@ func (state *State) paintHostCard(canvas *ui.Canvas, card ui.Rect, host Host) {
 	// address are in the list view, and a card says the name and who.
 	_, dot := state.hostStatus(host)
 	kind, _ := state.hostLight(host)
-	background := pal.surface
-	if selected {
-		background = pal.accentSoft
-	}
 	// The tags go on the second line after the user, as many whole pills as fit the
 	// room left of the check box.
 	subtitle := state.hostSubtitle(host)
@@ -276,7 +278,7 @@ func (state *State) paintHostCard(canvas *ui.Canvas, card ui.Rect, host Host) {
 		f.Checkbox(hitHostCheckList.At(int(host.ID)), state.hostSelected(host.ID)).Label(host.Label).MarginSides(1, 0, 0, 0)
 	})
 	f.End()
-	state.paintHostCatalogIcon(canvas, host, avatar.Rect(), background)
+	state.paintHostCatalogIcon(canvas, host, avatar.Rect(), badgeBackground)
 	if kind != lightIdle {
 		corner := light.Rect()
 		canvas.Rounded(corner, corner.Width/2, background)
