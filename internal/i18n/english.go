@@ -1151,6 +1151,13 @@ var englishTools = ToolsMessages{
 	NotifyRow:         "Desktop notifications",
 	NotifyDescription: "Show a system notification when a program in the terminal asks for one (OSC 9, 777 and 99). At most one a second per terminal.",
 
+	PasteImageRow:         "Paste images to servers",
+	PasteImageDescription: "Pasting in an SSH terminal while the clipboard holds an image and no text uploads it to ~/.cache/motty/paste on the server and types its path, for programs such as Claude Code. Files are kept for a week.",
+	PasteImageUploading:   "Uploading the clipboard image…",
+	PasteImageDoneFmt:     "Image uploaded to %s.",
+	PasteImageFailedFmt:   "Could not upload the clipboard image: %v",
+	PasteImageTooLarge:    "The clipboard image is too large to upload.",
+
 	ProxyRow:                    "Outbound proxy",
 	ProxyConfigure:              "Configure",
 	ProxyDescriptionNone:        "Connect directly. A SOCKS5 or HTTP proxy can carry the first connection of every session.",

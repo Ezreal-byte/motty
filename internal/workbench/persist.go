@@ -56,6 +56,7 @@ type savedState struct {
 	TerminalPadding            string              `json:"terminal_padding,omitempty"`
 	TerminalGutter             string              `json:"terminal_gutter,omitempty"`
 	TerminalNotifications      string              `json:"terminal_notifications,omitempty"`
+	TerminalPasteImage         string              `json:"terminal_paste_image,omitempty"`
 	SFTPParallel               int                 `json:"sftp_parallel,omitempty"`
 	SFTPKeepTimes              string              `json:"sftp_keep_times,omitempty"`
 	SFTPFollow                 string              `json:"sftp_follow,omitempty"`
@@ -349,6 +350,7 @@ func (state *State) snapshot() savedState {
 		TerminalPadding:            state.terminalPad.String(),
 		TerminalGutter:             state.terminalGutter.String(),
 		TerminalNotifications:      notifyString(state.notifyOff),
+		TerminalPasteImage:         notifyString(state.pasteImageOff),
 		CommandHistory:             state.history.on,
 		CommandSuggestOff:          state.history.suggestOff,
 		SFTPParallel:               state.sftpParallel,
@@ -614,6 +616,7 @@ func (state *State) restoreShared(saved savedState) {
 	state.terminalPad = terminalPadFromString(saved.TerminalPadding)
 	state.terminalGutter = terminalGutterFromString(saved.TerminalGutter)
 	state.notifyOff = saved.TerminalNotifications == "off"
+	state.pasteImageOff = saved.TerminalPasteImage == "off"
 	state.history.on = saved.CommandHistory
 	state.history.suggestOff = saved.CommandSuggestOff
 	state.restoreSFTPSettings(saved)

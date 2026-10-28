@@ -97,6 +97,10 @@ func (state *State) clickTerminalTools(id ui.ID) bool {
 		if state.setNotifications(state.notifyOff) {
 			state.save()
 		}
+	case id == hitSettingsPasteImageToggle:
+		if state.setPasteImage(state.pasteImageOff) {
+			state.save()
+		}
 	case id == hitSettingsProxyConfigure:
 		state.openOutboundProxyDialog()
 	case id == hitSettingsFontPick:

@@ -590,15 +590,17 @@ type State struct {
 	terminalGutter terminalGutter
 	wallClock      func() int64
 	notifyOff      bool
-	fonts          fontsUI
-	proxyForm      outboundProxyForm
-	form           formDialog
-	formSerial     uint32
-	closeAsked     bool
-	sync           syncState
-	sshSync        sshSyncState
-	remote         remoteToolsView
-	edits          externalEdits
+	// pasteImageOff keeps a pasted clipboard image from being sent to a server.
+	pasteImageOff bool
+	fonts         fontsUI
+	proxyForm     outboundProxyForm
+	form          formDialog
+	formSerial    uint32
+	closeAsked    bool
+	sync          syncState
+	sshSync       sshSyncState
+	remote        remoteToolsView
+	edits         externalEdits
 	// fontSizeText is the font size as the settings page shows it, for fontSizeShown.
 	fontSizeText  string
 	fontSizeShown float32

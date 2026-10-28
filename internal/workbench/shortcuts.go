@@ -399,11 +399,16 @@ func (state *State) pasteIntoTerminal(session *Session) {
 		return
 	}
 	value, err := state.options.ClipboardText()
-	if err != nil {
-		state.status = fmt.Sprintf(state.messages.StatusClipboardReadFailedFmt, err)
+	if err == nil && value != "" {
+		state.typed(session, encodeTerminalPaste(value, session.term))
 		return
 	}
-	if value != "" {
-		state.typed(session, encodeTerminalPaste(value, session.term))
+	// A clipboard with a picture and no words is not an empty one on a server that
+	// takes pictures; some systems also answer a text request on it with an error.
+	if state.pasteClipboardImage(session) {
+		return
+	}
+	if err != nil {
+		state.status = fmt.Sprintf(state.messages.StatusClipboardReadFailedFmt, err)
 	}
 }

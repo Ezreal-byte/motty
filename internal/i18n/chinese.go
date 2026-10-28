@@ -1148,6 +1148,13 @@ var chineseTools = ToolsMessages{
 	FontPickerSample:        "The quick brown fox 敏捷的棕色狐狸 0123",
 	FontPickerSampleSymbols: "0123456789 {}[]() <> -> == != ~ $ # | iIl1 oO0",
 
+	PasteImageRow:         "向服务器粘贴图片",
+	PasteImageDescription: "在 SSH 终端粘贴时，若剪贴板里只有图片而没有文本，就把图片上传到服务器的 ~/.cache/motty/paste 并输入它的路径，方便 Claude Code 等程序读取。文件保留一周。",
+	PasteImageUploading:   "正在上传剪贴板里的图片…",
+	PasteImageDoneFmt:     "图片已上传到 %s。",
+	PasteImageFailedFmt:   "无法上传剪贴板里的图片：%v",
+	PasteImageTooLarge:    "剪贴板里的图片太大，无法上传。",
+
 	NotifyRow:         "桌面通知",
 	NotifyDescription: "终端里的程序请求通知时（OSC 9、777、99），显示系统通知。每个终端每秒最多一条。",
 

@@ -104,6 +104,14 @@ type ToolsMessages struct {
 	NotifyRow         string
 	NotifyDescription string
 
+	// Pasting an image into a terminal on a server.
+	PasteImageRow         string
+	PasteImageDescription string
+	PasteImageUploading   string
+	PasteImageDoneFmt     string // the path on the server
+	PasteImageFailedFmt   string // the reason
+	PasteImageTooLarge    string
+
 	// The outbound proxy.
 	ProxyRow                    string
 	ProxyConfigure              string
