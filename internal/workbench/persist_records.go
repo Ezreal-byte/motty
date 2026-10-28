@@ -48,7 +48,8 @@ import (
 // until the next build rebuilds it from the database.
 // Version 5 preserves device-local toolbar layouts: an older full snapshot
 // writer would otherwise discard the visibility and ordering preferences.
-const configFormat = 5
+// Version 6 preserves the device-local shell executable choice.
+const configFormat = 6
 
 const (
 	kindSetting = "setting"

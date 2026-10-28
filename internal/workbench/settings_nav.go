@@ -90,7 +90,13 @@ func (state *State) settingsCategoryName(category settingsCategory) string {
 }
 
 func (state *State) selectSettingsCategory(category settingsCategory) bool {
-	if category >= settingsCategoryCount || state.settingsCategory == category {
+	if category >= settingsCategoryCount {
+		return false
+	}
+	if localShellSettingVisible() && category == settingsTerminal && !state.localShellMenu.loaded {
+		state.refreshLocalShells()
+	}
+	if state.settingsCategory == category {
 		return false
 	}
 	state.settingsCategory = category

@@ -20,8 +20,9 @@ func TestEverySavedStateFieldIsSharedOrKeptOnThisDevice(t *testing.T) {
 		"restore_connect": true, "share_connections": true, "update_check": true, "update_skipped": true, "ai_panel_width": true,
 		"workspace": true, "active_session": true, "shortcuts": true, "identity_files": true, "agent_hosts": true, "sessions": true, "deck": true, "sync": true,
 		"host_view": true, "background": true,
-		"toolbars": true,
-		"window_x": true, "window_y": true, "window_width": true, "window_height": true,
+		"toolbars":    true,
+		"local_shell": true,
+		"window_x":    true, "window_y": true, "window_width": true, "window_height": true,
 	}
 	entity := map[string]bool{}
 	for _, field := range entityFields {
@@ -45,7 +46,7 @@ func TestEverySavedStateFieldIsSharedOrKeptOnThisDevice(t *testing.T) {
 func richState() savedState {
 	return savedState{
 		Version: stateFileVersion, HostCatalogVersion: hostCatalogSchemaVersion, ShortcutVersion: shortcutSchemaVersion,
-		Language: "zh-CN", Theme: "dark", TerminalFontSize: 15, TerminalScrollback: 5000, TerminalPadding: "roomy",
+		Language: "zh-CN", Theme: "dark", LocalShell: "/opt/local-shell/bin/shell", TerminalFontSize: 15, TerminalScrollback: 5000, TerminalPadding: "roomy",
 		SFTPParallel: 2, CommandHistory: true,
 		Hosts: []savedHost{
 			{ID: "host_b", Label: "Beta", Address: "b.example.com", User: "me", Port: 22, Group: "prod"},
@@ -102,7 +103,7 @@ func TestOnlyWhatIsSharedBecomesARecord(t *testing.T) {
 	records, _ := store.Records()
 	for _, record := range records {
 		text := string(record.Payload)
-		for _, own := range []string{"zh-CN", "dark", "settings", "id_ed25519", `"collapsed"`} {
+		for _, own := range []string{"zh-CN", "dark", "settings", "id_ed25519", "local-shell", `"collapsed"`} {
 			if strings.Contains(text, own) {
 				t.Errorf("%s %s carries %q, which belongs to this device", record.Kind, record.ID, own)
 			}

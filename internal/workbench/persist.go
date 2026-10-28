@@ -31,6 +31,7 @@ type savedState struct {
 	Language                   string              `json:"language,omitempty"`
 	Theme                      string              `json:"theme,omitempty"`
 	TerminalOption             string              `json:"terminalOption,omitempty"`
+	LocalShell                 string              `json:"local_shell,omitempty"`
 	TerminalFontSize           int                 `json:"terminal_font_size,omitempty"`
 	TerminalFontFace           string              `json:"terminal_font_face,omitempty"`
 	TerminalFontFamily         string              `json:"terminal_font_family,omitempty"`
@@ -316,6 +317,7 @@ func (state *State) snapshot() savedState {
 		Language:                   state.savedLanguage(),
 		Theme:                      state.appearanceMode.saved(),
 		TerminalOption:             state.terminalOption.String(),
+		LocalShell:                 state.localShell,
 		TerminalFontSize:           int(state.terminalFontSize),
 		TerminalFontFace:           terminalFontFaceString(state.terminalFontFace),
 		TerminalFontFamily:         state.fonts.family,
@@ -533,6 +535,7 @@ func (state *State) restoreSettings(saved savedState) {
 // fonts, what it does at start, the keys it has, the cloud account, the picture.
 func (state *State) restoreLocal(saved savedState) {
 	state.toolbars.restore(saved.Toolbars)
+	state.localShell = saved.LocalShell
 	// A saved language is the user's choice. Without one (a first run, or a state
 	// from before the choice was told apart) the system's language decides, and
 	// stays undecided so a change of system language is followed.

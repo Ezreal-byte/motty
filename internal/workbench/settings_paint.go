@@ -22,18 +22,19 @@ const (
 type settingsControlKind uint8
 
 const (
-	controlSegments    settingsControlKind = iota // a segmented choice
-	controlSwitch                                 // a two-state switch
-	controlButtons                                // buttons against the right edge of the slot
-	controlButton                                 // one small button filling the slot
-	controlHit                                    // the slot is a pointer target
-	controlSearch                                 // the search box
-	controlModelInput                             // the assistant's model-name field
-	controlSwatches                               // a strip of round color dots
-	controlLabel                                  // the words of a row, which label the control beside them
-	controlMCPSelect                              // client configuration select
-	controlLogo                                   // the product wordmark in a slot
-	controlAgentSelect                            // independent stdio client configuration
+	controlSegments         settingsControlKind = iota // a segmented choice
+	controlSwitch                                      // a two-state switch
+	controlButtons                                     // buttons against the right edge of the slot
+	controlButton                                      // one small button filling the slot
+	controlHit                                         // the slot is a pointer target
+	controlSearch                                      // the search box
+	controlModelInput                                  // the assistant's model-name field
+	controlSwatches                                    // a strip of round color dots
+	controlLabel                                       // the words of a row, which label the control beside them
+	controlMCPSelect                                   // client configuration select
+	controlLogo                                        // the product wordmark in a slot
+	controlAgentSelect                                 // independent stdio client configuration
+	controlLocalShellSelect                            // detected Windows shells
 )
 
 // settingsControl is one control of the page, recorded while the page is
@@ -162,6 +163,8 @@ func (state *State) paintSettingsControls(canvas *ui.Canvas) {
 			state.ai.cfg.mcpSelectBounds = rect
 		case controlAgentSelect:
 			state.ai.cfg.agentSelectBounds = rect
+		case controlLocalShellSelect:
+			state.localShellMenu.bounds = rect
 		case controlSwitch:
 			state.aiSwitch(canvas, control.id, rect, control.on, control.disabled, control.label)
 		case controlButtons:
@@ -294,6 +297,7 @@ func (state *State) paintTerminalSettings(page *settingsPage) {
 			page.toggleRow(state.messages.Tools.NotifyRow, state.messages.Tools.NotifyDescription, !state.notifyOff, hitSettingsNotifyToggle)
 			page.toggleRow(state.messages.History.SettingsRow, state.messages.History.SettingsDescription, state.history.on, hitSettingsHistoryToggle)
 			page.toggleRow(state.messages.History.SuggestRow, state.messages.History.SuggestDescription, !state.history.suggestOff, hitSettingsSuggestToggle)
+			state.paintLocalShellSetting(page)
 			page.actionRow(state.messages.History.ClearRow, state.messages.History.ClearDescription, false,
 				components.ButtonAction{ID: hitSettingsHistoryClear, Label: state.messages.History.Clear, Variant: components.ButtonOutline})
 		})

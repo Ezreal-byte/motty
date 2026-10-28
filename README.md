@@ -168,6 +168,11 @@ The command palette is **Command+Shift+P** on macOS and **Control+Shift+P**
 elsewhere. Default shortcuts use Command on macOS and Control on Windows/Linux;
 all of them are configurable.
 
+On Windows, choose the local shell from the dropdown in **Settings → Terminal
+→ Local shell**, below **Inline suggestions**. Motty detects installed shells
+such as PowerShell, CMD and Git Bash from PATH and common installation folders.
+The choice stays on this computer and applies to new or reconnected local terminals.
+
 | Action | macOS | Windows / Linux |
 | --- | --- | --- |
 | Command palette | Command+Shift+P | Control+Shift+P |

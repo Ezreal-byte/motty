@@ -116,6 +116,10 @@ func (state *State) Paint(canvas *ui.Canvas, size ui.Size) {
 	state.devBeginPaint()
 	state.ai.cfg.mcpSelectBounds = ui.Rect{}
 	state.ai.cfg.agentSelectBounds = ui.Rect{}
+	state.localShellMenu.bounds = ui.Rect{}
+	if state.activeSection != sectionSettings || state.settingsCategory != settingsTerminal || state.settingsSearching() {
+		state.localShellMenu.open = false
+	}
 	state.ai.panel.targetBounds = ui.Rect{}
 	if !state.aiSettingsVisible() || state.settingsCategory != settingsMCP || state.settingsSearching() {
 		state.ai.cfg.mcpSelectOpen = false
@@ -196,6 +200,7 @@ func (state *State) Paint(canvas *ui.Canvas, size ui.Size) {
 	state.beginMenus()
 	state.paintAITargetSelect(canvas)
 	state.paintMCPClientSelect(canvas)
+	state.paintLocalShellSelect(canvas)
 	state.paintTransferCenter(canvas)
 	// The gallery's select is painted here, outside the workspace's clip and
 	// inside the frame's menu pass, so its popup can leave the page and keeps the

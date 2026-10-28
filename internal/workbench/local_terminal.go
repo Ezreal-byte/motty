@@ -28,10 +28,11 @@ type localConn struct {
 	mu     sync.Mutex
 	status sshconn.Status
 	dir    string
+	shell  string
 }
 
-func newLocalConn() *localConn {
-	return &localConn{status: sshconn.Status{Version: 1, Phase: sshconn.PhaseConnected, Method: "local"}}
+func newLocalConn(shell string) *localConn {
+	return &localConn{status: sshconn.Status{Version: 1, Phase: sshconn.PhaseConnected, Method: "local"}, shell: shell}
 }
 
 func (conn *localConn) Status() sshconn.Status {
@@ -49,7 +50,7 @@ func (conn *localConn) SkipIdentity()              {}
 func (conn *localConn) Cancel()                    {}
 
 func (conn *localConn) OpenShell(config sshconn.ShellConfig) (Shell, error) {
-	return localshell.Start(localshell.Config{Cols: config.Cols, Rows: config.Rows, Dir: conn.dir, Notify: config.Notify})
+	return localshell.Start(localshell.Config{Shell: conn.shell, Args: localshell.ArgsFor(conn.shell), Cols: config.Cols, Rows: config.Rows, Dir: conn.dir, Notify: config.Notify})
 }
 
 func (conn *localConn) OpenSFTP() (sftpclient.Remote, error) { return nil, errLocalOnly }

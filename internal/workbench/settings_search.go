@@ -147,6 +147,9 @@ func (state *State) eachSettingsEntry(add func(settingsEntry)) {
 	row(settingsTerminal, tools.NotifyRow, tools.NotifyDescription)
 	row(settingsTerminal, state.messages.History.SettingsRow, state.messages.History.SettingsDescription)
 	row(settingsTerminal, state.messages.History.SuggestRow, state.messages.History.SuggestDescription)
+	if localShellSettingVisible() {
+		row(settingsTerminal, m.SettingsLocalShell, m.SettingsLocalShellDescription)
+	}
 	row(settingsTerminal, state.messages.History.ClearRow, state.messages.History.ClearDescription)
 	group(settingsTerminal, tools.SchemeGroup, tools.SchemeGroup, tools.SchemeDescription)
 	row(settingsTerminal, tools.HighlightBuiltin, tools.HighlightBuiltinDescription)

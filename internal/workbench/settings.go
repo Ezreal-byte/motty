@@ -129,6 +129,9 @@ func terminalOptionModeFromString(value string) terminalOptionMode {
 }
 
 func (state *State) openSettings() {
+	if localShellSettingVisible() && state.settingsCategory == settingsTerminal && !state.localShellMenu.loaded {
+		state.refreshLocalShells()
+	}
 	if session, ok := state.sessionByIDPointer(state.activeSessionID); ok {
 		state.releaseIdleSFTP(session)
 	}
@@ -216,6 +219,9 @@ func (state *State) setLanguage(language i18n.Language) bool {
 func (state *State) clickSettings(id ui.ID) bool {
 	if state.modal != modalNone || state.activeSection != sectionSettings {
 		return false
+	}
+	if state.clickLocalShell(id) {
+		return true
 	}
 	for group, hit := range hitToolbarSettingsOpen {
 		if id == hit {
@@ -433,6 +439,14 @@ func (state *State) settingsClipboardOptions() [3]components.SegmentOption {
 func (state *State) settingsKey(event ui.KeyEvent) (ui.EventResult, bool) {
 	if state.modal != modalNone || state.activeSection != sectionSettings {
 		return ui.EventResult{}, false
+	}
+	if event.Target == hitSettingsLocalShell && localShellSettingVisible() && !state.localShellMenu.open && (event.Key == ui.KeyDown || event.Key == ui.KeyUp) {
+		state.refreshLocalShells()
+		if len(state.localShellMenu.choices) == 0 {
+			return ui.EventResult{}, false
+		}
+		state.localShellMenu.open = true
+		return ui.EventResult{Focus: hitSettingsLocalShellItems.At(max(0, state.localShellSelected())), FocusVisible: true, Handled: true, Repaint: true}, true
 	}
 	var next ui.ID
 	var handled bool
