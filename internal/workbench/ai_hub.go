@@ -97,6 +97,7 @@ func (hub *AIHub) Reconfigure() error {
 	if err != nil {
 		return err
 	}
+	defer hub.publishEndpoint()
 	hub.mu.Lock()
 	running := hub.server != nil
 	same := running && hub.token == token && hub.mode == mode
@@ -128,10 +129,7 @@ func (hub *AIHub) readSettings() (enabled bool, mode gate.Mode, token string, po
 		return value
 	}
 	enabled = read("ai.mcp.enabled") == "on"
-	mode = gate.ModeObserve
-	if read("ai.mcp.mode") == "ask" {
-		mode = gate.ModeAsk
-	}
+	mode = mcpModeFromSetting(read("ai.mcp.mode"))
 	port, _ = strconv.Atoi(read("ai.mcp.port"))
 	token = read("ai.mcp.token")
 	if enabled && len(token) < mcp.MinTokenLen {
@@ -141,6 +139,17 @@ func (hub *AIHub) readSettings() (enabled bool, mode gate.Mode, token string, po
 		}
 	}
 	return enabled, mode, token, port, nil
+}
+
+func mcpModeFromSetting(value string) gate.Mode {
+	switch value {
+	case "ask":
+		return gate.ModeAsk
+	case "allow-all":
+		return gate.ModeAllowAll
+	default:
+		return gate.ModeObserve
+	}
 }
 
 func (hub *AIHub) start(token string, mode gate.Mode, port int) error {
@@ -161,7 +170,6 @@ func (hub *AIHub) start(token string, mode gate.Mode, port int) error {
 	done := make(chan struct{})
 	hub.mu.Lock()
 	hub.server, hub.done, hub.addr, hub.token, hub.mode = server, done, address, token, mode
-	windows := append([]*hubWindow(nil), hub.windows...)
 	hub.mu.Unlock()
 	if db, openErr := store.Open(hub.path); openErr == nil {
 		_ = db.SetSetting("ai.mcp.port", strconv.Itoa(listener.Addr().(*net.TCPAddr).Port))
@@ -171,9 +179,6 @@ func (hub *AIHub) start(token string, mode gate.Mode, port int) error {
 		defer close(done)
 		_ = server.Serve(listener)
 	}()
-	for _, window := range windows {
-		window.state.setMCPEndpoint(address, token)
-	}
 	return nil
 }
 
@@ -181,7 +186,6 @@ func (hub *AIHub) stop() {
 	hub.mu.Lock()
 	server, done := hub.server, hub.done
 	hub.server, hub.done, hub.addr, hub.token = nil, nil, "", ""
-	windows := append([]*hubWindow(nil), hub.windows...)
 	hub.mu.Unlock()
 	if server == nil {
 		return
@@ -190,13 +194,23 @@ func (hub *AIHub) stop() {
 	defer cancel()
 	_ = server.Shutdown(ctx)
 	<-done
-	for _, window := range windows {
-		window.state.setMCPEndpoint("", "")
-	}
 }
 
 // Close stops the server.
-func (hub *AIHub) Close() { hub.stop() }
+func (hub *AIHub) Close() {
+	hub.stop()
+	hub.publishEndpoint()
+}
+
+func (hub *AIHub) publishEndpoint() {
+	hub.mu.Lock()
+	addr, token := hub.addr, hub.token
+	windows := append([]*hubWindow(nil), hub.windows...)
+	hub.mu.Unlock()
+	for _, window := range windows {
+		window.state.setMCPEndpoint(addr, token)
+	}
+}
 
 // gate is the Gate for the next request: the hub's backend over all windows, an
 // external caller's limits, and questions shown in a window.

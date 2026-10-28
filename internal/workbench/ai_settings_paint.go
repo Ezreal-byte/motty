@@ -6,6 +6,7 @@ import (
 	"github.com/vivaui/viva/components"
 	"github.com/vivaui/viva/flex"
 	"github.com/vivaui/viva/ui"
+	"motty/internal/ai/gate"
 	"motty/internal/ai/risk"
 	"motty/internal/ai/store"
 )
@@ -396,8 +397,11 @@ func (state *State) paintAIMCP(page *settingsPage) {
 	settings := &state.ai.settings
 
 	selected := hitAISetMCPObserve
-	if settings.mcpAsk {
+	switch settings.mcpMode {
+	case gate.ModeAsk:
 		selected = hitAISetMCPAsk
+	case gate.ModeAllowAll:
+		selected = hitAISetMCPAllowAll
 	}
 	modes := state.aiMCPModeOptions()
 	endpoint := m.MCPOff
@@ -412,13 +416,23 @@ func (state *State) paintAIMCP(page *settingsPage) {
 	if state.ai.cfg.tokenReset {
 		description, color = m.MCPResetDone, pal.success
 	}
-	page.group("", func() {
+	page.group(m.MCPHTTPTitle, func() {
+		page.f.Column().Pad(18).Children(func() {
+			page.f.Wrap(m.MCPHTTPDescription).FontSize(metrics.FontSizeS).LineHeight(18).Color(pal.muted)
+		})
 		page.aiFrameFor(hitAISetMCPEnabled, settingsRowHeight, m.MCPEnable, m.MCPEnableDesc, pal.muted, func() {
 			page.switchSlot(hitAISetMCPEnabled, settings.mcpEnabled, false, m.MCPEnable)
 		})
 		page.mcpFrame(m.MCPMode, m.MCPModeDesc, pal.muted, func() {
-			page.segmentSlot(min(float32(220), page.width*0.34), modes[:], selected)
+			width := min(float32(300), page.width-36)
+			if page.width >= 500 {
+				width = min(width, page.width*.44)
+			}
+			page.segmentSlot(width, modes[:], selected)
 		})
+		if settings.mcpMode == gate.ModeAllowAll {
+			page.mcpAccessWarning(m.MCPAllowAllWarning)
+		}
 		page.mcpFrame(m.MCPEndpoint, endpoint, pal.muted, func() {
 			page.mcpCopyButton(hitAISetMCPCopyURL, m.MCPCopyURL, !ready)
 		})
@@ -436,9 +450,15 @@ func (state *State) paintAIMCP(page *settingsPage) {
 				page.button(hitAISetMCPReset, m.MCPReset, aiButtonOutline, false)
 			})
 		})
+		state.paintAIMCPConfig(page, endpoint, ready)
 	})
 	state.paintAIAgents(page)
-	state.paintAIMCPConfig(page, endpoint, ready)
+}
+
+func (page *settingsPage) mcpAccessWarning(message string) {
+	page.f.Column().PadSides(0, 18, 12, 18).Children(func() {
+		page.f.Wrap(message).FontSize(metrics.FontSizeS).LineHeight(18).Color(page.state.pal.danger)
+	})
 }
 
 // paintAIDialogs paints the section's open dialog above everything else.
@@ -458,6 +478,20 @@ func (state *State) paintAIDialogs(canvas *ui.Canvas, viewport ui.Rect) {
 	case aiDialogClear:
 		m := state.messages.AISettings
 		state.paintAIConfirm(canvas, viewport, m.ClearTitle, m.ClearBody, m.ClearConfirm)
+	case aiDialogMCPAllowAll:
+		m := state.messages.AISettings
+		body := m.MCPAllowAllBody
+		if state.ai.cfg.notice != "" {
+			body += "\n\n" + state.ai.cfg.notice
+		}
+		state.paintAIConfirm(canvas, viewport, m.MCPAllowAllTitle, body, m.MCPAllowAllConfirm)
+	case aiDialogAgentAllowAll:
+		m := state.messages.AISettings
+		body := m.AgentAllowAllBody
+		if state.ai.cfg.notice != "" {
+			body += "\n\n" + state.ai.cfg.notice
+		}
+		state.paintAIConfirm(canvas, viewport, m.MCPAllowAllTitle, body, m.MCPAllowAllConfirm)
 	case aiDialogImport:
 		state.paintAIImport(canvas, viewport)
 	}

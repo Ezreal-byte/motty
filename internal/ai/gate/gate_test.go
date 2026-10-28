@@ -126,6 +126,66 @@ func TestWithoutAnApproverNothingRiskyRuns(t *testing.T) {
 	}
 }
 
+func TestAllowAllRunsEveryRiskAndFileOperationWithoutApproval(t *testing.T) {
+	backend := &fakeBackend{}
+	g := Gate{Backend: backend, Mode: ModeAllowAll, Approver: func(context.Context, Request) (bool, string, error) {
+		t.Error("allow-all asked for approval")
+		return false, "", nil
+	}}
+	for _, call := range []struct{ name, raw string }{
+		{tools.NameTerminalExec, `{"command":"ls"}`},
+		{tools.NameTerminalExec, `{"command":"touch /tmp/test"}`},
+		{tools.NameTerminalExec, `{"command":"rm /tmp/test"}`},
+		{tools.NameTerminalExec, `{"command":"rm -rf /"}`},
+		{tools.NameSFTPRead, `{"path":"/etc/shadow"}`},
+		{tools.NameSFTPWrite, `{"path":"/etc/test","content":"x","overwrite":true}`},
+		{tools.NameSFTPRemove, `{"path":"/etc/test"}`},
+	} {
+		if res := g.Run(context.Background(), call.name, []byte(call.raw)); res.IsError || res.Denied {
+			t.Errorf("%s %s: %+v", call.name, call.raw, res)
+		}
+	}
+	if backend.execs.Load() != 4 || backend.reads.Load() != 1 || backend.writes.Load() != 1 || backend.removes.Load() != 1 {
+		t.Fatal("allowed operations did not reach the fake backend")
+	}
+	// Opting out of approval does not opt out of argument validation.
+	if res := g.Run(context.Background(), tools.NameTerminalExec, []byte(`{}`)); !res.IsError || backend.execs.Load() != 4 {
+		t.Fatalf("invalid command reached the backend: %+v", res)
+	}
+}
+
+func TestAllowAllPreservesHardPolicyBlocks(t *testing.T) {
+	backend := &fakeBackend{}
+	g := Gate{Backend: backend, Mode: ModeAllowAll, Policy: risk.Policy{BlockCritical: true}, Approver: yes(ConfirmWord)}
+	res := g.Run(context.Background(), tools.NameTerminalExec, []byte(`{"command":"rm -rf /"}`))
+	if !res.Denied || !strings.Contains(res.Text, "blocked by policy") || backend.execs.Load() != 0 {
+		t.Fatalf("full access bypassed the hard block: %+v", res)
+	}
+}
+
+func TestAllowAllExplicitlyAuthorizesCrossConnectionAndBatchActions(t *testing.T) {
+	backend := &fleetBackend{}
+	g := Gate{Backend: backend, Mode: ModeAllowAll, Policy: risk.Policy{Enabled: true, AutoUpTo: risk.Low}, Target: &SessionInfo{ID: "w1:1"}, References: []SessionInfo{{ID: "w1:2"}}, Approver: func(context.Context, Request) (bool, string, error) {
+		t.Error("full access asked for cross-connection approval")
+		return false, "", nil
+	}}
+	for _, call := range []struct{ name, raw string }{
+		{tools.NameTerminalExec, `{"session":"w1:2","command":"ls"}`},
+		{tools.NameTerminalExecMany, `{"sessions":["w1:1","w1:2"],"command":"ls"}`},
+	} {
+		if res := g.Run(context.Background(), call.name, []byte(call.raw)); res.IsError || res.Denied {
+			t.Fatalf("explicit full access rejected %s: %+v", call.name, res)
+		}
+	}
+	if backend.ran["w1:1"] != "ls" || backend.ran["w1:2"] != "ls" {
+		t.Fatal("authorized cross-connection operations did not run")
+	}
+	g.Policy.BlockCritical = true
+	if res := g.Run(context.Background(), tools.NameTerminalExecMany, []byte(`{"sessions":["w1:1","w1:2"],"command":"rm -rf /"}`)); !res.Denied || backend.ran["w1:1"] != "ls" || backend.ran["w1:2"] != "ls" {
+		t.Fatalf("a blocked batch reached a backend: %+v", res)
+	}
+}
+
 func TestBadArgumentsAndUnknownToolsAreErrorsNotPanics(t *testing.T) {
 	g := Gate{Backend: &fakeBackend{}, Policy: risk.Policy{Enabled: true}}
 	for _, call := range []struct{ name, raw string }{

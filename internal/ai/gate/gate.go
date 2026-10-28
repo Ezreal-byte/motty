@@ -70,7 +70,7 @@ type Request struct {
 // until answered or ctx ends. confirmText is what they typed when NeedsText.
 type Approver func(ctx context.Context, request Request) (approved bool, confirmText string, err error)
 
-// Mode limits what a caller may do, independent of risk.
+// Mode selects the caller's capabilities and risk-approval behavior.
 type Mode uint8
 
 const (
@@ -81,6 +81,10 @@ const (
 	// ModeAuto skips questions up to the policy's level like ModeAsk but also
 	// runs medium actions; high and critical still ask.
 	ModeAuto
+	// ModeAllowAll skips approvals, including cross-connection approvals, but
+	// preserves explicit policy blocks. Callers
+	// must obtain explicit consent before enabling this mode.
+	ModeAllowAll
 )
 
 // Gate decides and runs tool calls.
@@ -392,6 +396,11 @@ func (g Gate) ask(ctx context.Context, tool string, kind tools.Kind, session, su
 		policy.AutoUpTo = risk.Medium
 	}
 	decision := policy.Decide(assessment)
+	// Full access explicitly authorizes all reachable connections without an
+	// approval, including references; it never overrides a hard policy block.
+	if g.Mode == ModeAllowAll && decision != risk.DecisionBlock {
+		return nil
+	}
 	if g.Target != nil && decision == risk.DecisionAuto {
 		crossTarget := session != g.Target.ID
 		for _, id := range otherSessions {

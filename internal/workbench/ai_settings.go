@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -16,6 +17,7 @@ import (
 	"github.com/vivaui/viva/components"
 	"github.com/vivaui/viva/text"
 	"github.com/vivaui/viva/ui"
+	"motty/internal/ai/gate"
 	"motty/internal/ai/mcp"
 	"motty/internal/ai/store"
 	"motty/internal/aiproviderimport"
@@ -81,6 +83,7 @@ var (
 	hitAISetMCPEnabled        = tree.ID(aiSettingsHits, "ai-set-mcp-enabled")
 	hitAISetMCPObserve        = tree.ID(aiSettingsHits, "ai-set-mcp-observe")
 	hitAISetMCPAsk            = tree.ID(aiSettingsHits, "ai-set-mcp-ask")
+	hitAISetMCPAllowAll       = tree.ID(aiSettingsHits, "ai-set-mcp-allow-all")
 	hitAISetMCPCopy           = tree.ID(aiSettingsHits, "ai-set-mcp-copy")
 	hitAISetMCPCopyURL        = tree.ID(aiSettingsHits, "ai-set-mcp-copy-url")
 	hitAISetMCPCopyToken      = tree.ID(aiSettingsHits, "ai-set-mcp-copy-token")
@@ -118,6 +121,8 @@ const (
 	aiDialogClear
 	aiDialogCLILogin
 	aiDialogImport
+	aiDialogMCPAllowAll
+	aiDialogAgentAllowAll
 )
 
 // aiCopyState is what the "copy client configuration" button last did.
@@ -162,21 +167,29 @@ type aiSettingsUI struct {
 	page       int    // page of that provider's models
 	modelInput text.Editor
 
-	fetch           *aiFetch
-	fetched         bool // a fetch ended: with fetchCount models, or fetchErr
-	fetchCount      int
-	fetchErr        string
-	modelErr        string
-	notice          string // why the last change could not be stored
-	clearedDone     bool
-	copied          aiCopyState
-	copyTarget      ui.ID
-	mcpClient       aiMCPClient
-	mcpSelectOpen   bool
-	mcpSelectBounds ui.Rect
-	mcpPreviewLines []string
-	tokenReset      bool
-	loadPosted      bool // the first load was queued from a paint
+	fetch              *aiFetch
+	fetched            bool // a fetch ended: with fetchCount models, or fetchErr
+	fetchCount         int
+	fetchErr           string
+	modelErr           string
+	notice             string // why the last change could not be stored
+	clearedDone        bool
+	copied             aiCopyState
+	copyTarget         ui.ID
+	mcpClient          aiMCPClient
+	mcpSelectOpen      bool
+	mcpSelectBounds    ui.Rect
+	mcpPreviewLines    []string
+	agentClient        aiMCPClient
+	agentSelectOpen    bool
+	agentSelectBounds  ui.Rect
+	agentPreviewLines  []string
+	agentProgram       string
+	agentDataDir       string
+	agentPreviewClient aiMCPClient
+	agentPreviewConfig string
+	tokenReset         bool
+	loadPosted         bool // the first load was queued from a paint
 
 	// The provider import dialog. The candidates carry credentials until the
 	// dialog closes or the import ends; only key presence is ever painted.
@@ -196,6 +209,11 @@ func (state *State) aiSettingsVisible() bool {
 // painting never touches the disk.
 func (state *State) aiSettingsOpened() {
 	_, _ = state.aiStore()
+	if state.ai.cfg.agentProgram == "" {
+		state.ai.cfg.agentProgram = state.agentExecutable()
+		state.ai.cfg.agentDataDir = filepath.Dir(state.options.KnownHostsPath)
+		state.ai.cfg.agentPreviewConfig = ""
+	}
 }
 
 func (state *State) aiSettingsClick(id ui.ID) bool {
@@ -291,6 +309,10 @@ func (state *State) aiSettingsClick(id ui.ID) bool {
 		state.aiPut("ai.mcp.mode", "observe")
 	case id == hitAISetMCPAsk:
 		state.aiPut("ai.mcp.mode", "ask")
+	case id == hitAISetMCPAllowAll:
+		if state.ai.settings.mcpMode != gate.ModeAllowAll {
+			cfg.dialog = aiDialogMCPAllowAll
+		}
 	case state.aiAgentClick(id):
 	case id == hitAISetMCPCopy:
 		state.aiCopyClientConfig()
@@ -300,11 +322,12 @@ func (state *State) aiSettingsClick(id ui.ID) bool {
 		state.aiCopyMCP(id, state.ai.mcpToken)
 	case id.Scope() == hitAISetMCPClients:
 		if index, ok := id.In(hitAISetMCPClients); ok && index >= 0 && index < int(aiMCPClientCount) {
-			cfg.mcpClient = aiMCPClient(index)
+			state.aiChooseMCPClient(aiMCPClient(index), false)
 			cfg.mcpSelectOpen = false
 		}
 	case id == hitAISetMCPSelect:
 		cfg.mcpSelectOpen = !cfg.mcpSelectOpen
+		cfg.agentSelectOpen = false
 	case id == hitAISetMCPSelectDismiss:
 		cfg.mcpSelectOpen = false
 	case id == hitAISetMCPReset:
@@ -388,6 +411,24 @@ func (state *State) aiDialogClick(id ui.ID) {
 			state.aiCloseDialog()
 			state.aiClearHistory()
 		}
+	case aiDialogMCPAllowAll:
+		switch id {
+		case hitAISetConfirmCancel:
+			state.aiCloseDialog()
+		case hitAISetConfirmAction:
+			if state.aiPut("ai.mcp.mode", "allow-all") {
+				state.aiCloseDialog()
+			}
+		}
+	case aiDialogAgentAllowAll:
+		switch id {
+		case hitAISetConfirmCancel:
+			state.aiCloseDialog()
+		case hitAISetConfirmAction:
+			if state.aiPut(agentModeSetting, AgentModeAllowAll) {
+				state.aiCloseDialog()
+			}
+		}
 	case aiDialogImport:
 		state.aiImportDialogClick(id)
 	}
@@ -433,6 +474,7 @@ func (state *State) aiImportDialogClick(id ui.ID) {
 func (state *State) aiCloseDialog() {
 	cfg := &state.ai.cfg
 	cfg.dialog, cfg.editID, cfg.deleteID, cfg.formErr, cfg.hadKey, cfg.presetOpen = aiDialogNone, "", "", "", false, false
+	cfg.notice = ""
 	cfg.name, cfg.baseURL, cfg.apiKey = text.Editor{}, text.Editor{}, text.Editor{}
 	cfg.cliPath, cfg.authStyle = text.Editor{}, ""
 	// The import candidates hold credentials in memory; closing the dialog is
@@ -469,6 +511,9 @@ func (state *State) aiSettingsKey(event ui.KeyEvent) (ui.EventResult, bool) {
 		return ui.EventResult{}, false
 	}
 	cfg := &state.ai.cfg
+	if cfg.dialog == aiDialogMCPAllowAll || cfg.dialog == aiDialogAgentAllowAll {
+		return ui.EventResult{}, false // the alert's focus trap owns its keys
+	}
 	if event.Key == ui.KeyEnter && !event.Repeat {
 		switch {
 		case cfg.dialog == aiDialogProvider && (event.Target == hitAISetFormName || event.Target == hitAISetFormURL || event.Target == hitAISetFormKey || event.Target == hitAISetFormCLIPath):
@@ -482,15 +527,21 @@ func (state *State) aiSettingsKey(event ui.KeyEvent) (ui.EventResult, bool) {
 	var options []components.SegmentOption
 	if event.Target == hitAISetMCPSelect && cfg.dialog == aiDialogNone && !cfg.mcpSelectOpen && (event.Key == ui.KeyDown || event.Key == ui.KeyUp) {
 		cfg.mcpSelectOpen = true
+		cfg.agentSelectOpen = false
 		return ui.EventResult{Focus: aiMCPClientID(cfg.mcpClient), FocusVisible: true, Handled: true, Repaint: true}, true
+	}
+	if event.Target == hitAISetAgentSelect && cfg.dialog == aiDialogNone && !cfg.agentSelectOpen && (event.Key == ui.KeyDown || event.Key == ui.KeyUp) {
+		cfg.agentSelectOpen = true
+		cfg.mcpSelectOpen = false
+		return ui.EventResult{Focus: aiAgentClientID(cfg.agentClient), FocusVisible: true, Handled: true, Repaint: true}, true
 	}
 	var kind [2]components.SegmentOption
 	var auth [2]components.SegmentOption
 	var risks [3]components.SegmentOption
 	var steps [3]components.SegmentOption
 	var lines [4]components.SegmentOption
-	var modes [2]components.SegmentOption
-	var agents [2]components.SegmentOption
+	var modes [3]components.SegmentOption
+	var agents [3]components.SegmentOption
 	switch event.Target {
 	case hitAISetFormKindOpenAI, hitAISetFormKindClaude:
 		kind = state.aiKindOptions()
@@ -507,10 +558,10 @@ func (state *State) aiSettingsKey(event ui.KeyEvent) (ui.EventResult, bool) {
 	case hitAISetContext0, hitAISetContext30, hitAISetContext60, hitAISetContext120:
 		lines = state.aiContextOptions()
 		options = lines[:]
-	case hitAISetMCPObserve, hitAISetMCPAsk:
+	case hitAISetMCPObserve, hitAISetMCPAsk, hitAISetMCPAllowAll:
 		modes = state.aiMCPModeOptions()
 		options = modes[:]
-	case hitAISetAgentObserve, hitAISetAgentRun:
+	case hitAISetAgentObserve, hitAISetAgentRun, hitAISetAgentAllowAll:
 		agents = state.aiAgentModeOptions()
 		options = agents[:]
 	default:
@@ -521,6 +572,9 @@ func (state *State) aiSettingsKey(event ui.KeyEvent) (ui.EventResult, bool) {
 		return ui.EventResult{}, true
 	}
 	state.Click(next)
+	if cfg.dialog == aiDialogMCPAllowAll || cfg.dialog == aiDialogAgentAllowAll {
+		return ui.EventResult{Focus: hitAISetConfirmCancel, FocusVisible: true, Handled: true, Repaint: true}, true
+	}
 	return ui.EventResult{Focus: next, FocusVisible: true, Handled: true, Repaint: true}, true
 }
 
@@ -585,11 +639,12 @@ func (state *State) aiContextOptions() [4]components.SegmentOption {
 	}
 }
 
-func (state *State) aiMCPModeOptions() [2]components.SegmentOption {
+func (state *State) aiMCPModeOptions() [3]components.SegmentOption {
 	m := state.messages.AISettings
 	return [...]components.SegmentOption{
 		{ID: hitAISetMCPObserve, Label: m.MCPModeObserve},
 		{ID: hitAISetMCPAsk, Label: m.MCPModeAsk},
+		{ID: hitAISetMCPAllowAll, Label: m.MCPModeAllowAll},
 	}
 }
 

@@ -20,19 +20,19 @@ import (
 // about itself goes to stderr.
 func runMCPServe(args []string) int {
 	flags := flag.NewFlagSet("mcp-serve", flag.ContinueOnError)
+	dir := flags.String("data-dir", os.Getenv(dataDirVariable), "Motty configuration directory")
 	if err := flags.Parse(args); err != nil {
 		return 2
 	}
 	if flags.NArg() > 0 {
-		fmt.Fprintln(os.Stderr, "usage: motty mcp-serve")
+		fmt.Fprintln(os.Stderr, "usage: motty mcp-serve [--data-dir directory]")
 		return 2
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	dir := os.Getenv(dataDirVariable)
 	err := workbench.ServeAgentMCP(ctx, os.Stdin, os.Stdout, workbench.AgentOptions{
-		KnownHostsPath: knownHostsPath(dir),
-		AIDatabasePath: aiDatabasePath(dir),
+		KnownHostsPath: knownHostsPath(*dir),
+		AIDatabasePath: aiDatabasePath(*dir),
 		Log:            os.Stderr,
 	})
 	if err != nil && ctx.Err() == nil {
