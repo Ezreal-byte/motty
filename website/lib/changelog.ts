@@ -21,6 +21,75 @@ export type ChangelogEntry = {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '0.1.6',
+    date: '2026-10-28',
+    sections: [
+      {
+        title: { en: 'New', zh: '新功能' },
+        items: [
+          {
+            en: 'The file panel follows the folder the SSH terminal is in by default. New bash and zsh sessions report their folder for that session only, without touching the server’s startup files. Settings > Files also has a separate “Terminal follows file navigation” switch, off by default, which changes the same terminal’s folder at a verified empty prompt and otherwise says why it did not.',
+            zh: '文件面板默认跟随 SSH 终端所在目录；新连接的 Bash / Zsh 会安装仅本次会话生效的目录上报，不改动服务器上的启动文件。设置 > 文件里另有默认关闭的「终端跟随文件栏目录」：开启后进入远程文件夹也会切换同一个终端的目录，只在验证过的空提示符下同步，其余情况给出提示。',
+          },
+          {
+            en: 'The host editor picks an existing connection group or creates one from the name you type.',
+            zh: '编辑主机时，分组一栏可以直接选已有分组，也能输入新名称创建。',
+          },
+          {
+            en: 'Settings > Terminal > Local shell chooses an installed shell for new or reconnected local terminals on Windows, picked from what Motty finds on PATH and in the usual install folders.',
+            zh: 'Windows 下设置 > 终端新增「本地 Shell」，列出从 PATH 和常见安装目录检测到的 PowerShell、CMD、Git Bash 等，用作新建或重连的本地终端。',
+          },
+          {
+            en: 'WebDAV and S3 backups can use a remote HTTP address after an explicit confirmation. HTTPS stays the default, the form keeps warning that HTTP is not encrypted, and the backup is still encrypted on this computer before upload.',
+            zh: '局域网里的 WebDAV / S3 服务可以在表单底部勾选「允许不安全的远程 HTTP」，确认后才保存，并一直显示不加密的风险；备份文件仍然在本机加密后上传。',
+          },
+        ],
+      },
+      {
+        title: { en: 'Improvements', zh: '改进' },
+        items: [
+          {
+            en: 'The main window, file windows and remote tool windows keep a usable minimum size instead of letting controls be cut off.',
+            zh: '窗口、独立文件窗口和远程工具窗口都有可用的最小尺寸，缩到极限时控件不再被裁掉。',
+          },
+          {
+            en: 'The docked assistant panel can be dragged wider: its width is bounded only by the room the content beside it keeps, with the navigation rail counted as part of that room.',
+            zh: '停靠的 AI 面板可以拉得更宽：宽度只受旁边内容保留的空间限制，状态栏导航也算作保留空间。',
+          },
+          {
+            en: 'In narrow windows, section toolbars turn into labelled icon buttons when they do not fit, host rows give up their status words but keep the light, and titles wrap or ellipsize instead of running under the buttons.',
+            zh: '窄窗口里，主机、密钥、代理等页的工具栏按钮放不下时变成带提示的图标，主机行让出状态文字、保留指示灯，标题会换行或省略，不再压到按钮下面。',
+          },
+          {
+            en: 'Assistant CLI settings probe what the installed CLI can do instead of checking versions: they show the path found or say none was found, and name the missing capability, the failed check command or an isolation setting that did not apply.',
+            zh: 'AI CLI 设置改为实际探测能力：会显示找到的可执行文件路径或提示未找到，并分别说明缺少哪项能力、检查命令失败还是隔离设置没生效。',
+          },
+        ],
+      },
+      {
+        title: { en: 'Fixes', zh: '修复' },
+        items: [
+          {
+            en: 'A server that only allows SFTP keeps its connection when the shell is refused, and the file panel keeps working. A connection also stays while a file panel or file window still uses it after the shell ends.',
+            zh: '只允许 SFTP 的服务器不再因为 shell 被拒绝而断开连接，文件面板继续可用；用户结束 shell 时，只要文件面板或独立文件窗口还在使用该连接，连接就留到最后一个窗口关闭。',
+          },
+          {
+            en: 'The file panel breadcrumbs come back when the path input loses focus.',
+            zh: '文件面板的路径输入框失去焦点后，面包屑会恢复显示。',
+          },
+          {
+            en: 'Remote process lists parse the fields of older procps again.',
+            zh: '服务器上的 procps 较旧、进程字段不同时，远程进程列表不再解析失败。',
+          },
+          {
+            en: 'Folder reports that arrive while the file panel is opening, busy or editing its path no longer move it; only the latest one is applied.',
+            zh: '文件面板正在打开、忙碌或正在编辑路径时，迟到的目录上报不会让列表跳走，只会应用最新的那一次。',
+          },
+        ],
+      },
+    ],
+  },
+  {
     version: '0.1.5',
     date: '2026-10-28',
     sections: [
