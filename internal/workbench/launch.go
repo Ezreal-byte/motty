@@ -350,7 +350,7 @@ func (state *State) checkForUpdates(asked bool) {
 		check = func() (update.Release, error) {
 			ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 			defer cancel()
-			return update.Check(ctx, nil, runtime.GOOS, runtime.GOARCH)
+			return update.Check(ctx, nil, runtime.GOOS, updateArch())
 		}
 	}
 	go func() {
