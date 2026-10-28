@@ -21,6 +21,79 @@ export type ChangelogEntry = {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '0.1.7',
+    date: '2026-10-28',
+    sections: [
+      {
+        title: { en: 'New', zh: '新功能' },
+        items: [
+          {
+            en: 'Snippets have their own page in the sidebar, below Known Hosts: a table of each command’s name, shortcut and text, with add, edit and delete. Every snippet can have a shortcut of its own, set by pressing the keys in its dialog. It cannot collide with a built-in shortcut or another snippet, Control alone needs Shift or Alt so keys like Ctrl+R keep working in the terminal, and it only sends while the terminal page is showing. Shortcuts stay on this device.',
+            zh: '侧边栏「已知主机」下面新增「快捷命令」页面，用表格管理每条命令的名称、快捷键和内容，可添加、编辑、删除。每条命令都能绑定自己的快捷键，在编辑对话框里按下按键即可设置：不会和内置快捷键或其他快捷命令重复，只用 Control 时需再加 Shift 或 Alt，免得占用 Ctrl+R 这类终端自带按键，并且只在终端页显示时发送。快捷键只保存在本机。',
+          },
+          {
+            en: 'Connection settings choose the ssh-agent: the system agent, 1Password, Bitwarden, or a custom socket or named pipe, kept per device. Windows connects to the OpenSSH pipe by default, and an agent that cannot be reached is listed as skipped with its address.',
+            zh: '连接设置里可以选择 ssh-agent：系统 agent、1Password、Bitwarden，或自定义 socket / 命名管道，按设备保存。Windows 默认连接 OpenSSH 命名管道；所选 agent 连不上时，会在跳过列表里写明地址。',
+          },
+          {
+            en: 'Keychain can save the passphrase of an encrypted key (Save Passphrase), checked against the key first and kept in the vault; saving it empty forgets it.',
+            zh: '密钥链里加密私钥新增「保存口令」：先用口令校验密钥，再存入保险库；保存为空即清除。',
+          },
+          {
+            en: 'Pasting in an SSH terminal while the clipboard holds an image and no text uploads the picture to ~/.cache/motty/paste on the server (SFTP, or SCP when there is no SFTP) and types its path, so programs such as Claude Code can read it. Files are private to the account, uploads older than a week are pruned, and a setting turns it off.',
+            zh: '在 SSH 终端里粘贴时，如果剪贴板里是图片而没有文本，会通过 SFTP（没有 SFTP 时用 SCP）把图片传到服务器的 ~/.cache/motty/paste 并输入路径，方便 Claude Code 之类的程序读取。文件只有当前账号可读写，超过一周的上传会被清理，设置里可以关闭。',
+          },
+          {
+            en: 'The terminal follows the window between light and dark, and each look remembers its own color scheme.',
+            zh: '终端会跟随窗口在浅色和深色之间切换，两种外观各记住自己的配色。',
+          },
+          {
+            en: 'RDP hosts have a switch to connect to the console (admin) session.',
+            zh: '远程桌面主机表单新增「连接到控制台（管理）会话」开关。',
+          },
+        ],
+      },
+      {
+        title: { en: 'Improved', zh: '改进' },
+        items: [
+          {
+            en: 'Private keys that begin with ENCRYPTED PRIVATE KEY (the default of OpenSSL 3 and ssh-keygen -m PKCS8) now open and ask for the passphrase like any other encrypted key. A key file that exists but cannot be used is listed as skipped with its reason.',
+            zh: '以 ENCRYPTED PRIVATE KEY 开头的私钥（OpenSSL 3 和 ssh-keygen -m PKCS8 的默认格式）现在可以打开，并像其他加密密钥一样询问口令；存在但无法使用的密钥文件会连同原因出现在跳过列表里。',
+          },
+          {
+            en: 'The files panel of a local terminal opens at, and follows, the folder the shell is in (local bash and zsh; Windows shells are not covered).',
+            zh: '本地终端的文件面板会打开并跟随 shell 所在的目录（本地 Bash / Zsh；Windows shell 暂不支持）。',
+          },
+          {
+            en: 'Programs that copy on selection (Claude Code, tmux set-clipboard) no longer raise a prompt on every drag: OSC 52 writes are allowed, reads stay denied, and the ask dialog gains Always allow.',
+            zh: '选中即复制的程序（Claude Code、tmux 的 set-clipboard）不再每次拖选都弹窗：OSC 52 写剪贴板直接允许，读仍然拒绝，询问对话框里新增「始终允许」。',
+          },
+        ],
+      },
+      {
+        title: { en: 'Fixed', zh: '修复' },
+        items: [
+          {
+            en: 'With a files panel open beside a terminal, the part of the terminal as far from its left edge as the panel is wide no longer swallows the mouse wheel.',
+            zh: '终端旁边打开文件面板时，终端里离左边缘与面板同宽的那一段不再吞掉滚轮。',
+          },
+          {
+            en: 'Reopening or restoring the remote tools window reads the active tab again, so a container created later no longer looks deleted.',
+            zh: '远程工具窗口重新打开或恢复时会重新读取当前标签，之后新建的容器不再显示成已删除。',
+          },
+          {
+            en: 'The chosen terminal color scheme is marked with a check; a dark scheme in a light window used to look unselected.',
+            zh: '选中的终端配色现在有对勾标记；深色配色在浅色窗口里原先看不出选中。',
+          },
+          {
+            en: 'Clicking outside the key passphrase prompt no longer skips that key, and a key whose fingerprint is unknown until unlocked can no longer be pinned to a host or block removing the key.',
+            zh: '点在口令提示框外不再误把这把密钥跳过；未解锁前指纹未知的密钥不能再固定到某台主机，也不再阻止删除该密钥。',
+          },
+        ],
+      },
+    ],
+  },
+  {
     version: '0.1.6',
     date: '2026-10-28',
     sections: [
