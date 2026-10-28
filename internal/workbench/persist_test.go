@@ -176,6 +176,29 @@ func TestUnreadableStateIsKeptAndTheAppStartsEmpty(t *testing.T) {
 	}
 }
 
+func TestDamagedLocalStateIsSetAsideInsteadOfPanicking(t *testing.T) {
+	options := freshOptions(t)
+	options.StatePath = filepath.Join(filepath.Dir(options.KnownHostsPath), "config.db")
+	saveReleaseState(t, options.StatePath, savedState{
+		Version: stateFileVersion,
+		Hosts:   []savedHost{{Label: "Kept", Address: "kept.example.com"}},
+	})
+	setLocalConfigValue(t, options.StatePath, localKey, []byte(`{"hosts":[`))
+
+	state := newTestState(t, options)
+	if len(state.hosts) != 0 || state.modal != modalStateNotice || state.saveBlocked {
+		t.Fatalf("hosts=%v modal=%d blocked=%t", state.hosts, state.modal, state.saveBlocked)
+	}
+	var canvas ui.Canvas
+	state.Paint(&canvas, ui.Size{Width: 1400, Height: 900})
+	if !strings.Contains(state.stateNotice.body, filepath.Base(options.StatePath)+".corrupt") {
+		t.Fatalf("the dialog does not say where the copy is: %q", state.stateNotice.body)
+	}
+	if _, err := os.Stat(options.StatePath + ".corrupt"); err != nil {
+		t.Fatalf("damaged configuration was not kept: %v", err)
+	}
+}
+
 func TestASecondUnreadableFileDoesNotReplaceTheFirst(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "state.json")

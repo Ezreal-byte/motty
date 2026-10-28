@@ -16,9 +16,10 @@ const stateNoticeLine float32 = 21
 // stateNotice is the dialog about the saved state: what the title and the body
 // say, built when it is painted, in the language then in use.
 type stateNotice struct {
-	tooNew      bool
-	updateError string // why an update did not finish, when that is what this says
-	title, body string
+	tooNew       bool
+	updateError  string // why an update did not finish, when that is what this says
+	workspaceErr string // why the development workspace could not be restored
+	title, body  string
 	// file names what the body is about; found and supported are the formats of a
 	// file that is too new.
 	file, found, supported string
@@ -37,6 +38,10 @@ func (state *State) explainStateFile(report loadReport) {
 	case loadUnreadable:
 		state.stateNotice = stateNotice{file: filepath.Base(report.kept)}
 	default:
+		if report.workspaceErr != nil {
+			state.stateNotice = stateNotice{workspaceErr: report.workspaceErr.Error()}
+			state.modal = modalStateNotice
+		}
 		return
 	}
 	state.modal = modalStateNotice
@@ -45,6 +50,11 @@ func (state *State) explainStateFile(report loadReport) {
 // buildStateNotice writes the dialog's text in the current language.
 func (state *State) buildStateNotice() {
 	notice, messages := &state.stateNotice, state.messages
+	if notice.workspaceErr != "" {
+		notice.title = messages.DevelopmentWorkspaceRestoreTitle
+		notice.body = fmt.Sprintf(messages.DevelopmentWorkspaceRestoreFailedFmt, notice.workspaceErr)
+		return
+	}
 	if notice.updateError != "" {
 		notice.title = messages.Tools.UpdateFailedTitle
 		notice.body = fmt.Sprintf(messages.Tools.UpdateFailedBodyFmt, notice.updateError)

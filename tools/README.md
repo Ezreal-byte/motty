@@ -8,12 +8,60 @@ in a package.
 | Path | What it does |
 | --- | --- |
 | `headless_drive.py` | Drives a `-tags vivahead` build through the headless line protocol: `click`, `type`, `key`, `waitfor`, `shot`, `texts`, `layout`. `--build` and `--watch` add the `dev` tag, so the interface they iterate has the component gallery. |
-| `dev.sh` | Rebuilds and restarts a real window when Go files here or in `../viva` change. Needs `fswatch`. Builds with `-tags dev`, which is what adds the component gallery: the release build has no such page. |
+| `dev.sh` | Builds, signs and launches a real `-tags dev` window. `--once` runs one build; the default mode rebuilds and restarts when Go files here or in `../viva` change and needs `fswatch`. `make run` and `make dev` are shortcuts. |
+| `dev_launch.sh` | Shared launch observation for `dev.sh`. It waits for the application's real window-created message instead of treating a child PID as ready, and distinguishes start, hand-off, timeout and failure. |
+| `macos_dev_signing.sh` | Creates or reuses the private local macOS development identity, signs the executable, and verifies its identifier and certificate-bound designated requirement. `MOTTY_DEV_SIGN_IDENTITY` overrides the identity; `none` explicitly disables signing. |
+| `macos_dev_signing_integration_test.sh` | Opt-in real macOS Keychain test. It compiles two materially different probes, signs both with the development identity, and checks CDHash, requirement reuse, authorization reuse and rejection of an ad-hoc control in an isolated Keychain. |
 | `release.sh` | Builds the release packages, checksums, signing and optional upload. See `docs/release.md`. |
 | `testslice/` | Prints the `-run` pattern for one shard of a package's tests, picked by test-name hash, so `make race-workbench` can spread the workbench suite over the parallel jobs in `tests.yml`. |
 | `competitor_issues.py` | Fetches closed issues (and pull requests, dropped) from the Netcatty and NyaTerm repositories into JSON for requirement mining. `--state`, `--label`, `--summary`. |
 
 Run the first two from the repository root.
+
+## Development launch and signing
+
+Use `make run` for one build and `make dev` for the edit loop. The development
+build shares the default data directory, hosts, settings, AI configuration and
+vault with the release build, but keeps its own workspace record. Quit the
+running copy completely before switching builds, including a copy hidden in the
+tray. The build types use the same single-instance claim; do not run them as two
+writers against one data directory, and do not expect live cross-process
+refresh.
+
+On macOS, the standard entry initializes a private self-signed identity and
+private Keychain under
+`~/Library/Application Support/motty/development-signing` when needed. The first
+access may ask for system authorization. A later content-different rebuild
+signed with the same identity and an unlocked Keychain reuses that authorization;
+this is not a promise to suppress prompts after locking, ACL changes or an
+explicit identity change. A sign or verification error stops the launch.
+
+Set `MOTTY_DEV_SIGN_IDENTITY='Developer ID Application: …'` to use an existing
+certificate without initializing the default identity. Set it to `none` only
+for an intentional unsigned run; the helper prints the resulting authorization
+warning. `go run -tags dev ./cmd/motty` bypasses these helpers; `go run
+./cmd/motty` is release behaviour.
+
+The helper preserves incomplete, expired, mismatched or interrupted signing
+material for manual repair. Do not delete the identity directory or rotate the
+shared vault key to avoid an authorization prompt. Inspect the reported path and
+configuration first; the integration test never reads the real `motty vault`
+item, data key or release certificate. Run the real-keychain check only when
+explicitly intended:
+
+```sh
+MOTTY_DEV_SIGNING_INTEGRATION=1 bash tools/macos_dev_signing_integration_test.sh
+```
+
+The default stub checks do not need a user Keychain:
+
+```sh
+bash -n tools/dev.sh tools/dev_launch.sh tools/macos_dev_signing.sh \
+  tools/macos_dev_signing_integration_test.sh
+bash tools/dev_launch_test.sh
+bash tools/macos_dev_signing_test.sh
+bash tools/dev_script_test.sh
+```
 
 ## End-to-end
 
@@ -22,13 +70,16 @@ its fixture, environment variables and commands in its header. Run them from the
 repository root, for example:
 
 ```sh
-go build -tags vivahead -o /tmp/motty-head ./cmd/motty
+make head
 (cd tools/e2esshd && go build -o /tmp/e2esshd . && /tmp/e2esshd 2222 &)
 python3 tools/headless_drive.py "$(mktemp -d)" tools/e2e/tray_e2e.txt
 ```
 
 `e2e/mcp_e2e.py` is the Python harness for the MCP server and stdio bridge; it
 also expects the loopback SSH fixture on port 2222 and a built `/tmp/motty-head`.
+`headless_drive.py` sets an explicit `MOTTY_DATA_DIR` under the temporary HOME
+because headless startup refuses the default directory. That file isolation is
+not system-secret isolation and does not make real credentials safe to test.
 
 `e2e/run_agent_mcp_e2e.sh` runs everything for `motty mcp-serve` (the MCP server
 that needs no window) by itself: it builds, starts a fixture, drives the window side

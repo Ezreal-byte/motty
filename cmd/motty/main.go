@@ -11,8 +11,8 @@ import (
 	"runtime"
 
 	"github.com/vivaui/viva/app"
-	"github.com/vivaui/viva/app/singleinstance"
 	"github.com/vivaui/viva/ui"
+	"motty/internal/buildinfo"
 	"motty/internal/diag"
 	"motty/internal/selfupdate"
 	"motty/internal/workbench"
@@ -48,13 +48,18 @@ func main() {
 	args, background := launchArguments(os.Args[1:])
 	// A second launch hands what it was asked to open to the copy that runs, and
 	// exits. A headless test run is its own world and never meets the real one.
-	if os.Getenv("VIVA_HEADLESS") == "" {
-		claim, primary, err := singleinstance.SingleInstance(instanceID(os.Getenv(dataDirVariable)), args, func(more []string) {
+	if os.Getenv("VIVA_HEADLESS") != "" {
+		if err := headlessClaim(os.Getenv(dataDirVariable)); err != nil {
+			log.Fatal(err)
+		}
+	} else {
+		primary, claim, err := claimLaunch(os.Getenv(dataDirVariable), args, func(more []string) {
 			windows.launch(more)
 		})
 		if err != nil {
-			log.Printf("motty: single instance: %v", err)
+			log.Fatal(err)
 		} else if !primary {
+			explainSecondaryLaunch(os.Stderr)
 			return
 		} else {
 			defer claim.Close()
@@ -88,7 +93,9 @@ func main() {
 			// go up first and closing it still leaves the application running.
 			status.show(application)
 		}
-		if err := openWindow(); err != nil {
+		err := openWindow()
+		reportStarted(err)
+		if err != nil {
 			return err
 		}
 		// Putting the icon in the status area costs about 60 ms, which would
@@ -101,6 +108,8 @@ func main() {
 		log.Fatal(err)
 	}
 }
+
+func mainWindowTitle() string { return buildinfo.ProductName }
 
 // newTray makes the status-area list without an icon: the icon is added once
 // the first window is up, because making it delays the window (see show).
@@ -288,7 +297,7 @@ func openWorkbenchWindow(application *app.Application, status *tray, hub *workbe
 
 	var err error
 	mainWindow, err = application.OpenWindow(app.Config{
-		Title:          "Motty",
+		Title:          mainWindowTitle(),
 		Icon:           workbench.AppIcon(),
 		Tree:           workbench.Tree(),
 		Width:          width,

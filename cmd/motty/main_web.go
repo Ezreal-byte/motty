@@ -9,6 +9,7 @@ import (
 	"github.com/vivaui/viva/internal/platform/web"
 	"github.com/vivaui/viva/text"
 	"github.com/vivaui/viva/ui"
+	"motty/internal/buildinfo"
 	"motty/internal/workbench"
 )
 
@@ -45,7 +46,7 @@ func main() {
 	}
 
 	web.Run(web.Config{
-		Title:     "Motty",
+		Title:     buildinfo.ProductName,
 		Width:     1400,
 		Height:    900,
 		Paint:     state.Paint,

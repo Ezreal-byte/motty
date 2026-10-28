@@ -789,6 +789,8 @@ func New(options Options) *State {
 	switch {
 	case err != nil:
 		state.status = fmt.Sprintf(state.messages.StatusSaveFailedFmt, err)
+	case report.workspaceErr != nil:
+		state.status = fmt.Sprintf(state.messages.DevelopmentWorkspaceRestoreFailedFmt, report.workspaceErr)
 	default:
 		state.status = state.messages.StatusReadyIdle
 	}

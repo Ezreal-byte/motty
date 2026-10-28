@@ -62,7 +62,7 @@ jobs:
         run: go test ./... -count=1
       - name: Test development components
         working-directory: motty
-        run: go test -tags dev ./internal/workbench -run '^TestDebug' -count=1
+        run: go test -tags dev ./cmd/motty ./internal/workbench -count=1
 
   # The race detector is the long pole: it runs one package at a time, and it
   # multiplies the memory the tests hold. CI therefore spreads the package list

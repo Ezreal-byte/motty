@@ -203,6 +203,40 @@ go run ./cmd/viva package -C ../motty --format app,dmg
 go run ./cmd/viva package -C ../motty --target linux --arch amd64 --format tar.gz,deb
 ```
 
+### 开发构建
+
+构建并启动一次开发版：
+
+```sh
+make run
+```
+
+该产物带 `dev` 标签，所以原生窗口、应用内标题和托盘都显示 `Motty Dev`。
+`make dev` 会在本仓库或 `../viva` 的 Go 文件变化时重新构建并重启；监听模式需要
+`fswatch`，单次模式不需要。`tools/dev.sh --once` 与 `make run` 是同一个入口。
+
+开发入口默认与正式版共用数据目录、主机、设置、AI 配置和密码库。只有开发工作区
+（当前页面、打开会话、活动会话和完整页签/分屏布局）使用独立的本地记录，因此开发
+重启不会覆盖正式工作区。切换版本前要真正退出正式版，包括仍在托盘中的后台副本；
+两个构建共用同一个单实例认领，不支持并行写入或跨进程实时刷新。
+
+macOS 标准入口会在
+`~/Library/Application Support/motty/development-signing` 创建或复用私有本地开发
+签名身份。首次访问可能需要完成一次系统钥匙串授权；在身份和钥匙串不变且已解锁时，
+之后内容不同的重建会复用这次授权。它不会绕过钥匙串锁定、ACL 变更或显式更换身份。
+签名或验证失败时入口会停止启动，不会静默运行未签名产物。
+
+需要指定证书且不初始化默认身份时，使用
+`MOTTY_DEV_SIGN_IDENTITY='Developer ID Application: …' make run`。只有明确要运行
+未签名产物时才使用 `MOTTY_DEV_SIGN_IDENTITY=none make run`；入口会提示钥匙串授权
+可能重复。普通 `go run ./cmd/motty` 是正式版行为，`go run -tags dev ./cmd/motty`
+会绕过稳定签名入口，仅用于诊断。
+
+共享数据不是测试沙箱。开发版可能升级配置或 AI schema，使较旧的正式版无法读取；
+密码库和云同步操作也会影响同一套日常环境。迁移、删除、修改主密码或重置密钥前应先
+备份，并使用显式 `MOTTY_DATA_DIR` 和测试凭据。独立目录只改变应用文件位置，不会
+自动隔离系统钥匙串中的条目。
+
 ## 🔐 安全
 
 - 发凭据之前先验证主机密钥。

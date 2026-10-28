@@ -7,11 +7,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"reflect"
 	"sort"
 	"strings"
 
 	"motty/internal/ai/store"
+	"motty/internal/buildinfo"
 	"motty/internal/configstore"
+	layoutcore "motty/internal/workspace"
 )
 
 // The configuration lives in a configstore as records: one per host, per
@@ -52,9 +55,55 @@ import (
 const configFormat = 6
 
 const (
-	kindSetting = "setting"
-	localKey    = "state"
+	kindSetting             = "setting"
+	localKey                = "state"
+	developmentWorkspaceKey = "development_workspace"
 )
+
+// savedWorkspace is the restore state that differs between release and
+// development builds. It is deliberately limited to these four fields: all
+// other settings remain shared in local state.
+type savedWorkspace struct {
+	Workspace     string              `json:"workspace,omitempty"`
+	Sessions      []savedSession      `json:"sessions,omitempty"`
+	ActiveSession int                 `json:"active_session,omitempty"`
+	Deck          *layoutcore.DeckDTO `json:"deck,omitempty"`
+}
+
+func clearSavedWorkspace(saved *savedState) {
+	saved.Workspace = ""
+	saved.Sessions = nil
+	saved.ActiveSession = 0
+	saved.Deck = nil
+}
+
+func applySavedWorkspace(saved *savedState, raw json.RawMessage) error {
+	trimmed := bytes.TrimSpace(raw)
+	if len(trimmed) == 0 || trimmed[0] != '{' {
+		return errors.New("development workspace must be a JSON object")
+	}
+	var workspace savedWorkspace
+	if err := json.Unmarshal(trimmed, &workspace); err != nil {
+		return fmt.Errorf("development workspace: %w", err)
+	}
+	if workspace.Deck != nil {
+		if err := workspace.Deck.Validate(); err != nil {
+			return fmt.Errorf("development workspace: %w", err)
+		}
+		for _, entry := range workspace.Deck.Workspaces {
+			for _, pane := range entry.Panes {
+				if pane.SessionID != 0 && (pane.SessionID < 1 || int(pane.SessionID) > len(workspace.Sessions)) {
+					return fmt.Errorf("development workspace: invalid session reference %d", pane.SessionID)
+				}
+			}
+		}
+	}
+	saved.Workspace = workspace.Workspace
+	saved.Sessions = workspace.Sessions
+	saved.ActiveSession = workspace.ActiveSession
+	saved.Deck = workspace.Deck
+	return nil
+}
 
 // recordPayload is what a record holds. Ord is the place of the item in its
 // list, assigned when the item first appears and kept after, so removing an item
@@ -241,6 +290,9 @@ type configBase struct {
 	// the one large list in the state, and a save that edits a single host must
 	// not re-encode every other host; see appendHostEntries.
 	hostRecords map[string]hostRecord
+	// development is the raw local development_workspace value. Release
+	// builds neither read nor write it.
+	development []byte
 }
 
 // hostRecord remembers the state a host was last encoded from, its ordinal, and
@@ -497,8 +549,8 @@ func (base *configBase) diff(entries []configstore.Entry) (puts []configstore.En
 	return puts, deletes
 }
 
-// accept records that the store now holds entries and local.
-func (base *configBase) accept(entries []configstore.Entry, local []byte) {
+// acceptLocal records that the store now holds entries and both local values.
+func (base *configBase) acceptLocal(entries []configstore.Entry, local localWrite) {
 	payloads := make(map[configstore.Key][]byte, len(entries))
 	ords := make(map[configstore.Key]int64, len(entries))
 	for _, entry := range entries {
@@ -516,7 +568,11 @@ func (base *configBase) accept(entries []configstore.Entry, local []byte) {
 			ords[key] = payload.Ord
 		}
 	}
-	base.payloads, base.ords, base.local = payloads, ords, local
+	base.payloads, base.ords = payloads, ords
+	base.local = local.state
+	if local.includeDevelopment {
+		base.development = local.development
+	}
 }
 
 // writeConfig stores a state through a store and updates the base. It says
@@ -526,17 +582,120 @@ func writeConfig(store *configstore.Store, base *configBase, defaults configDefa
 	if err != nil {
 		return false, err
 	}
-	return writeEntries(store, base, entries, local)
+	localValues, err := routeLocalState(base, local)
+	if err != nil {
+		return false, err
+	}
+	return writeEntries(store, base, entries, localValues)
+}
+
+// localWrite is the two local values a save can replace. A release save does
+// not include the development key at all, so it cannot remove one it did not
+// read.
+type localWrite struct {
+	state              []byte
+	development        []byte
+	includeDevelopment bool
+}
+
+func isWorkspaceField(name string) bool {
+	switch name {
+	case "workspace", "sessions", "active_session", "deck":
+		return true
+	default:
+		return false
+	}
+}
+
+func savedStateFieldNames() map[string]bool {
+	kind := reflect.TypeOf(savedState{})
+	names := make(map[string]bool, kind.NumField()+1)
+	for index := 0; index < kind.NumField(); index++ {
+		name, _, _ := strings.Cut(kind.Field(index).Tag.Get("json"), ",")
+		if name != "" && name != "-" {
+			names[name] = true
+		}
+	}
+	names[collapsedGroupsKey] = true
+	return names
+}
+
+func decodeLocalState(raw []byte) (map[string]json.RawMessage, error) {
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &fields); err != nil {
+		return nil, err
+	}
+	if fields == nil {
+		fields = map[string]json.RawMessage{}
+	}
+	return fields, nil
+}
+
+func discardKnownLocalState(release map[string]json.RawMessage) {
+	known := savedStateFieldNames()
+	for name := range release {
+		if known[name] && !isWorkspaceField(name) {
+			delete(release, name)
+		}
+	}
+}
+
+func splitLocalState(release, common map[string]json.RawMessage) map[string]json.RawMessage {
+	development := map[string]json.RawMessage{}
+	for name, value := range common {
+		if isWorkspaceField(name) {
+			development[name] = value
+		} else {
+			release[name] = value
+		}
+	}
+	return development
+}
+
+// routeLocalState keeps the release workspace in state while a development
+// build saves its own workspace in a separate local key.
+func routeLocalState(base *configBase, local []byte) (localWrite, error) {
+	if !buildinfo.Development {
+		return localWrite{state: local}, nil
+	}
+	common, err := decodeLocalState(local)
+	if err != nil {
+		return localWrite{}, err
+	}
+	release := map[string]json.RawMessage{}
+	if len(base.local) > 0 {
+		release, err = decodeLocalState(base.local)
+		if err != nil {
+			return localWrite{}, err
+		}
+		discardKnownLocalState(release)
+	}
+	development := splitLocalState(release, common)
+	releaseBytes, err := json.Marshal(release)
+	if err != nil {
+		return localWrite{}, err
+	}
+	developmentBytes, err := json.Marshal(development)
+	if err != nil {
+		return localWrite{}, err
+	}
+	return localWrite{state: releaseBytes, development: developmentBytes, includeDevelopment: true}, nil
 }
 
 // writeEntries commits the difference between entries and base, then makes the
 // base describe them. It is the second half of a save, shared by the full
 // encoder and the hosts-only shortcut.
-func writeEntries(store *configstore.Store, base *configBase, entries []configstore.Entry, local []byte) (shared bool, err error) {
+func writeEntries(store *configstore.Store, base *configBase, entries []configstore.Entry, local localWrite) (shared bool, err error) {
 	puts, deletes := base.diff(entries)
 	change := configstore.Change{Put: puts, Delete: deletes}
-	if !bytes.Equal(local, base.local) {
-		change.Local = map[string][]byte{localKey: local}
+	if !bytes.Equal(local.state, base.local) || local.includeDevelopment && !bytes.Equal(local.development, base.development) {
+		change.Local = map[string][]byte{}
+		if !bytes.Equal(local.state, base.local) {
+			change.Local[localKey] = local.state
+		}
+		if local.includeDevelopment && !bytes.Equal(local.development, base.development) {
+			change.Local[developmentWorkspaceKey] = local.development
+		}
 	}
 	if len(puts) == 0 && len(deletes) == 0 && change.Local == nil {
 		return false, nil
@@ -544,7 +703,7 @@ func writeEntries(store *configstore.Store, base *configBase, entries []configst
 	if _, err := store.Commit(change); err != nil {
 		return false, err
 	}
-	base.accept(entries, local)
+	base.acceptLocal(entries, local)
 	return len(puts) > 0 || len(deletes) > 0, nil
 }
 
@@ -574,6 +733,15 @@ func openConfig(path string) (store *configstore.Store, saved savedState, base *
 	entries, local, err := store.Load()
 	if err == nil {
 		saved, base, err = joinState(entries, local[localKey])
+		if err == nil {
+			base.development = local[developmentWorkspaceKey]
+		}
+		if err == nil && buildinfo.Development {
+			clearSavedWorkspace(&saved)
+			if raw, ok := local[developmentWorkspaceKey]; ok {
+				report.workspaceErr = applySavedWorkspace(&saved, raw)
+			}
+		}
 	}
 	if err != nil {
 		// The records were read but make no state: as damaged as an unreadable file.
@@ -587,5 +755,5 @@ func openConfig(path string) (store *configstore.Store, saved savedState, base *
 		}
 		return store, fresh, newConfigBase(), loadReport{outcome: loadUnreadable, kept: kept}, nil
 	}
-	return store, saved, base, loadReport{}, nil
+	return store, saved, base, report, nil
 }

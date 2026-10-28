@@ -78,8 +78,10 @@ def watch(home: str, script: str) -> int:
 
 def run(home: str, script: str) -> int:
     os.makedirs(home, exist_ok=True)
+    data = os.path.join(home, "motty-data")
+    os.makedirs(data, exist_ok=True)
     binary = BINARY
-    env = dict(os.environ, VIVA_HEADLESS="1", HOME=home)
+    env = dict(os.environ, VIVA_HEADLESS="1", HOME=home, MOTTY_DATA_DIR=data)
     proc = subprocess.Popen([binary], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                             stderr=subprocess.PIPE, env=env, text=True, bufsize=1)
     try:

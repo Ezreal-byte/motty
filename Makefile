@@ -1,4 +1,4 @@
-.PHONY: dev head check race race-workbench race-heavy race-rest
+.PHONY: dev run head check race race-workbench race-heavy race-rest
 
 RACE_PACKAGES = \
 	./cmd/motty \
@@ -55,6 +55,9 @@ RACE_REST = $(filter-out $(RACE_WORKBENCH) $(RACE_HEAVY),$(RACE_PACKAGES))
 dev:
 	tools/dev.sh
 
+run:
+	tools/dev.sh --once
+
 # The headless build used to iterate the interface includes the dev-tagged
 # component gallery; the release build does not.
 head:
@@ -67,7 +70,12 @@ check:
 	go vet ./...
 	go vet -tags dev ./internal/workbench
 	go test ./... -count=1
-	go test -tags dev ./internal/workbench -run '^TestDebug' -count=1
+	go test -tags dev ./cmd/motty ./internal/workbench -count=1
+	bash -n tools/dev.sh tools/dev_launch.sh tools/macos_dev_signing.sh \
+		tools/macos_dev_signing_integration_test.sh
+	bash tools/dev_launch_test.sh
+	bash tools/macos_dev_signing_test.sh
+	bash tools/dev_script_test.sh
 	$(MAKE) race
 
 # The detector is slow and multiplies the memory the tests hold, so one package

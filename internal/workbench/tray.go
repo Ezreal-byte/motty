@@ -3,8 +3,10 @@ package workbench
 import (
 	"fmt"
 	"slices"
+	"strings"
 
 	"github.com/vivaui/viva/app"
+	"motty/internal/buildinfo"
 	layoutcore "motty/internal/workspace"
 )
 
@@ -73,11 +75,20 @@ func (tray *Tray) Tooltip() (text string, changed bool) {
 	tray.count = count
 	messages := tray.members[0].state.messages
 	if count == 0 {
-		tray.tooltip = messages.TrayTooltipEmpty
+		tray.tooltip = productText(messages.TrayTooltipEmpty)
 	} else {
-		tray.tooltip = fmt.Sprintf(messages.TrayTooltipFmt, count)
+		tray.tooltip = productText(fmt.Sprintf(messages.TrayTooltipFmt, count))
 	}
 	return tray.tooltip, true
+}
+
+// productText puts this build's product name into an existing localized string.
+// The catalogs stay unchanged, so switching builds never changes global i18n.
+func productText(text string) string {
+	if buildinfo.ProductName == "Motty" {
+		return text
+	}
+	return strings.ReplaceAll(text, "Motty", buildinfo.ProductName)
 }
 
 // WantsToStay reports whether a window with sessions should hide rather than
@@ -142,10 +153,10 @@ func (tray *Tray) Menu() []app.MenuItem {
 	return append(items,
 		app.MenuItem{Separator: true},
 		app.MenuItem{Title: messages.TrayLocalTerminal, OnSelect: tray.openLocalTerminal},
-		app.MenuItem{Title: messages.TrayShowWindow, OnSelect: tray.ShowWindow},
+		app.MenuItem{Title: productText(messages.TrayShowWindow), OnSelect: tray.ShowWindow},
 		app.MenuItem{Title: messages.TrayCheckUpdates, OnSelect: tray.checkForUpdates, Disabled: tray.checkingForUpdates()},
 		app.MenuItem{Separator: true},
-		app.MenuItem{Title: messages.TrayQuit, OnSelect: tray.quit},
+		app.MenuItem{Title: productText(messages.TrayQuit), OnSelect: tray.quit},
 	)
 }
 

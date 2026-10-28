@@ -89,11 +89,13 @@ type Messages struct {
 
 	// What the user is told when the saved state could not be loaded as it was.
 	// The Fmt strings take the file names or versions named in persist.go.
-	StateTooNewTitle       string
-	StateTooNewBodyFmt     string
-	StateUnreadableTitle   string
-	StateUnreadableBodyFmt string
-	StateNoticeOK          string
+	StateTooNewTitle                     string
+	StateTooNewBodyFmt                   string
+	StateUnreadableTitle                 string
+	StateUnreadableBodyFmt               string
+	StateNoticeOK                        string
+	DevelopmentWorkspaceRestoreTitle     string
+	DevelopmentWorkspaceRestoreFailedFmt string
 
 	// The status-area icon and the panel beside it. TrayTooltipFmt takes the
 	// number of open sessions.

@@ -6,6 +6,8 @@ import (
 	"testing"
 
 	"github.com/vivaui/viva/app"
+	"motty/internal/buildinfo"
+	"motty/internal/i18n"
 	"motty/internal/update"
 	layoutcore "motty/internal/workspace"
 )
@@ -92,7 +94,7 @@ func TestTrayMenuListsEverySessionOfEveryWindowGroupingSplitWorkspaces(t *testin
 		}
 	}
 	tail := lines[5:]
-	want := []string{"---", "New local terminal", "Show Motty", "Check for Updates…", "---", "Quit Motty"}
+	want := []string{"---", "New local terminal", "Show " + buildinfo.ProductName, "Check for Updates…", "---", "Quit " + buildinfo.ProductName}
 	for index := range want {
 		if tail[index] != want[index] {
 			t.Fatalf("footer = %q, want %q", tail, want)
@@ -129,18 +131,48 @@ func TestTrayMenuOfNoSessionsSaysSoAndOfNoWindowsIsEmpty(t *testing.T) {
 func TestTrayTooltipChangesOnlyWhenTheCountDoes(t *testing.T) {
 	fixture := newTrayFixture(t)
 	text, changed := fixture.tray.Tooltip()
-	if !changed || text != "Motty (3 open)" {
+	if !changed || text != buildinfo.ProductName+" (3 open)" {
 		t.Fatalf("first tooltip = %q, %t", text, changed)
 	}
 	if _, changed := fixture.tray.Tooltip(); changed {
 		t.Fatal("an unchanged count reported a change")
 	}
 	fixture.second.closeSession(fixture.second.sessions[0].ID)
-	if text, changed := fixture.tray.Tooltip(); !changed || text != "Motty (2 open)" {
+	if text, changed := fixture.tray.Tooltip(); !changed || text != buildinfo.ProductName+" (2 open)" {
 		t.Fatalf("after closing a session: %q, %t", text, changed)
 	}
 	if _, changed := NewTray(nil).Tooltip(); changed {
 		t.Fatal("a tray with no windows has a tooltip")
+	}
+}
+
+func TestTrayUsesTheBuildProductNameInBothLanguages(t *testing.T) {
+	tests := []struct {
+		language i18n.Language
+		show     string
+		quit     string
+	}{
+		{language: i18n.English, show: "Show " + buildinfo.ProductName, quit: "Quit " + buildinfo.ProductName},
+		{language: i18n.Chinese, show: "显示 " + buildinfo.ProductName, quit: "退出 " + buildinfo.ProductName},
+	}
+	for _, test := range tests {
+		t.Run(test.language.String(), func(t *testing.T) {
+			state := newTestState(t, testOptions(t))
+			state.language = test.language
+			state.messages = i18n.For(test.language)
+			tray := NewTray(nil)
+			tray.Add(state, &fakeTrayWindow{})
+			if text, changed := tray.Tooltip(); !changed || text != buildinfo.ProductName {
+				t.Fatalf("empty tooltip = %q, %t", text, changed)
+			}
+			menu := tray.Menu()
+			if findItem(menu, test.show) == nil {
+				t.Fatalf("menu does not show %q: %q", test.show, menuTitles(menu, ""))
+			}
+			if findItem(menu, test.quit) == nil {
+				t.Fatalf("menu does not quit with %q: %q", test.quit, menuTitles(menu, ""))
+			}
+		})
 	}
 }
 
@@ -200,7 +232,7 @@ func TestChoosingCheckForUpdatesAsksInAVisibleWindowAndOffersTheRelease(t *testi
 
 func TestChoosingQuitQuits(t *testing.T) {
 	fixture := newTrayFixture(t)
-	findItem(fixture.tray.Menu(), "Quit Motty").OnSelect()
+	findItem(fixture.tray.Menu(), "Quit "+buildinfo.ProductName).OnSelect()
 	if fixture.quits != 1 {
 		t.Fatalf("quits = %d", fixture.quits)
 	}
@@ -226,12 +258,12 @@ func TestChoosingLocalTerminalOpensAShellInAWindowAndShowsIt(t *testing.T) {
 func TestShowWindowBringsBackAHiddenWindowOnlyWhenNoneIsVisible(t *testing.T) {
 	fixture := newTrayFixture(t)
 	fixture.firstView.hidden, fixture.secondView.hidden = true, true
-	findItem(fixture.tray.Menu(), "Show Motty").OnSelect()
+	findItem(fixture.tray.Menu(), "Show "+buildinfo.ProductName).OnSelect()
 	if fixture.firstView.shows != 1 || fixture.secondView.shows != 0 {
 		t.Fatalf("with every window hidden: first %d, second %d", fixture.firstView.shows, fixture.secondView.shows)
 	}
 	fixture.firstView.hidden, fixture.secondView.hidden = true, false
-	findItem(fixture.tray.Menu(), "Show Motty").OnSelect()
+	findItem(fixture.tray.Menu(), "Show "+buildinfo.ProductName).OnSelect()
 	if fixture.firstView.shows != 1 || fixture.secondView.shows != 1 || !fixture.firstView.hidden {
 		t.Fatalf("with a visible window: first %d, second %d, first hidden %t", fixture.firstView.shows, fixture.secondView.shows, fixture.firstView.hidden)
 	}

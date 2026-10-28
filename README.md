@@ -246,6 +246,49 @@ go run ./cmd/viva package -C ../motty --format app,dmg
 go run ./cmd/viva package -C ../motty --target linux --arch amd64 --format tar.gz,deb
 ```
 
+### Development builds
+
+Build and launch one development binary with:
+
+```sh
+make run
+```
+
+The binary is built with `-tags dev`, so its window, in-app title and tray say
+`Motty Dev`. Use `make dev` to rebuild and restart when a Go file in this
+repository or `../viva` changes; watch mode needs `fswatch`. One-shot mode does
+not. `tools/dev.sh --once` is the same entry point as `make run`.
+
+The development entry shares the default data directory, hosts, settings, AI
+configuration and vault with the release build. Only the development workspace
+(the current page, sessions, active session and tab layout) has its own local
+record, so a development restart does not replace the release workspace. Quit
+the release build completely, including a copy hidden in the tray, before
+starting the development build. The builds use the same single-instance claim
+and do not support parallel writes or live cross-process refresh.
+
+On macOS the standard entry creates or reuses a private local development
+signing identity under `~/Library/Application Support/motty/development-signing`.
+The first access may require one system Keychain authorization. Subsequent
+content-different rebuilds reuse that authorization while the same identity and
+unlocked Keychain remain available. This does not bypass a locked Keychain, a
+changed ACL or an explicit identity change. A signing or verification failure
+stops the launch instead of silently running an unsigned build.
+
+Use an explicit certificate without creating the default identity with
+`MOTTY_DEV_SIGN_IDENTITY='Developer ID Application: …' make run`. Use
+`MOTTY_DEV_SIGN_IDENTITY=none make run` only for an intentional unsigned run;
+the entry warns that Keychain authorization may repeat. `go run ./cmd/motty`
+is release behaviour, while `go run -tags dev ./cmd/motty` bypasses the signing
+helper and is intended only for diagnosis.
+
+The shared data is not a test sandbox. A development build can upgrade the
+configuration or AI schema in a way an older release cannot read, and vault or
+cloud-sync operations affect the same daily environment. Back up first and use
+an explicit `MOTTY_DATA_DIR` plus test credentials for migration, deletion,
+master-password or secret-reset tests. A separate directory changes application
+files only; it does not automatically isolate entries in the system Keychain.
+
 ## 🔐 Security
 
 - Host-key verification happens before any credential is sent.

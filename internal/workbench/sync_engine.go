@@ -285,10 +285,12 @@ func (state *State) reloadShared() error {
 	if err != nil {
 		return err
 	}
+	development := append([]byte(nil), state.configBase.development...)
 	saved, base, err := joinState(entries, state.configBase.local)
 	if err != nil {
 		return err
 	}
+	base.development = development
 	if saved.AIProviders == nil && state.recordedProviders(kindAIProvider) > 0 {
 		saved.AIProviders = &[]savedAIProvider{} // all it had recorded are gone
 	}

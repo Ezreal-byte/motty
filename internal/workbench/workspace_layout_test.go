@@ -2,8 +2,10 @@ package workbench
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 
+	"motty/internal/buildinfo"
 	"motty/internal/sshconn"
 	layoutcore "motty/internal/workspace"
 )
@@ -182,6 +184,15 @@ func TestCorruptDeckDegradesToSafeDisconnectedPanes(t *testing.T) {
 		t.Fatal(err)
 	}
 	state := newTestState(t, options)
+	if buildinfo.Development {
+		if len(world.conns) != 0 || len(state.sessions) != 0 || state.deck.ActiveWorkspace() != 0 {
+			t.Fatalf("corrupt development deck restored sessions=%+v dials=%d", state.sessions, len(world.conns))
+		}
+		if !strings.Contains(state.status, "Could not restore the development workspace") {
+			t.Fatalf("corrupt development deck was not reported: %q", state.status)
+		}
+		return
+	}
 	if len(world.conns) != 0 || len(state.sessions) != 1 || state.sessions[0].conn != nil {
 		t.Fatalf("corrupt restore sessions=%+v dials=%d", state.sessions, len(world.conns))
 	}

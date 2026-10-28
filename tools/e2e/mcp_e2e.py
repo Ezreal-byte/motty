@@ -16,7 +16,9 @@ honoring Approve and Deny, and the stdio bridge speaking to the same server.
 import json, os, re, subprocess, sys, tempfile, threading, time, urllib.error, urllib.request
 
 home = tempfile.mkdtemp()
-env = dict(os.environ, VIVA_HEADLESS="1", HOME=home)
+data = os.path.join(home, "motty-data")
+os.makedirs(data, exist_ok=True)
+env = dict(os.environ, VIVA_HEADLESS="1", HOME=home, MOTTY_DATA_DIR=data)
 proc = subprocess.Popen(["/tmp/motty-head"], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                         stderr=subprocess.PIPE, env=env, text=True, bufsize=1)
 assert proc.stdout.readline().startswith("ok ready")

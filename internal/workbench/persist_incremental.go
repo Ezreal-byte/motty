@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strings"
 
+	"motty/internal/buildinfo"
 	"motty/internal/configstore"
 )
 
@@ -48,13 +49,19 @@ func writeChangedFields(store *configstore.Store, base *configBase, defaults con
 	for key, payload := range base.payloads {
 		entries = append(entries, configstore.Entry{Kind: key.Kind, ID: key.ID, Payload: payload})
 	}
-	local := map[string]json.RawMessage{}
+	releaseLocal := map[string]json.RawMessage{}
 	if len(base.local) > 0 {
-		if err := json.Unmarshal(base.local, &local); err != nil {
+		if err := json.Unmarshal(base.local, &releaseLocal); err != nil {
 			return false, true, err
 		}
 	}
-	localChanged := false
+	developmentLocal := map[string]json.RawMessage{}
+	if buildinfo.Development && len(base.development) > 0 {
+		if err := json.Unmarshal(base.development, &developmentLocal); err != nil {
+			return false, true, err
+		}
+	}
+	releaseChanged, developmentChanged := false, false
 	nextOrd := base.maxOrd
 	for _, change := range changes {
 		if change.name == "host_groups" {
@@ -74,11 +81,11 @@ func writeChangedFields(store *configstore.Store, base *configBase, defaults con
 			if err != nil {
 				return false, true, err
 			}
-			changed, err := setLocalField(local, collapsedGroupsKey, collapsed)
+			changed, err := setLocalField(releaseLocal, collapsedGroupsKey, collapsed)
 			if err != nil {
 				return false, true, err
 			}
-			localChanged = localChanged || changed
+			releaseChanged = releaseChanged || changed
 			continue
 		}
 		if change.name == "ai_providers" {
@@ -106,22 +113,41 @@ func writeChangedFields(store *configstore.Store, base *configBase, defaults con
 		case stateVersionFields[change.name]:
 			return false, false, nil
 		default:
-			changed, err := setLocalField(local, change.name, change.value)
+			target := releaseLocal
+			developmentField := buildinfo.Development && isWorkspaceField(change.name)
+			if developmentField {
+				target = developmentLocal
+			}
+			changed, err := setLocalField(target, change.name, change.value)
 			if err != nil {
 				return false, true, err
 			}
-			localChanged = localChanged || changed
+			if developmentField {
+				developmentChanged = developmentChanged || changed
+			} else {
+				releaseChanged = releaseChanged || changed
+			}
 		}
 	}
-	localBytes := base.local
-	if localChanged {
-		localBytes, err = json.Marshal(local)
+	local := localWrite{state: base.local}
+	if releaseChanged {
+		local.state, err = json.Marshal(releaseLocal)
 		if err != nil {
 			return false, true, err
 		}
 	}
+	if buildinfo.Development {
+		local.includeDevelopment = true
+		local.development = base.development
+		if developmentChanged {
+			local.development, err = json.Marshal(developmentLocal)
+			if err != nil {
+				return false, true, err
+			}
+		}
+	}
 	sortEntries(entries)
-	shared, err = writeEntries(store, base, entries, localBytes)
+	shared, err = writeEntries(store, base, entries, local)
 	if err == nil {
 		base.maxOrd = nextOrd
 	}
