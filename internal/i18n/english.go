@@ -1247,7 +1247,7 @@ var englishTools = ToolsMessages{
 	FilesKeepTimes:                  "Keep modification times",
 	FilesKeepTimesDescription:       "A copied file gets the time of the original. Permissions are always kept.",
 	FilesFollow:                     "Follow the terminal's folder",
-	FilesFollowDescription:          "The file panel follows SSH shell folders (OSC 7). Bash and zsh are set up automatically on new connections.",
+	FilesFollowDescription:          "The file panel follows the folder the terminal reports (OSC 7), over SSH and on this computer. Bash and zsh are set up automatically when they start.",
 	FilesTerminalFollow:             "Terminal follows file navigation",
 	FilesTerminalFollowDescription:  "Off by default. Entering a remote folder also changes the same terminal's folder at a verified empty prompt. Requires Bash 4.4+ or zsh integration.",
 	FilesTerminalFollowSkipped:      "Terminal folder unchanged. Finish the command; if needed, press Ctrl+C at an empty prompt, then navigate again.",

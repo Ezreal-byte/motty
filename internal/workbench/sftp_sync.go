@@ -2,6 +2,7 @@ package workbench
 
 import (
 	"path"
+	"path/filepath"
 	"strings"
 
 	"motty/internal/sshconn"
@@ -13,7 +14,7 @@ import (
 // every frame after the user has deliberately browsed somewhere else.
 func (state *State) terminalDirectory(sessionID uint32, cwd term.Cwd) {
 	session, ok := state.sessionByIDPointer(sessionID)
-	if !ok || session.term == nil || !session.hasServer() || session.containerCommand != "" || state.sftpFollowOff {
+	if !ok || session.term == nil || !session.canBrowseFiles() || session.containerCommand != "" || state.sftpFollowOff {
 		return
 	}
 	if session.term.folderIntegrationSeen && !session.term.promptStarted {
@@ -102,11 +103,15 @@ func (state *State) followTerminalDirectory(session *Session) {
 	if t == nil || t.followPath == "" {
 		return
 	}
-	if state.sftpFollowOff || !session.hasServer() || session.containerCommand != "" {
+	if state.sftpFollowOff || !session.canBrowseFiles() || session.containerCommand != "" {
 		t.followPath = ""
 		return
 	}
 	view := session.files
+	if session.isLocal() {
+		state.followLocalTerminalDirectory(session, view)
+		return
+	}
 	if view == nil || view.worker == nil || view.local || view.detached != nil || view.busy ||
 		view.dialog != sftpDialogNone || view.editPath != "" || view.pathEditing || view.dropping {
 		return
@@ -118,5 +123,23 @@ func (state *State) followTerminalDirectory(session *Session) {
 	t.followPath = ""
 	if path.Clean(view.path) != path.Clean(directory) {
 		state.openSFTPDirectory(view, directory)
+	}
+}
+
+// followLocalTerminalDirectory moves a local terminal's panel to the folder its
+// shell reported, once, unless the panel is in the middle of something else.
+func (state *State) followLocalTerminalDirectory(session *Session, view *sftpView) {
+	t := session.term
+	if view == nil || !view.localOnly || view.detached != nil || view.busy ||
+		view.dialog != sftpDialogNone || view.editPath != "" || view.pathEditing || view.dropping {
+		return
+	}
+	if state.sftpPathInput && view.pathField.path == view.lfolder.path && view.pathField.editor.String() != view.lfolder.path {
+		return
+	}
+	directory := t.followPath
+	t.followPath = ""
+	if filepath.Clean(view.lfolder.path) != filepath.Clean(directory) {
+		_ = state.listLocal(view, directory)
 	}
 }

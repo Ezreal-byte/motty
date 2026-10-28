@@ -27,9 +27,31 @@ func (conn *Conn) shellIntegrationCommand(token string) string {
 	return integrationCommand(shell, token)
 }
 
+// IntegrationArgs is how a shell of this machine starts with directory and
+// prompt reporting: run them with sh. The result is nil for a shell that is not
+// a recognized absolute Bash or Zsh path, which then starts as itself.
+func IntegrationArgs(shell, token string) []string {
+	script := integrationScript(shell, token)
+	if script == "" {
+		return nil
+	}
+	return []string{"-c", script, "sh", shell}
+}
+
 // Only recognized Unix shells opt into the startup shim. The probe and shim
 // never write commands to an already running interactive program.
 func integrationCommand(shell string, tokens ...string) string {
+	script := integrationScript(shell, tokens...)
+	if script == "" {
+		return ""
+	}
+	quote := func(value string) string { return "'" + strings.ReplaceAll(value, "'", "'\\''") + "'" }
+	return "sh -c " + quote(script) + " sh " + quote(shell)
+}
+
+// integrationScript is the sh program that starts shell, taken as its first
+// argument, with reporting; empty when the shell or token is not accepted.
+func integrationScript(shell string, tokens ...string) string {
 	suffix := ""
 	if len(tokens) > 0 && tokens[0] != "" {
 		token := tokens[0]
@@ -47,7 +69,6 @@ func integrationCommand(shell string, tokens ...string) string {
 	if name != "bash" && name != "zsh" {
 		return ""
 	}
-	quote := func(value string) string { return "'" + strings.ReplaceAll(value, "'", "'\\''") + "'" }
 	script := `_motty_umask=$(umask)
 umask 077
 _motty_dir=$(mktemp -d "${TMPDIR:-/tmp}/motty-shell.XXXXXXXX") || { umask "$_motty_umask"; exec "$1" -l; }
@@ -94,7 +115,7 @@ MOTTY_USER_ZDOTDIR=${ZDOTDIR-$HOME} MOTTY_USER_ZDOTDIR_SET=${ZDOTDIR+x} ZDOTDIR=
 `
 	}
 	script += "_motty_status=$?\nexit \"$_motty_status\"\n"
-	return "sh -c " + quote(strings.ReplaceAll(script, "__MOTTY_SUFFIX__", suffix)) + " sh " + quote(shell)
+	return strings.ReplaceAll(script, "__MOTTY_SUFFIX__", suffix)
 }
 
 // Encode bytes, not characters: file URI reserved characters and non-ASCII

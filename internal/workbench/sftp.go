@@ -164,7 +164,7 @@ func (state *State) openSFTP(session *Session) {
 		view := &sftpView{local: true, localOnly: true}
 		view.selected, view.lfolder.selected = -1, -1
 		session.files = view
-		state.listLocal(view, localHome())
+		state.listLocal(view, state.localPanelStart(session))
 		return
 	}
 	if session == nil || !session.hasServer() || session.conn == nil || session.phase != sshconn.PhaseConnected {

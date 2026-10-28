@@ -458,7 +458,7 @@ func (state *State) openShell(session *Session) {
 	}
 	cols, rows := t.screen.Size()
 	config := sshconn.ShellConfig{Cols: cols, Rows: rows, Notify: state.notifyFor(session), Command: session.containerCommand}
-	config.IntegrateShell = session.host.isSSH() && session.host.System != sshconn.SystemWindows &&
+	config.IntegrateShell = (session.host.isSSH() || session.isLocal()) && session.host.System != sshconn.SystemWindows &&
 		session.containerCommand == "" && (!state.sftpFollowOff || state.sftpTerminalFollow)
 	config.IntegrationToken = t.folderToken
 	if session.host.ForwardX11 && session.host.isSSH() {

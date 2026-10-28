@@ -55,6 +55,25 @@ func localHome() string {
 	return localStart()
 }
 
+// localPanelStart is the folder a local terminal's panel opens in: the one its
+// shell last reported, if that is still a folder, else the home folder.
+func (state *State) localPanelStart(session *Session) string {
+	home := localHome()
+	t := session.term
+	if t == nil {
+		return home
+	}
+	if cwd, ok := t.screen.WorkingDirectory(); ok {
+		state.terminalDirectory(session.ID, cwd)
+	}
+	directory := t.followPath
+	t.followPath = ""
+	if info, err := os.Stat(directory); directory == "" || err != nil || !info.IsDir() {
+		return home
+	}
+	return directory
+}
+
 // toggleSFTPPane switches the panel between the server's files and this
 // computer's.
 func (state *State) toggleSFTPPane(view *sftpView) {
