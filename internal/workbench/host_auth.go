@@ -28,6 +28,7 @@ var (
 	hitDialogIdentity         = tree.ID(hostAuthUiHits, "dialog-identity")
 	hitDialogIdentityDismiss  = tree.ID(hostAuthUiHits, "dialog-identity-dismiss")
 	hitDialogIdentityAll      = tree.ID(hostAuthUiHits, "dialog-identity-all")
+	hitDialogIdentityHelp     = tree.ID(hostAuthUiHits, "dialog-identity-help")
 	hitDialogIdentityImport   = tree.ID(hostAuthUiHits, "dialog-identity-import")
 	hitDialogIdentityItemList = tree.Sub(hostAuthUiHits, tree.Name("dialog-identity-item"))
 )
@@ -105,11 +106,14 @@ func (state *State) paintHostIdentityChoice(canvas *ui.Canvas, bounds ui.Rect) {
 			value = identity.Name
 		}
 	}
-	hint := ""
+	content := components.BeginField(canvas, theme, bounds).Paint(state.messages.FieldIdentity, "", "")
 	if state.hostKeyNeedsPassphrase(editor.identity) {
-		hint = state.messages.KeyPassphraseHostHint
+		// A question mark after the label: a line under the field would crowd the row below.
+		labelWidth := canvas.TextWidthWeight(state.messages.FieldIdentity, theme.Metrics.FontSizeM, ui.WeightMedium)
+		titleHeight := content.Y - bounds.Y - theme.Metrics.GapItem/2
+		state.paintHelpIcon(canvas, hitDialogIdentityHelp, state.messages.KeyPassphraseHostHint,
+			ui.Rect{X: bounds.X + labelWidth + 6, Y: bounds.Y + (titleHeight-16)/2, Width: 16, Height: 16})
 	}
-	content := components.BeginField(canvas, theme, bounds).Paint(state.messages.FieldIdentity, hint, "")
 	state.rememberHostControl(hitDialogIdentity, content)
 	portal := state.beginHostFormPopup(canvas, editor.identityOpen)
 	defer state.endHostFormPopup(canvas, portal)

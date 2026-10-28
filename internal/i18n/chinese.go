@@ -489,7 +489,7 @@ var ChineseMessages = Messages{
 	KeyPassphraseWrong:          "口令错误。",
 	KeyPassphraseSavedFmt:       "已保存 %s 的口令",
 	KeyPassphraseRemovedFmt:     "已移除 %s 保存的口令",
-	KeyPassphraseHostHint:       "连接时询问口令",
+	KeyPassphraseHostHint:       "加密的密钥会在连接时询问口令,也可在「密钥链」页保存。",
 
 	ForwardTitle:                  "端口转发",
 	ForwardDescription:            "通过 SSH 建立本地、远程、SOCKS5 或 HTTP CONNECT 回环监听。只有手动启动后才会监听。",

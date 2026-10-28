@@ -489,7 +489,7 @@ var EnglishMessages = Messages{
 	KeyPassphraseWrong:          "Incorrect passphrase.",
 	KeyPassphraseSavedFmt:       "Saved the passphrase of %s",
 	KeyPassphraseRemovedFmt:     "Removed the saved passphrase of %s",
-	KeyPassphraseHostHint:       "Asked when connecting",
+	KeyPassphraseHostHint:       "Encrypted keys ask for their passphrase when connecting. You can also save it under Keychain.",
 
 	ForwardTitle:                  "Port Forwarding",
 	ForwardDescription:            "Route loopback listeners across SSH with local, remote, SOCKS5, or HTTP CONNECT rules. Nothing listens until started.",
