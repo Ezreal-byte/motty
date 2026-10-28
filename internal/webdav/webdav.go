@@ -8,26 +8,26 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net"
 	"net/http"
 	"net/url"
 	"path"
 	"strings"
-	"time"
 
 	"motty/internal/cloudsync"
 )
 
 // Config says where the file is and who may touch it.
 type Config struct {
-	// URL is the folder's address on the server, https:// (http:// only for a
-	// loopback address, since the password travels with every request).
+	// URL is the folder's address on the server. Remote HTTP requires explicit
+	// consent because the password travels with every request.
 	URL      string
 	User     string
 	Password string
 	// Path is the file under URL, such as motty/backup.mottybak. Folders on the
 	// way are created on upload.
 	Path string
+	// AllowInsecureHTTP is the user's consent to HTTP outside loopback.
+	AllowInsecureHTTP bool
 }
 
 // Errors callers act on; test with errors.Is. They are the ones every cloud
@@ -61,14 +61,10 @@ func New(config Config, client *http.Client) (*Client, error) {
 	if err != nil || base.Host == "" || base.User != nil {
 		return nil, fmt.Errorf("webdav: %q is not a server address", config.URL)
 	}
-	switch base.Scheme {
-	case "https":
-	case "http":
-		host := base.Hostname()
-		if ip := net.ParseIP(host); host != "localhost" && (ip == nil || !ip.IsLoopback()) {
-			return nil, ErrInsecure
+	if err := cloudsync.CheckAddress(base, config.AllowInsecureHTTP); err != nil {
+		if errors.Is(err, ErrInsecure) {
+			return nil, err
 		}
-	default:
 		return nil, fmt.Errorf("webdav: %q is not an http or https address", config.URL)
 	}
 	clean := path.Clean("/" + strings.TrimSpace(config.Path))
@@ -76,17 +72,7 @@ func New(config Config, client *http.Client) (*Client, error) {
 		return nil, errors.New("webdav: a file name is required")
 	}
 	config.Path = strings.TrimPrefix(clean, "/")
-	if client == nil {
-		client = &http.Client{Timeout: 60 * time.Second}
-	}
-	copied := *client
-	copied.CheckRedirect = func(request *http.Request, via []*http.Request) error {
-		if request.URL.Host != via[0].URL.Host || len(via) > 5 {
-			return http.ErrUseLastResponse
-		}
-		return nil
-	}
-	return &Client{config: config, base: base, http: &copied, MaxBytes: defaultMaxBytes}, nil
+	return &Client{config: config, base: base, http: cloudsync.HTTPClient(client, config.AllowInsecureHTTP), MaxBytes: defaultMaxBytes}, nil
 }
 
 func (client *Client) address(parts ...string) string {

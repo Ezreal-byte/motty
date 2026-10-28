@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"sort"
@@ -19,6 +20,30 @@ import (
 
 	"motty/internal/cloudsync"
 )
+
+func TestApprovedRemoteHTTPUsesSignedRequests(t *testing.T) {
+	server, _ := newFakeS3(t)
+	config := Config{Endpoint: "http://backup.lan", Bucket: testBucket, Key: "backup.mottybak", AccessKey: testAccess, Secret: testSecret, PathStyle: true}
+	if _, err := New(config, nil); !errors.Is(err, cloudsync.ErrInsecure) {
+		t.Fatalf("unapproved remote HTTP: %v", err)
+	}
+	transport := &http.Transport{DialContext: func(ctx context.Context, network, _ string) (net.Conn, error) {
+		return (&net.Dialer{}).DialContext(ctx, network, server.Listener.Addr().String())
+	}}
+	t.Cleanup(transport.CloseIdleConnections)
+	config.AllowInsecureHTTP = true
+	client, err := New(config, &http.Client{Transport: transport})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := client.Put(context.Background(), []byte("encrypted backup"), ""); err != nil {
+		t.Fatal(err)
+	}
+	data, _, err := client.Get(context.Background())
+	if err != nil || string(data) != "encrypted backup" {
+		t.Fatalf("download: %q, %v", data, err)
+	}
+}
 
 const (
 	testAccess = "AKIAMOTTYTEST"

@@ -60,16 +60,18 @@ type savedSync struct {
 	ETag     string     `json:"etag,omitempty"`
 	LastSync string     `json:"last_sync,omitempty"`
 	// Manual is set when the user turned automatic syncing off.
-	Manual bool `json:"manual,omitempty"`
+	Manual            bool `json:"manual,omitempty"`
+	AllowInsecureHTTP bool `json:"allow_insecure_http,omitempty"`
 }
 
 // syncState is the cloud service and what is known of the file on it.
 type syncState struct {
 	kind syncKind
 	// url, user and path are the WebDAV server.
-	url, user, path string
-	s3              s3Settings
-	gist            gistSettings
+	url, user, path   string
+	allowInsecureHTTP bool
+	s3                s3Settings
+	gist              gistSettings
 	// etag identifies the version of the file this computer last uploaded or
 	// downloaded, so an upload never replaces one it has not seen.
 	etag string
@@ -101,7 +103,7 @@ func (state *State) restoreSync(saved *savedSync) {
 	if saved == nil {
 		return
 	}
-	next := syncState{etag: saved.ETag, manual: saved.Manual}
+	next := syncState{etag: saved.ETag, manual: saved.Manual, allowInsecureHTTP: saved.AllowInsecureHTTP}
 	switch saved.Kind {
 	case savedKindS3:
 		if saved.S3 == nil {
@@ -130,7 +132,7 @@ func (state *State) savedSyncValue() *savedSync {
 	if !view.configured() {
 		return nil
 	}
-	saved := &savedSync{ETag: view.etag, Manual: view.manual}
+	saved := &savedSync{ETag: view.etag, Manual: view.manual, AllowInsecureHTTP: view.allowInsecureHTTP}
 	switch view.kind {
 	case syncS3:
 		saved.Kind, saved.S3 = savedKindS3, view.s3.saved()
@@ -410,7 +412,9 @@ func (state *State) openSyncConfigure() {
 	m := state.messages.Tools
 	form := state.openForm(formDialog{
 		title: m.SyncDialogTitle, description: m.SyncDialogDescription, submit: m.SyncSave,
-		run: (*State).runSyncConfigure,
+		run:        (*State).runSyncConfigure,
+		checkLabel: m.SyncAllowInsecureHTTP, checkDescription: m.SyncInsecureHTTPDescription,
+		checked: state.sync.kind == syncWebDAV && state.sync.allowInsecureHTTP,
 	},
 		formField{label: m.SyncURL, placeholder: "https://dav.example.com/dav"},
 		formField{label: m.SyncUser},
@@ -442,7 +446,7 @@ func (state *State) runSyncConfigure(form *formDialog) string {
 	if backupPassword != "" && len(backupPassword) < backup.MinPasswordLength {
 		return m.BackupErrPasswordShort
 	}
-	if _, err := webdav.New(webdav.Config{URL: address, User: user, Password: "x", Path: path}, nil); err != nil {
+	if _, err := webdav.New(webdav.Config{URL: address, User: user, Password: "x", Path: path, AllowInsecureHTTP: form.checked}, nil); err != nil {
 		if errors.Is(err, cloudsync.ErrInsecure) {
 			return m.SyncErrInsecure
 		}
@@ -456,6 +460,7 @@ func (state *State) runSyncConfigure(form *formDialog) string {
 	} else {
 		state.sync.user = user
 	}
+	state.sync.allowInsecureHTTP = form.checked
 	state.sync.rowText = ""
 	state.save()
 	state.testSync()
