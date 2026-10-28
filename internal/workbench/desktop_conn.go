@@ -79,6 +79,7 @@ func openDesktopSession(ctx context.Context, request desktopRequest) (desktop.Se
 	}
 	if host.Protocol == protocolRDP {
 		options.Username, options.Domain = rdpAccount(host.User)
+		options.Console = host.Console
 		options.VerifyCertificate = request.Verify
 		// The certificate is pinned under the name the user typed, not the
 		// loopback address a tunneled connection dials.

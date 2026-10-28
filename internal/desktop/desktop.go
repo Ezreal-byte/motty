@@ -198,6 +198,12 @@ type Options struct {
 	// Clipboard allows the clipboard to cross in both directions. Off, the
 	// backend neither sends the local clipboard nor keeps the remote's.
 	Clipboard bool
+	// Console asks an RDP server for its console (administrative) session
+	// instead of a new one, as mstsc /admin does. Windows decides whether the
+	// request is granted: the account still needs the right to log on, and what
+	// happens when someone is already at the console is its decision, not the
+	// client's. VNC has no such session.
+	Console bool
 	// Username and Domain are the account a protocol with accounts (RDP) signs
 	// in as; VNC has none.
 	Username, Domain string

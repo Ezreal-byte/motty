@@ -47,11 +47,14 @@ type Host struct {
 	// Proxy overrides the global outbound proxy for this host. Nil inherits the
 	// global proxy; an explicit ProxyNone forces a direct connection.
 	Proxy *outboundProxy
-	// ViaSSH and Clipboard are a VNC host's: its server is reached through an SSH
-	// connection to Address (User is then the SSH account), and the clipboard is
-	// shared with the remote desktop.
+	// ViaSSH and Clipboard are a remote desktop host's: its server is reached
+	// through an SSH connection to Address (User is then the SSH account), and
+	// the clipboard is shared with the remote desktop. Console is an RDP host's:
+	// it asks Windows for its console (administrative) session instead of a new
+	// one.
 	ViaSSH    bool
 	Clipboard bool
+	Console   bool
 
 	// target is how the address column shows the destination: the host name,
 	// plus the port when it is not the default. Built once, not per paint.

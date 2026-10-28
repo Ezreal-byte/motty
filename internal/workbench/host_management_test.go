@@ -223,7 +223,7 @@ func TestHostPasswordFitsEveryHostDialogInAShortWindow(t *testing.T) {
 	}{
 		{name: "SSH", protocol: protocolSSH, last: hitDialogAdvanced},
 		{name: "VNC", protocol: protocolVNC, last: hitDialogClipboard},
-		{name: "RDP", protocol: protocolRDP, last: hitDialogClipboard},
+		{name: "RDP", protocol: protocolRDP, last: hitDialogConsole},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

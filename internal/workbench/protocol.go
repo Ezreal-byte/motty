@@ -109,10 +109,12 @@ type savedTransport struct {
 	Transfer string `json:"transfer,omitempty"`
 	// ViaSSH and Clipboard are a remote desktop host's (VNC or RDP): reached
 	// through an SSH connection to the same machine, and sharing the clipboard
-	// with the remote desktop. The password is never here: it is asked for, and
-	// kept in the vault only if the user says so.
+	// with the remote desktop. Console is an RDP host's: connect to the server's
+	// console session instead of a new one, as mstsc /admin does. The password is
+	// never here: it is asked for, and kept in the vault only if the user says so.
 	ViaSSH    bool `json:"via_ssh,omitempty"`
 	Clipboard bool `json:"clipboard,omitempty"`
+	Console   bool `json:"console,omitempty"`
 }
 
 func (host Host) transport() savedTransport {
@@ -126,6 +128,7 @@ func (host Host) transport() savedTransport {
 		return transport
 	case protocolRDP:
 		transport.Protocol, transport.ViaSSH, transport.Clipboard = "rdp", host.ViaSSH, host.Clipboard
+		transport.Console = host.Console
 		return transport
 	case protocolSerial:
 		transport.Proxy, transport.Protocol, transport.Line = nil, "serial", host.Line.String()
@@ -170,6 +173,7 @@ func (host *Host) applyTransport(transport savedTransport) bool {
 		host.Protocol, host.ViaSSH, host.Clipboard = protocolVNC, transport.ViaSSH, transport.Clipboard
 	case "rdp":
 		host.Protocol, host.ViaSSH, host.Clipboard = protocolRDP, transport.ViaSSH, transport.Clipboard
+		host.Console = transport.Console
 	case "serial":
 		host.Proxy = nil
 		flow := serial.FlowNone

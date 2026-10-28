@@ -9,6 +9,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/vivaui/viva/ui"
 	"motty/internal/desktop"
 	"motty/internal/sshconn"
 )
@@ -60,14 +61,14 @@ func rdpState(t *testing.T, certificate *[]byte, opened *[]desktopRequest) (*Sta
 }
 
 func TestRDPHostIsSavedWithItsAccountAndDefaultPort(t *testing.T) {
-	host := Host{Label: "Win", Address: "win.example.com", User: `CORP\alice`, Protocol: protocolRDP, Clipboard: true}
+	host := Host{Label: "Win", Address: "win.example.com", User: `CORP\alice`, Protocol: protocolRDP, Clipboard: true, Console: true}
 	host.normalizeEndpoint()
 	host.finish()
 	if host.Port != 3389 || host.User != `CORP\alice` || host.target != "rdp://win.example.com" {
 		t.Fatalf("host = %+v", host)
 	}
 	var restored Host
-	if !restored.applyTransport(host.transport()) || restored.Protocol != protocolRDP || !restored.Clipboard {
+	if !restored.applyTransport(host.transport()) || restored.Protocol != protocolRDP || !restored.Clipboard || !restored.Console {
 		t.Fatalf("restored = %+v", restored)
 	}
 	if user, domain := rdpAccount(`CORP\alice`); user != "alice" || domain != "CORP" {
@@ -124,5 +125,40 @@ func TestRDPCertificateIsAskedOnceThenPinnedAndAChangeIsAskedLoudly(t *testing.T
 	waitUntil(t, state, "the failure", func() bool { return session.phase == sshconn.PhaseFailed })
 	if !errors.Is(session.err, sshconn.ErrHostKeyRejected) {
 		t.Fatalf("session error = %v", session.err)
+	}
+}
+
+func TestRDPConsoleSessionIsAnRDPOnlySwitch(t *testing.T) {
+	state := newTestState(t, testOptions(t))
+	state.openHostDialog()
+	state.editor.setProtocol(protocolVNC)
+	canvas, _ := paintAt(state, ui.Size{Width: 1200, Height: 1000})
+	if _, ok := hitByID(canvas, hitDialogConsole); ok {
+		t.Fatal("a VNC host was offered a console session")
+	}
+	state.editor.setProtocol(protocolRDP)
+	canvas, _ = paintAt(state, ui.Size{Width: 1200, Height: 1000})
+	if _, ok := hitByID(canvas, hitDialogConsole); !ok {
+		t.Fatal("an RDP host was not offered a console session")
+	}
+	state.Click(hitDialogConsole)
+	typeInto(state, hitDialogLabel, "Console")
+	typeInto(state, hitDialogAddress, "console.example.com")
+	typeInto(state, hitDialogUser, `CORP\alice`)
+	state.Click(hitDialogSubmit)
+	if state.modal != modalNone || state.dialogError != "" {
+		t.Fatalf("submit: modal=%d error=%q", state.modal, state.dialogError)
+	}
+	index := state.hostIndexByEndpoint(Host{Protocol: protocolRDP, Address: "console.example.com", User: `CORP\alice`, Port: 3389})
+	if index < 0 {
+		t.Fatal("the RDP host was not added")
+	}
+	host := state.hosts[index]
+	if !host.Console {
+		t.Fatal("the console switch was not saved with the host")
+	}
+	var restored Host
+	if !restored.applyTransport(host.transport()) || !restored.Console {
+		t.Fatalf("restored = %+v", restored)
 	}
 }

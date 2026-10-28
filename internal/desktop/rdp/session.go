@@ -107,6 +107,7 @@ func Open(ctx context.Context, dial desktop.Dialer, address string, opts desktop
 	config.Username, config.Domain, config.Password = opts.Username, opts.Domain, opts.Password
 	config.Width, config.Height = uint16(width), uint16(height)
 	config.Clipboard = opts.Clipboard
+	config.ConsoleSession = opts.Console
 	config.GFX = true
 	config.NoAVC = true // no H.264 decoder: the server then sends RemoteFX or ClearCodec
 	handshakeEnds := time.Now().Add(handshakeTimeout)

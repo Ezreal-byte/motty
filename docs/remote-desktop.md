@@ -210,6 +210,17 @@ handshake and shows its own login screen, so a wrong one there is not detected b
 client. "Connect through SSH" uses the first saved SSH host with the same address
 (or plain SSH on port 22), as VNC does.
 
+**Console session.** An RDP host can ask Windows for its console session instead
+of a new one, which is what `mstsc /admin` does: the client sets
+`REDIRECTED_SESSIONID_FIELD_VALID` in its cluster data and sends session id 0
+(`internal/rdpcore/client.go`). The switch is per host (`console` in the state
+file), off by default, and only the RDP form shows it. Windows decides whether to
+grant the request: the account still needs the right to log on, policy still
+applies, and what happens when someone is already sitting at the console is
+Windows' decision, not the client's. Only Windows has a console session; xrdp
+ignores the field and always starts a new session, so the switch does nothing
+there.
+
 ### Limits
 
 No audio, drive/printer/smartcard/USB redirection, multiple monitors, dynamic
@@ -243,6 +254,8 @@ covered by a unit test with a fake server. Not exercised: a domain-joined server
 Windows Server editions, Windows 10, an RD Gateway, Kerberos, a real window,
 physical keyboards and input-method composition, the macOS and Linux builds of the
 window, resizing, clipboard against a real server, reconnect after a network loss.
+The console session switch was not exercised either: it needs a Windows host with
+a console session, and xrdp ignores the field.
 
 ## Follow-ups
 

@@ -1669,7 +1669,7 @@ func (state *State) paintHostDialog(canvas *ui.Canvas, viewport ui.Rect) {
 			advanced = f.Slot().Height(state.advancedSectionHeight())
 		}
 		if vncHost {
-			vncRows = f.Slot().Height(vncRowsHeight)
+			vncRows = f.Slot().Height(state.desktopRowsHeight())
 		}
 		if state.dialogError != "" {
 			// The serial line's error is long: up to two lines.

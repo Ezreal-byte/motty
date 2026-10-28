@@ -22,6 +22,7 @@ var (
 	hitDialogProtocolRDP     = tree.ID(hostProtocolUiHits, "dialog-protocol-rdp")
 	hitDialogViaSSH          = tree.ID(hostProtocolUiHits, "dialog-via-ssh")
 	hitDialogClipboard       = tree.ID(hostProtocolUiHits, "dialog-clipboard")
+	hitDialogConsole         = tree.ID(hostProtocolUiHits, "dialog-console")
 	hitDialogFlowNone        = tree.ID(hostProtocolUiHits, "dialog-flow-none")
 	hitDialogFlowHardware    = tree.ID(hostProtocolUiHits, "dialog-flow-hardware")
 	hitDialogFlowSoftware    = tree.ID(hostProtocolUiHits, "dialog-flow-software")
@@ -238,6 +239,8 @@ func (state *State) clickHostProtocol(id ui.ID) bool {
 		editor.viaSSH = !editor.viaSSH
 	case id == hitDialogClipboard:
 		editor.clipboard = !editor.clipboard
+	case id == hitDialogConsole:
+		editor.console = !editor.console
 	case id == hitDialogFlowNone:
 		editor.flow = serial.FlowNone
 	case id == hitDialogFlowHardware:
@@ -383,7 +386,7 @@ func (state *State) advancedSectionHeight() float32 {
 // hostDialogExtra is the height the protocol-specific rows add to the host dialog.
 func (state *State) hostDialogExtra() float32 {
 	if state.editor.protocol == protocolVNC || state.editor.protocol == protocolRDP {
-		return vncRowsHeight
+		return state.desktopRowsHeight()
 	}
 	if state.editor.protocol != protocolSSH {
 		return 0
@@ -520,20 +523,38 @@ func (state *State) paintOTPRow(canvas *ui.Canvas, field, scan, paste, remove ui
 	}
 }
 
-// vncRowsHeight is the room of the two switches of a remote desktop host.
+// vncRowsHeight is the room of the two switches every remote desktop host has.
 const vncRowsHeight = 4 + 20 + (12 + 20) + 16
 
-// paintVNCRows declares the two switches of a VNC or RDP host and paints them in
-// bounds' place: connecting through SSH and sharing the clipboard.
+// rdpRowsHeight adds the console session's switch, which only an RDP host has.
+const rdpRowsHeight = vncRowsHeight + (12 + 20)
+
+// desktopRowsHeight is the room paintVNCRows takes for the protocol on screen.
+func (state *State) desktopRowsHeight() float32 {
+	if state.editor.protocol == protocolRDP {
+		return rdpRowsHeight
+	}
+	return vncRowsHeight
+}
+
+// paintVNCRows declares the switches of a VNC or RDP host and paints them in
+// bounds' place: connecting through SSH, sharing the clipboard and, for RDP,
+// asking Windows for its console (administrative) session.
 func (state *State) paintVNCRows(canvas *ui.Canvas, bounds ui.Rect) {
 	editor, m := &state.editor, state.messages.Desktop
-	var tunnel, clipboard flex.Box
+	var tunnel, clipboard, console flex.Box
 	f := state.partLayout.Begin(canvas, state.Theme(), bounds)
 	f.Column().Fill().Children(func() {
 		tunnel = state.declareDialogCheckbox(f, m.ViaSSH, 4, 0)
 		clipboard = state.declareDialogCheckbox(f, m.ShareClipboard, 12, 0)
+		if editor.protocol == protocolRDP {
+			console = state.declareDialogCheckbox(f, m.ConsoleSession, 12, 0)
+		}
 	})
 	f.End()
 	state.paintDialogCheckbox(canvas, hitDialogViaSSH, m.ViaSSH, editor.viaSSH, tunnel)
 	state.paintDialogCheckbox(canvas, hitDialogClipboard, m.ShareClipboard, editor.clipboard, clipboard)
+	if editor.protocol == protocolRDP {
+		state.paintDialogCheckbox(canvas, hitDialogConsole, m.ConsoleSession, editor.console, console)
+	}
 }
