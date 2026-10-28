@@ -1,0 +1,14 @@
+{
+  "version": "0.1.902",
+  "tag": "v0.1.902",
+  "source": "https://github.com/Ezreal-byte/motty/releases/tag/v0.1.902",
+  "notes": "升级验收版本 0.1.902。验证自定义目录原地升级、签名校验、自动重启及配置保留。",
+  "files": [
+    {
+      "name": "motty-windows-amd64-setup.exe",
+      "size": 8285591,
+      "sha256": "449eaeda99484186658fa61f1eee89c69eaf7f93f8e43ea95fc46b88ac5bbeaa",
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRoZSBNb3R0eSByZWxlYXNlIGtleQpSVVNGa1dUbytDMlAwT29QdzJaMUFHaUgxRWJhOVIwNFFyS0dUbzFEWnB1NnFQNWhVWXdibmhBNS9VdzdTR0dKc0lmODBxUmwwazJuVWRCWWVRVU81WlVFU2JOOG9jUnc3Z009CnRydXN0ZWQgY29tbWVudDogdGltZXN0YW1wOjE3OTMxNjc3NTMJZmlsZTptb3R0eS0wLjEuOTAyLXdpbmRvd3MtYW1kNjQtc2V0dXAuZXhlCXZlcnNpb246MC4xLjkwMgp0N1NDKzZiNVlWcVF3RXcxd2RqZEV4dDcrcFZpaUFSKzVXVklCcFdPVU0rN0xoOWkxdzIvVUIrdnZ5eEczeXFLWTRPUk5FK3R4eDdwUkpYZzZXNUtDdz09Cg=="
+    }
+  ]
+}
