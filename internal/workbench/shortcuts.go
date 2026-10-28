@@ -25,6 +25,7 @@ const (
 	shortcutPaneSplitHorizontal
 	shortcutPaneSplitVertical
 	shortcutPaneClose
+	shortcutFilesPath
 	shortcutSFTP
 	shortcutAssistant
 	shortcutZoomIn
@@ -60,6 +61,7 @@ func defaultShortcuts() shortcutMap {
 	shortcuts.chords[shortcutPaneSplitHorizontal] = shortcutChord{Modifiers: primary | ui.ModifierAlt, Key: 'h'}
 	shortcuts.chords[shortcutPaneSplitVertical] = shortcutChord{Modifiers: primary | ui.ModifierAlt, Key: 'v'}
 	shortcuts.chords[shortcutPaneClose] = shortcutChord{Modifiers: primary | ui.ModifierAlt, Key: 'w'}
+	shortcuts.chords[shortcutFilesPath] = shortcutChord{Modifiers: primary, Key: 'l'}
 	shortcuts.chords[shortcutSFTP] = shortcutChord{Modifiers: primary | ui.ModifierShift, Key: 's'}
 	shortcuts.chords[shortcutAssistant] = shortcutChord{Modifiers: primary | ui.ModifierShift, Key: 'a'}
 	shortcuts.chords[shortcutZoomIn] = shortcutChord{Modifiers: primary, Key: '='}
@@ -208,6 +210,8 @@ func (action shortcutAction) String() string {
 		return "pane_split_vertical"
 	case shortcutPaneClose:
 		return "pane_close"
+	case shortcutFilesPath:
+		return "files_path"
 	case shortcutSFTP:
 		return "sftp"
 	case shortcutAssistant:
@@ -305,6 +309,17 @@ func (state *State) Shortcut(event ui.KeyEvent) (outcome ui.EventResult) {
 	}
 	if event.Repeat {
 		return ui.EventResult{Handled: true}
+	}
+	if action == shortcutFind {
+		if result, handled := state.sftpFilterShortcut(event.Target); handled {
+			return result
+		}
+	}
+	if action == shortcutFilesPath {
+		if result, handled := state.sftpPathShortcut(event.Target); handled {
+			return result
+		}
+		return ui.EventResult{}
 	}
 	return state.executeShortcut(action)
 }

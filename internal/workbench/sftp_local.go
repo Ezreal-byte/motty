@@ -62,7 +62,11 @@ func (state *State) toggleSFTPPane(view *sftpView) {
 	view.bookmarksOpen = false
 	view.errorText = ""
 	if !view.local {
-		view.setItemCountStatus(state.messages.SFTPItemsFmt, len(view.rows))
+		if view.detached != nil {
+			view.setItemCountStatus(state.messages.SFTPItemsFmt, len(view.rows))
+		} else {
+			state.refreshSFTPFilterStatus(view, &view.sftpFolder)
+		}
 		return
 	}
 	dir := view.lfolder.path
@@ -145,6 +149,7 @@ type localListing struct {
 // so a goroutine may run it while the window keeps painting.
 func scanLocalListing(dir string, items []os.DirEntry) localListing {
 	entries := make([]sftpclient.Entry, 0, min(len(items), maxLocalEntries))
+	hidden := make([]bool, 0, min(len(items), maxLocalEntries))
 	for _, item := range items {
 		if len(entries) == maxLocalEntries {
 			break
@@ -165,6 +170,7 @@ func scanLocalListing(dir string, items []os.DirEntry) localListing {
 			}
 		}
 		entries = append(entries, entry)
+		hidden = append(hidden, localFileHidden(item.Name(), info))
 	}
 	// Sort indices by a name folded once: lowering both names in every
 	// comparison allocated a string pair per comparison, which a large folder
@@ -186,10 +192,16 @@ func scanLocalListing(dir string, items []os.DirEntry) localListing {
 		return strings.Compare(folded[left], folded[right])
 	})
 	sorted := make([]sftpclient.Entry, len(entries))
+	sortedHidden := make([]bool, len(entries))
 	for index, source := range order {
 		sorted[index] = entries[source]
+		sortedHidden[index] = hidden[source]
 	}
-	return localListing{dir: dir, entries: sorted, rows: prepareSFTPRows(nil, sorted)}
+	rows := prepareSFTPRows(nil, sorted)
+	for index := range rows {
+		rows[index].hidden = sortedHidden[index]
+	}
+	return localListing{dir: dir, entries: sorted, rows: rows}
 }
 
 // applyLocalListing puts a finished local listing on screen. seq must still be
@@ -207,13 +219,13 @@ func (state *State) applyLocalListing(view *sftpView, listing localListing, seq 
 	}
 	folder := &view.lfolder
 	folder.path = listing.dir
-	folder.rows = listing.rows
+	folder.allRows = listing.rows
 	folder.crumbs = prepareLocalCrumbs(folder.crumbs, listing.dir)
-	folder.selected, folder.first = -1, 0
-	folder.anchor = 0
-	view.sortedDetached(true)
+	state.applySFTPFilter(view, folder, true)
 	view.errorText = ""
-	view.setItemCountStatus(state.messages.SFTPItemsFmt, len(folder.rows))
+	if view.detached != nil {
+		view.setItemCountStatus(state.messages.SFTPItemsFmt, len(folder.rows))
+	}
 }
 
 // prepareLocalCrumbs splits a local path into the links of a breadcrumb.

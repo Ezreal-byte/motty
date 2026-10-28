@@ -265,6 +265,9 @@ func openWorkbenchWindow(application *app.Application, status *tray, hub *workbe
 		if context.Terminal {
 			return state.TerminalInput(context)
 		}
+		if input := state.SFTPInput(context); input != nil {
+			return input
+		}
 		if input := state.TerminalFindInput(context); input != nil {
 			return input
 		}

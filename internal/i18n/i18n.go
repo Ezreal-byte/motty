@@ -215,6 +215,7 @@ type Messages struct {
 	ShortcutsInvalid                     string
 	ShortcutCommandPalette               string
 	ShortcutFind                         string
+	ShortcutFilesPath                    string
 	ShortcutCopy                         string
 	ShortcutPaste                        string
 	ShortcutNewTab                       string

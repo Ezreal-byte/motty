@@ -79,7 +79,6 @@ func (state *State) paintSFTPPage(canvas *ui.Canvas, size ui.Size, session *Sess
 		status = view.errorText
 		statusColor = pal.danger
 	}
-
 	var buttons [20]sftpIconButton
 	var headerList [8]barTool
 	headerTools := headerList[:0]
@@ -103,7 +102,7 @@ func (state *State) paintSFTPPage(canvas *ui.Canvas, size ui.Size, session *Sess
 	addHeader(hitSFTPClose, iconClose, messages.TipSFTPClose, false)
 	headerTools = state.orderToolbarTools(toolbarSFTP, headerTools, false)
 	buttonCount := 0
-	var crumbs, popupTop, listSlot, spinnerSlot flex.Box
+	var crumbs, filterSlot, popupTop, listSlot, spinnerSlot, moreButton flex.Box
 
 	f := state.filesLayout.Begin(canvas, state.Theme(), ui.Rect{Y: windowBarHeight, Width: size.Width, Height: max(0, size.Height-windowBarHeight)})
 	// icon declares an icon button where it goes; it is painted after End.
@@ -121,6 +120,13 @@ func (state *State) paintSFTPPage(canvas *ui.Canvas, size ui.Size, session *Sess
 				for _, tool := range headerTools {
 					icon(sftpHeaderButton, tool.id, tool.icon, tool.hint, tool.disabled, iconButtonQuiet)
 				}
+				// Filtering and turning hidden entries on are secondary actions. Keep
+				// the header stable at the narrow default width; once hidden entries are
+				// enabled, the Eye control remains visible as their status affordance.
+				if folder.showHidden {
+					icon(sftpHeaderButton, hitSFTPHiddenToggle, iconEye, messages.Tools.FilesHideHidden, false, iconButtonActive)
+				}
+				icon(sftpHeaderButton, hitSFTPHeaderMore, iconEllipsis, messages.Tools.FilesMore, false, iconButtonQuiet)
 			})
 		})
 
@@ -130,7 +136,7 @@ func (state *State) paintSFTPPage(canvas *ui.Canvas, size ui.Size, session *Sess
 		f.Row().Height(sftpButton).Shrink(0).Gap(4).Items(flex.Center).MarginSides(6, 0, 0, 0).Children(func() {
 			icon(sftpButton, hitSFTPUp, iconArrowUp, messages.SFTPUp, !local && view.busy || folder.path == "/" || folder.path == "", iconButtonQuiet)
 			height := float32(24)
-			if state.sftpPathInput {
+			if state.sftpPathVisible(folder) {
 				height = sftpButton
 			}
 			crumbs = f.Slot().Grow(1).Height(height)
@@ -141,6 +147,9 @@ func (state *State) paintSFTPPage(canvas *ui.Canvas, size ui.Size, session *Sess
 				})
 			}
 		})
+		if folder.filterOpen {
+			filterSlot = f.Slot().Height(32).Shrink(0).MarginSides(5, 0, 4, 0)
+		}
 		// The bookmark list opens just under the path row.
 		popupTop = f.Slot().Height(0).MarginSides(4, 0, -4, 0)
 		f.Divider().Background(pal.line).MarginSides(2, 0, 3, 0)
@@ -207,9 +216,21 @@ func (state *State) paintSFTPPage(canvas *ui.Canvas, size ui.Size, session *Sess
 		})
 	})
 	f.End()
+	for index := range buttons[:buttonCount] {
+		if buttons[index].id == hitSFTPHeaderMore {
+			moreButton = buttons[index].box
+			break
+		}
+	}
 
 	state.paintSFTPIconButtons(canvas, buttons[:buttonCount])
-	if state.sftpPathInput {
+	if folder.headerMenuOpen {
+		state.paintSFTPHeaderMenu(canvas, ui.Size{Width: size.Width, Height: size.Height}, moreButton.Rect(), folder)
+	}
+	if folder.filterOpen {
+		state.paintSFTPFilter(canvas, filterSlot.Rect(), folder)
+	}
+	if state.sftpPathVisible(folder) {
 		state.paintSFTPPathInput(canvas, crumbs.Rect(), view)
 	} else {
 		state.paintSFTPBreadcrumbs(canvas, crumbs.Rect(), folder.crumbs)
@@ -325,7 +346,22 @@ func (state *State) declareSFTPRow(f *flex.Frame, row *sftpRow, id ui.ID, showDa
 	box := f.Row().Height(sftpRowHeight).Shrink(0).Items(flex.Center).HitWith(id, row.cells[1], ui.HitOptions{Role: ui.RoleButton, Selected: row.selected})
 	contents := func() {
 		f.Icon(*row.icon).Color(tint)
-		label := f.Text(name).FontSize(metrics.FontSizeM).Color(nameColor).Ellipsis().Grow(1).MarginSides(0, 0, 0, 8)
+		label := f.Row().Grow(1).Clip().Items(flex.Center).MarginSides(0, 0, 0, 8)
+		label.Children(func() {
+			if row.matchEnd > row.matchStart && row.matchEnd <= len(row.entry.Name) {
+				if prefix := row.entry.Name[:row.matchStart]; prefix != "" {
+					f.Text(prefix).FontSize(metrics.FontSizeM).Color(nameColor).Shrink(0)
+				}
+				f.Text(row.entry.Name[row.matchStart:row.matchEnd]).FontSize(metrics.FontSizeM).Weight(ui.WeightSemibold).Color(pal.accent).Shrink(0)
+				suffix := row.entry.Name[row.matchEnd:]
+				if row.entry.IsLink() && row.entry.LinkTarget != "" {
+					suffix += " → " + row.entry.LinkTarget
+				}
+				f.Text(suffix).FontSize(metrics.FontSizeM).Color(nameColor).Ellipsis().Grow(1)
+				return
+			}
+			f.Text(name).FontSize(metrics.FontSizeM).Color(nameColor).Ellipsis().Grow(1)
+		})
 		if showDate {
 			date := row.cells[3]
 			if !fullDate && len(date) > 5 {
@@ -367,6 +403,7 @@ func (state *State) paintSFTPBreadcrumbs(canvas *ui.Canvas, bounds ui.Rect, crum
 		}
 		total = next
 	}
+	canvas.HitWithOptions(hitSFTPPathEdit, bounds, state.messages.Tools.FilesPathLabel, ui.HitOptions{Role: ui.RoleButton, Hint: state.messages.Tools.FilesPathPlaceholder})
 	breadcrumb := components.BeginBreadcrumb(canvas, state.Theme(), bounds).FontSize(size)
 	if first > 0 {
 		breadcrumb.AddEllipsis(ui.ID{})

@@ -1754,6 +1754,9 @@ func (state *State) pointer(event ui.PointerEvent) ui.EventResult {
 	if result, handled := state.sftpMenuPointer(event); handled {
 		return result
 	}
+	if result, handled := state.sftpPathPointer(event); handled {
+		return result
+	}
 	if result, handled := state.sftpRowPointer(event); handled {
 		return result
 	}

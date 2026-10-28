@@ -218,6 +218,13 @@ type ToolsMessages struct {
 	FilesPathErrorTitle             string
 	FilesPathNotFoundFmt            string
 	FilesPathFailedFmt              string
+	FilesFilterLabel                string
+	FilesFilterPlaceholder          string
+	FilesFilterClear                string
+	FilesFilterCountFmt             string
+	FilesMore                       string
+	FilesShowHidden                 string
+	FilesHideHidden                 string
 	FilesKeepTimes                  string
 	FilesKeepTimesDescription       string
 	FilesFollow                     string

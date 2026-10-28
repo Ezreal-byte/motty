@@ -2397,6 +2397,53 @@ var Eraser = ui.Icon{
 	},
 }
 
+// eye is a compiled vector icon.
+var Eye = ui.Icon{
+	ViewBox: 24.0,
+	Stroke:  2.0,
+	Cap:     ui.CapRound,
+	Join:    ui.JoinRound,
+	Commands: []ui.PathCommand{
+		ui.MoveTo(2.062, 12.348),
+		ui.CubicTo(1.97866, 12.1235, 1.97866, 11.8765, 2.062, 11.652),
+		ui.CubicTo(3.72202, 7.62691, 7.64603, 5.00062, 12.0, 5.00062),
+		ui.CubicTo(16.354, 5.00062, 20.278, 7.62691, 21.938, 11.652),
+		ui.CubicTo(22.0213, 11.8765, 22.0213, 12.1235, 21.938, 12.348),
+		ui.CubicTo(20.278, 16.3731, 16.354, 18.9994, 12.0, 18.9994),
+		ui.CubicTo(7.64603, 18.9994, 3.72202, 16.3731, 2.062, 12.348),
+		ui.MoveTo(15.0, 12.0),
+		ui.CubicTo(15.0, 13.6569, 13.6569, 15.0, 12.0, 15.0),
+		ui.CubicTo(10.3431, 15.0, 9.0, 13.6569, 9.0, 12.0),
+		ui.CubicTo(9.0, 10.3431, 10.3431, 9.0, 12.0, 9.0),
+		ui.CubicTo(13.6569, 9.0, 15.0, 10.3431, 15.0, 12.0),
+		ui.ClosePath(),
+	},
+}
+
+// eye-off is a compiled vector icon.
+var EyeOff = ui.Icon{
+	ViewBox: 24.0,
+	Stroke:  2.0,
+	Cap:     ui.CapRound,
+	Join:    ui.JoinRound,
+	Commands: []ui.PathCommand{
+		ui.MoveTo(10.733, 5.076),
+		ui.CubicTo(15.5201, 4.50551, 20.1012, 7.19362, 21.938, 11.651),
+		ui.CubicTo(22.0213, 11.8755, 22.0213, 12.1225, 21.938, 12.347),
+		ui.CubicTo(21.5705, 13.238, 21.0848, 14.0755, 20.494, 14.837),
+		ui.MoveTo(14.084, 14.158),
+		ui.CubicTo(12.9069, 15.2949, 11.0357, 15.2787, 9.87854, 14.1215),
+		ui.CubicTo(8.72134, 12.9643, 8.70508, 11.0931, 9.842, 9.916),
+		ui.MoveTo(17.479, 17.499),
+		ui.CubicTo(14.7949, 19.0889, 11.5525, 19.4345, 8.59363, 18.4459),
+		ui.CubicTo(5.63475, 17.4573, 3.25127, 15.2321, 2.062, 12.348),
+		ui.CubicTo(1.97866, 12.1235, 1.97866, 11.8765, 2.062, 11.652),
+		ui.CubicTo(2.94863, 9.50185, 4.50867, 7.69725, 6.508, 6.509),
+		ui.MoveTo(2.0, 2.0),
+		ui.LineTo(22.0, 22.0),
+	},
+}
+
 // fedora is a compiled vector icon.
 var Fedora = ui.Icon{
 	ViewBox: 24.0,

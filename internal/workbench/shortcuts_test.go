@@ -44,6 +44,50 @@ func TestShortcutCaptureRejectsConflictsAndPersistsTypedBinding(t *testing.T) {
 	}
 }
 
+func TestShortcutFilesPathHasPrimaryLDefaultAndPersistsCustomBinding(t *testing.T) {
+	options := freshOptions(t)
+	state := newTestState(t, options)
+	wantDefault := shortcutChord{Modifiers: defaultShortcutModifier(), Key: 'l'}
+	if state.shortcuts.chords[shortcutFilesPath] != wantDefault {
+		t.Fatalf("default files path shortcut=%+v, want %+v", state.shortcuts.chords[shortcutFilesPath], wantDefault)
+	}
+	custom := shortcutChord{Modifiers: defaultShortcutModifier() | ui.ModifierAlt, Key: 'l'}
+	if conflict, ok := state.shortcuts.bind(shortcutFilesPath, custom); !ok || conflict != shortcutNone {
+		t.Fatalf("bind custom files path shortcut conflict=%v ok=%v", conflict, ok)
+	}
+	state.save()
+	restored := newTestState(t, options)
+	if restored.shortcuts.chords[shortcutFilesPath] != custom || shortcutActionFromString("files_path") != shortcutFilesPath {
+		t.Fatalf("restored files path shortcut=%+v action=%v", restored.shortcuts.chords[shortcutFilesPath], shortcutActionFromString("files_path"))
+	}
+}
+
+func TestShortcutFilesPathLeavesTerminalCtrlLAloneWithoutAVisibleFilePanel(t *testing.T) {
+	state, _, _, _ := liveSession(t)
+	session, _ := state.sessionByIDPointer(state.activeSessionID)
+	shortcut := state.shortcuts.chords[shortcutFilesPath]
+	event := ui.KeyEvent{Target: state.activeTerminalFocusHit(), Modifiers: shortcut.Modifiers, Text: string(shortcut.Key)}
+	if result := state.Shortcut(event); result.Handled {
+		t.Fatalf("Ctrl/Cmd+L without Files was consumed: %+v", result)
+	}
+
+	state.Click(hitSFTPOpen)
+	if result := state.Shortcut(event); result.Handled || session.files.sftpFolder.pathEditing {
+		t.Fatalf("Ctrl/Cmd+L with terminal focused and visible Files result=%+v editing=%v", result, session.files.sftpFolder.pathEditing)
+	}
+	context, _ := state.deck.Context(state.deck.ActiveWorkspace())
+	context.Open = false
+	if err := state.deck.SetContext(state.deck.ActiveWorkspace(), context); err != nil {
+		t.Fatal(err)
+	}
+	if session.files == nil {
+		t.Fatal("test needs retained file state behind a hidden panel")
+	}
+	if result := state.Shortcut(event); result.Handled || session.files.sftpFolder.pathEditing {
+		t.Fatalf("Ctrl/Cmd+L with hidden Files result=%+v editing=%v", result, session.files.sftpFolder.pathEditing)
+	}
+}
+
 func TestShortcutSettingsSteadyPaintDoesNotAllocate(t *testing.T) {
 	state := newTestState(t, testOptions(t))
 	showShortcutSettings(state)

@@ -249,3 +249,139 @@ func TestSFTPPathDoesNotNavigateOnRepeatsModifiersOrIMEConfirmation(t *testing.T
 		t.Fatal("an uncommitted input started navigation")
 	}
 }
+
+func TestSFTPPathShortcutOpensTemporaryEditorWithoutChangingPreference(t *testing.T) {
+	state, session, _, _ := openTestSFTP(t)
+	view := session.files
+	shortcut := state.shortcuts.chords[shortcutFilesPath]
+	result := state.Shortcut(ui.KeyEvent{
+		Target: contextID(hitSFTPEntryList.At(0)), Modifiers: shortcut.Modifiers, Text: string(shortcut.Key),
+	})
+	if !result.Handled || result.Focus != contextID(hitSFTPPath) || !result.FocusVisible || !view.sftpFolder.pathEditing {
+		t.Fatalf("path shortcut result=%+v editing=%v", result, view.sftpFolder.pathEditing)
+	}
+	if state.sftpPathInput {
+		t.Fatal("temporary path editing changed the saved path-bar preference")
+	}
+	var canvas ui.Canvas
+	state.Paint(&canvas, ui.Size{Width: 1400, Height: 900})
+	if hit, ok := hitByID(&canvas, contextID(hitSFTPPath)); !ok || hit.Role != ui.RoleTextField || hit.Value != view.path {
+		t.Fatalf("temporary path field=%+v, present=%v", hit, ok)
+	}
+
+	*state.EditorFor(hitSFTPPath) = *text.NewEditor("remote draft")
+	openLocalPane(t, state, session, localFixture(t))
+	result = state.Shortcut(ui.KeyEvent{Target: contextID(hitSFTPEntryList.At(0)), Modifiers: shortcut.Modifiers, Text: string(shortcut.Key)})
+	if !result.Handled || !view.lfolder.pathEditing || state.EditorFor(hitSFTPPath).String() != view.lfolder.path {
+		t.Fatalf("local temporary editor result=%+v value=%q", result, state.EditorFor(hitSFTPPath).String())
+	}
+	*state.EditorFor(hitSFTPPath) = *text.NewEditor("local draft")
+	state.Click(hitSFTPPaneToggle)
+	if !view.sftpFolder.pathEditing || state.EditorFor(hitSFTPPath).String() != "remote draft" {
+		t.Fatalf("remote temporary draft=%q editing=%v", state.EditorFor(hitSFTPPath).String(), view.sftpFolder.pathEditing)
+	}
+	state.Key(ui.KeyEvent{Target: hitSFTPPath, Key: ui.KeyEscape})
+	if view.sftpFolder.pathEditing || state.EditorFor(hitSFTPPath) != nil || view.sftpFolder.pathInput().String() != view.path {
+		t.Fatalf("Escape left editing=%v value=%q", view.sftpFolder.pathEditing, view.sftpFolder.pathInput().String())
+	}
+	saved, _, err := loadState(state.options.StatePath)
+	if err != nil || saved.SFTPPathInput {
+		t.Fatalf("saved path preference=%v, error=%v", saved.SFTPPathInput, err)
+	}
+}
+
+func TestSFTPPathBreadcrumbBackgroundStartsTemporaryEditing(t *testing.T) {
+	state, session, _, _ := openTestSFTP(t)
+	var canvas ui.Canvas
+	state.Paint(&canvas, ui.Size{Width: 1400, Height: 900})
+	hit, ok := hitByID(&canvas, contextID(hitSFTPPathEdit))
+	if !ok || hit.Role != ui.RoleButton || hit.Label != state.messages.Tools.FilesPathLabel {
+		t.Fatalf("breadcrumb edit hit=%+v, present=%v", hit, ok)
+	}
+	result := state.Pointer(ui.PointerEvent{
+		Kind: ui.PointerDown, Button: ui.PointerButtonPrimary, ClickCount: 1, Target: contextID(hitSFTPPathEdit),
+	})
+	if !result.Handled || result.Focus != contextID(hitSFTPPath) || !session.files.sftpFolder.pathEditing {
+		t.Fatalf("breadcrumb pointer result=%+v editing=%v", result, session.files.sftpFolder.pathEditing)
+	}
+}
+
+func TestSFTPPathEditingDoesNotStartWhileRemoteBusy(t *testing.T) {
+	state, session, _, _ := openTestSFTP(t)
+	view := session.files
+	view.busy = true
+	result := state.startSFTPPathEditing(view)
+	if result.Handled || view.sftpFolder.pathEditing {
+		t.Fatalf("busy remote path editing result=%+v editing=%v", result, view.sftpFolder.pathEditing)
+	}
+}
+
+func TestSFTPPathBreadcrumbClickDoesNotStartWhileRemoteBusy(t *testing.T) {
+	state, session, _, _ := openTestSFTP(t)
+	state.sftpPathInput = false
+	view := session.files
+	view.busy = true
+	var canvas ui.Canvas
+	state.Paint(&canvas, ui.Size{Width: 1400, Height: 900})
+	if _, ok := hitByID(&canvas, contextID(hitSFTPPathEdit)); !ok {
+		t.Fatal("busy remote panel did not paint the breadcrumb edit target")
+	}
+	result := state.Pointer(ui.PointerEvent{
+		Kind: ui.PointerDown, Button: ui.PointerButtonPrimary, ClickCount: 1,
+		Target: contextID(hitSFTPPathEdit),
+	})
+	if result.Handled || view.sftpFolder.pathEditing {
+		t.Fatalf("busy breadcrumb pointer result=%+v editing=%v", result, view.sftpFolder.pathEditing)
+	}
+}
+
+func TestSFTPPathTemporaryEditorExitsOnSuccessAndKeepsFailedDraft(t *testing.T) {
+	state, session, _, remote := openTestSFTP(t)
+	view := session.files
+	state.startSFTPPathEditing(view)
+	*state.EditorFor(hitSFTPPath) = *text.NewEditor("docs")
+	state.Key(ui.KeyEvent{Target: hitSFTPPath, Key: ui.KeyEnter})
+	waitSFTP(t, state, session, func(view *sftpView) bool { return !view.busy && view.path == "/home/test/docs" })
+	if view.sftpFolder.pathEditing || state.EditorFor(hitSFTPPath) != nil {
+		t.Fatal("successful remote navigation kept temporary editing open")
+	}
+
+	view.worker.Close()
+	<-view.worker.Done()
+	view.worker = sftpclient.NewWorker(func() (sftpclient.Remote, error) { return pathErrorRemote{remote, os.ErrNotExist}, nil }, nil)
+	state.startSFTPPathEditing(view)
+	*state.EditorFor(hitSFTPPath) = *text.NewEditor("/home/test/missing")
+	state.Key(ui.KeyEvent{Target: hitSFTPPath, Key: ui.KeyEnter})
+	waitSFTP(t, state, session, func(view *sftpView) bool { return !view.busy })
+	if !view.sftpFolder.pathEditing || state.EditorFor(hitSFTPPath).String() != "/home/test/missing" || view.path != "/home/test/docs" {
+		t.Fatalf("failed remote path editing=%v draft=%q path=%q", view.sftpFolder.pathEditing, state.EditorFor(hitSFTPPath).String(), view.path)
+	}
+
+	dir := localFixture(t)
+	openLocalPane(t, state, session, dir)
+	state.startSFTPPathEditing(view)
+	*state.EditorFor(hitSFTPPath) = *text.NewEditor("photos")
+	state.Key(ui.KeyEvent{Target: hitSFTPPath, Key: ui.KeyEnter})
+	if view.lfolder.pathEditing || view.lfolder.path != filepath.Join(dir, "photos") {
+		t.Fatalf("successful local path editing=%v path=%q", view.lfolder.pathEditing, view.lfolder.path)
+	}
+	state.startSFTPPathEditing(view)
+	*state.EditorFor(hitSFTPPath) = *text.NewEditor("missing")
+	state.Key(ui.KeyEvent{Target: hitSFTPPath, Key: ui.KeyEnter})
+	if !view.lfolder.pathEditing || state.EditorFor(hitSFTPPath).String() != "missing" || view.lfolder.path != filepath.Join(dir, "photos") {
+		t.Fatalf("failed local path editing=%v draft=%q path=%q", view.lfolder.pathEditing, state.EditorFor(hitSFTPPath).String(), view.lfolder.path)
+	}
+}
+
+func TestSFTPPathTemporaryEditorSurvivesAnUnrelatedRefresh(t *testing.T) {
+	state, session, _, remote := openTestSFTP(t)
+	view := session.files
+	state.startSFTPPathEditing(view)
+	*state.EditorFor(hitSFTPPath) = *text.NewEditor("unfinished draft")
+	before := remote.readCount(view.path)
+	state.Click(hitSFTPRefresh)
+	waitSFTP(t, state, session, func(view *sftpView) bool { return !view.busy && remote.readCount(view.path) > before })
+	if !view.sftpFolder.pathEditing || state.EditorFor(hitSFTPPath) == nil || state.EditorFor(hitSFTPPath).String() != "unfinished draft" {
+		t.Fatalf("refresh closed temporary path editing=%v editor=%v", view.sftpFolder.pathEditing, state.EditorFor(hitSFTPPath))
+	}
+}

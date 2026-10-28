@@ -74,6 +74,9 @@ const (
 	iconPaste
 	iconSelectAll
 	iconEraser
+	iconEye
+	iconEyeOff
+	iconEllipsis
 	iconWrench
 	iconCloseOthers
 	iconCloseRight
@@ -1450,6 +1453,9 @@ var lucideIcons = [...]ui.Icon{
 	iconPaste:        icons.ClipboardPaste,
 	iconSelectAll:    icons.SquareDashed,
 	iconEraser:       icons.Eraser,
+	iconEye:          icons.Eye,
+	iconEyeOff:       icons.EyeOff,
+	iconEllipsis:     icons.Ellipsis,
 	iconWrench:       icons.Wrench,
 	iconCloseOthers:  icons.ListX,
 	iconCloseRight:   icons.ArrowRightToLine,

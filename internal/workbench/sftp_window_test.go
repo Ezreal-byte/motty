@@ -515,3 +515,13 @@ func TestSFTPWindowPreviewAndAsyncLocalPathUseWindowContext(t *testing.T) {
 		t.Fatal("preview/navigation changed remote content")
 	}
 }
+
+// A detached transfer window is a server pane first: it shows the dotfiles a
+// server lists by default, as the docked panel does.
+func TestSFTPWindowShowsServerDotfilesByDefault(t *testing.T) {
+	state, source, _, _ := openTestSFTP(t)
+	w := state.newSFTPWindow(source)
+	if !w.view.sftpFolder.showHidden {
+		t.Fatal("a detached transfer window hid the server's dotfiles")
+	}
+}

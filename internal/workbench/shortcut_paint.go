@@ -34,6 +34,8 @@ func (state *State) shortcutActionLabel(action shortcutAction) string {
 		return messages.PaneSplitVertical
 	case shortcutPaneClose:
 		return messages.PaneClose
+	case shortcutFilesPath:
+		return messages.ShortcutFilesPath
 	case shortcutSFTP:
 		return messages.SFTPFiles
 	case shortcutAssistant:
