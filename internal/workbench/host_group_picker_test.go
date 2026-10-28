@@ -1,6 +1,7 @@
 package workbench
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/vivaui/viva/ui"
@@ -96,5 +97,46 @@ func BenchmarkPaintHostGroupDialog(b *testing.B) {
 				state.Paint(&canvas, size)
 			}
 		})
+	}
+}
+
+// Enter with nothing typed means the form's Enter: it saves. The picker must
+// close its list without choosing the first group, and the form must submit.
+func TestEnterInAnEmptyGroupFieldSavesTheHost(t *testing.T) {
+	state := newTestState(t, freshOptions(t))
+	state.Click(hitAddHost)
+	typeInto(state, hitDialogLabel, "box")
+	typeInto(state, hitDialogAddress, "10.0.0.1")
+	state.Click(hitDialogGroup)
+	state.Key(ui.KeyEvent{Target: hitDialogGroup, Key: ui.KeyEnter})
+	if modal := state.modal; modal != modalNewHost || state.hostGroupPicker().control.Open {
+		t.Fatalf("first Enter left modal=%v open=%v", modal, state.hostGroupPicker().control.Open)
+	}
+	state.Key(ui.KeyEvent{Target: hitDialogGroup, Key: ui.KeyEnter})
+	if state.modal != modalNone || len(state.hosts) != 1 || state.hosts[0].Group != "" {
+		t.Fatalf("Enter on an empty group did not save: modal=%v hosts=%d group=%q error=%q",
+			state.modal, len(state.hosts), state.hosts[0].Group, state.dialogError)
+	}
+}
+
+func TestHostGroupPickerMatchesAnExistingGroupIgnoringCase(t *testing.T) {
+	state := newTestState(t, testOptions(t))
+	state.hosts[0].Group = "Servers"
+	state.refreshHostGroups()
+	state.openEditHostID(state.hosts[0].ID)
+	typeInto(state, hitDialogGroup, "servers")
+	state.Key(ui.KeyEvent{Target: hitDialogGroup, Key: ui.KeyEnter})
+	if got := state.hostGroupPicker().control.Value(); got != "Servers" {
+		t.Fatalf("case-different query created %q, want the existing Servers", got)
+	}
+	state.Click(hitDialogSubmit)
+	matching := 0
+	for _, group := range state.hostGroups {
+		if strings.EqualFold(group.Name, "Servers") {
+			matching++
+		}
+	}
+	if state.hosts[0].Group != "Servers" || matching != 1 {
+		t.Fatalf("duplicate groups: group=%q matching=%d", state.hosts[0].Group, matching)
 	}
 }

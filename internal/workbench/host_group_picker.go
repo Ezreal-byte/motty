@@ -34,6 +34,9 @@ func (state *State) hostGroupPicker() *hostGroupPicker {
 	p := &state.editor.groupPicker
 	if !p.ready {
 		p.control.AllowCreate = true
+		// A group has one name: typing "servers" over "Servers" must select the
+		// existing group rather than create a case-different twin.
+		p.control.MatchCaseInsensitive = true
 		p.control.SetValidateCreate(validHostGroup)
 		options := make([]components.SingleSelectOption, 0, len(state.hostGroups))
 		for _, group := range state.hostGroups {
@@ -65,6 +68,11 @@ func (state *State) syncHostGroup() {
 
 func (state *State) commitHostGroupQuery() bool {
 	p := state.hostGroupPicker()
+	if _, composing := p.control.Query.Composition(); composing {
+		// The input method is still composing: its own confirm decides when the
+		// text is a name, and a form save must not report it as invalid.
+		return true
+	}
 	if !p.control.CommitQuery() {
 		state.dialogError = state.messages.ErrHostGroupInvalid
 		return false
@@ -103,6 +111,25 @@ func (state *State) hostGroupPickerKey(event ui.KeyEvent) (ui.EventResult, bool)
 	p := state.hostGroupPicker()
 	if event.Target != hitDialogGroup && (!p.control.Open || event.Key != ui.KeyEscape && event.Key != ui.KeyTab) {
 		return ui.EventResult{}, false
+	}
+	if event.Target == hitDialogGroup && event.Key == ui.KeyEnter && event.Modifiers == 0 && !event.Release {
+		// Enter means "take what is typed", and with nothing typed it means the
+		// form's Enter: save. The picker must not consume it for a group it did
+		// not choose.
+		if _, composing := p.control.Query.Composition(); composing || event.Repeat {
+			return ui.EventResult{Handled: true, Repaint: true}, true
+		}
+		if strings.TrimSpace(p.control.Query.String()) == "" {
+			if p.control.Open {
+				p.control.Dismiss()
+				return ui.EventResult{Handled: true, Repaint: true}, true
+			}
+			return ui.EventResult{}, false
+		}
+		if !state.commitHostGroupQuery() {
+			return ui.EventResult{Handled: true, Repaint: true}, true
+		}
+		return ui.EventResult{Handled: true, Repaint: true}, true
 	}
 	result := p.control.Key(event)
 	state.syncHostGroup()
