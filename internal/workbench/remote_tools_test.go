@@ -32,6 +32,9 @@ type remoteServer struct {
 	mu       sync.Mutex
 	commands []string
 	failures map[string]error
+	// containers replaces the default container fixture when non-empty, so a
+	// test can show a container appearing while a tool window stays open.
+	containers string
 }
 
 func (server *remoteServer) run(_ context.Context, command string, _ int) ([]byte, error) {
@@ -44,6 +47,9 @@ func (server *remoteServer) run(_ context.Context, command string, _ int) ([]byt
 	case strings.HasPrefix(command, "docker ps"):
 		if err := server.failures["docker ps"]; err != nil {
 			return []byte("sh: 1: docker: not found"), err
+		}
+		if server.containers != "" {
+			return []byte(server.containers), nil
 		}
 		return []byte(containerFixture), nil
 	case strings.HasPrefix(command, "docker inspect --format"):
@@ -75,6 +81,12 @@ func (server *remoteServer) ran(prefix string) int {
 		}
 	}
 	return count
+}
+
+func (server *remoteServer) setContainers(fixture string) {
+	server.mu.Lock()
+	server.containers = fixture
+	server.mu.Unlock()
 }
 
 func openRemoteToolsDialog(t *testing.T) (*State, *remoteServer, *fakeShell) {

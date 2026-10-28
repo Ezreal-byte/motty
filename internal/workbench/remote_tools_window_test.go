@@ -282,6 +282,36 @@ func TestRemoteNativeWindowFollowsItsSessionBetweenWorkbenchWindows(t *testing.T
 	})
 }
 
+func TestRemoteNativeWindowReopenAndRestoreReadTheHostAgain(t *testing.T) {
+	withRemoteWindowApplication(t, func(application *app.Application, host *remoteWindowHost) {
+		state, _, fake, _ := liveSession(t)
+		server := &remoteServer{containers: containerFixture}
+		fake.mu.Lock()
+		fake.runCommand = server.run
+		fake.mu.Unlock()
+		state.options.OpenContentWindow = application.OpenContentWindow
+		state.Click(hitRemoteToolsOpen)
+		w := state.remoteWindows[0]
+		host.until(t, func() bool { return !w.ui.remote.loading })
+		w.click(hitRemoteTabContainers)
+		host.until(t, func() bool { return !w.ui.remote.loading })
+		if len(w.ui.remote.rows) != 2 {
+			t.Fatalf("initial rows = %d", len(w.ui.remote.rows))
+		}
+
+		// A container created after the snapshot must not look deleted forever:
+		// asking for the tools again reads the host again.
+		server.setContainers(containerFixture + "c3c3c3c3c3c3|new|alpine:3.19|running|Up 1 minute\n")
+		state.Click(hitRemoteToolsOpen)
+		host.until(t, func() bool { return !w.ui.remote.loading && len(w.ui.remote.rows) == 3 })
+
+		// Restoring the window is looking at it again too.
+		server.setContainers(containerFixture)
+		host.windows[0].config.OnMinimize(false)
+		host.until(t, func() bool { return !w.ui.remote.loading && len(w.ui.remote.rows) == 2 })
+	})
+}
+
 func TestRemoteNativeWindowResizesWithReachableActionsAndPagination(t *testing.T) {
 	withRemoteWindowApplication(t, func(application *app.Application, host *remoteWindowHost) {
 		state, _, fake, _ := liveSession(t)

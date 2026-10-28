@@ -38,6 +38,11 @@ func (state *State) openRemoteToolsWindow(session *Session) {
 			if !window.closed && window.connection == session.conn {
 				window.bind(state, session)
 				window.window.Show()
+				// The window is a snapshot of a remote host, and a container or
+				// process may have changed since it was read. Bringing the tools
+				// back is a deliberate "show me now", so read the tab again rather
+				// than replaying rows that may no longer exist.
+				window.ui.refreshRemoteTools()
 				return
 			}
 		}
@@ -57,6 +62,14 @@ func (state *State) openRemoteToolsWindow(session *Session) {
 		MinWidth:   remoteToolsMinWidth, MinHeight: remoteToolsMinHeight,
 		ClearColor: app.Color{Red: float64(state.pal.workspace.Red), Green: float64(state.pal.workspace.Green), Blue: float64(state.pal.workspace.Blue), Alpha: 1},
 		Paint:      w.paint, OnKey: w.key, OnClosed: w.dispose,
+		OnMinimize: func(minimized bool) {
+			if minimized || w.closed || w.ui.remote.loading {
+				return
+			}
+			// A restored window is looked at again, like a reopened one. Its
+			// rows describe the host when they were read, not now.
+			w.ui.refreshRemoteTools()
+		},
 		OnScroll: func(event ui.ScrollEvent) ui.EventResult {
 			if w.ui.remote.auto.open {
 				return ui.EventResult{Handled: true, Repaint: w.ui.remote.auto.scroll.Wheel(event)}
