@@ -168,6 +168,12 @@ The command palette is **Command+Shift+P** on macOS and **Control+Shift+P**
 elsewhere. Default shortcuts use Command on macOS and Control on Windows/Linux;
 all of them are configurable.
 
+Choose the local shell in **Settings → Terminal → Local shell**. Enter an
+executable name such as `pwsh.exe`, browse to the executable, or reset to
+automatic selection. The choice stays on this computer and applies to new or
+reconnected local terminals. On Windows, automatic selection tries PowerShell 7,
+Windows PowerShell, then the system command interpreter.
+
 | Action | macOS | Windows / Linux |
 | --- | --- | --- |
 | Command palette | Command+Shift+P | Control+Shift+P |

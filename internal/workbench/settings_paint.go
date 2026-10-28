@@ -279,6 +279,7 @@ func (state *State) paintTerminalSettings(page *settingsPage) {
 	}
 	page.groups(func() {
 		page.group("", func() {
+			state.paintLocalShellSetting(page)
 			page.row(messages.SettingsTerminalOption, messages.SettingsTerminalOptionDescription, option[:], selectedOption)
 			page.actionRow(messages.SettingsTerminalFontSize, messages.SettingsTerminalFontSizeDescription, false,
 				components.ButtonAction{ID: hitSettingsFontSizeDown, Label: "−", Variant: components.ButtonOutline},

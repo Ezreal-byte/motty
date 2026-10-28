@@ -120,6 +120,16 @@ type Messages struct {
 	SettingsTerminalOptionDescription      string
 	SettingsTerminalOptionText             string
 	SettingsTerminalOptionMeta             string
+	SettingsLocalShell                     string
+	SettingsLocalShellDescription          string
+	SettingsLocalShellDefault              string
+	SettingsLocalShellProgram              string
+	SettingsLocalShellPlaceholder          string
+	SettingsLocalShellEdit                 string
+	SettingsLocalShellBrowse               string
+	SettingsLocalShellReset                string
+	SettingsLocalShellSave                 string
+	SettingsLocalShellInvalidFmt           string
 	SettingsTerminalFontSize               string
 	SettingsTerminalFontSizeDescription    string
 	SettingsTerminalFontFamily             string

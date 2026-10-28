@@ -225,6 +225,13 @@ func (state *State) clickSettings(id ui.ID) bool {
 	}
 	changed := false
 	switch id {
+	case hitSettingsLocalShellEdit:
+		state.editLocalShell()
+	case hitSettingsLocalShellBrowse:
+		state.browseLocalShell()
+	case hitSettingsLocalShellReset:
+		changed = state.localShell != ""
+		state.localShell = ""
 	case hitSettingsLanguageEnglish:
 		changed = state.chooseLanguage(i18n.English)
 	case hitSettingsLanguageChinese:

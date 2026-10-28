@@ -507,6 +507,7 @@ type State struct {
 	appearanceMode      appearanceMode
 	stopAppearanceWatch func()
 	terminalOption      terminalOptionMode
+	localShell          string // executable on this computer; empty uses the platform default
 	terminalFontSize    float32
 	terminalFontFace    ui.MonoFace
 	terminalScrollback  int

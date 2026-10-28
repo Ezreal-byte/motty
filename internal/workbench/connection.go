@@ -417,7 +417,7 @@ func (state *State) startConnectionMode(session *Session, host Host, automatic b
 	session.jumpPath = ""
 	if host.ID == localHostID {
 		// A shell on this machine: nothing to dial, so it is connected at once.
-		session.conn = newLocalConn()
+		session.conn = newLocalConn(state.localShell)
 		state.finishStartingConnection(session, automatic)
 		// There is no goroutine to report that it is connected, so say so now:
 		// the shell starts here instead of on a wake nobody would send.

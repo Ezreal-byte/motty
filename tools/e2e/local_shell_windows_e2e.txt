@@ -1,0 +1,20 @@
+# Windows: Settings -> configured PowerShell -> real ConPTY command -> reset.
+# Build with -tags vivahead. Use an isolated MOTTY_DATA_DIR and MOTTY_LANG=en.
+# The runner's PSModulePath should name Windows PowerShell's own Modules folder.
+# Set PYTHONUTF8=1 if Python's default encoding is not UTF-8.
+
+click "Settings"
+click "Terminal"
+waitfor "Local shell"
+click "Change…"
+type powershell.exe
+click "Save"
+click "Local Terminal"
+settle 1200
+type Write-Output ('configured-powershell-' + (6*7))
+key enter
+waitfor "configured-powershell-42" 15000
+click "Settings"
+click "Terminal"
+click "Reset"
+waitfor "Automatic (platform default)"

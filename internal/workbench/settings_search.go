@@ -136,6 +136,7 @@ func (state *State) eachSettingsEntry(add func(settingsEntry)) {
 	row(settingsGeneral, tools.GeneralUpdateStartup, tools.GeneralUpdateStartupDescription)
 	row(settingsGeneral, tools.GeneralUpdate, tools.GeneralUpdateDescription)
 	row(settingsGeneral, tools.DiagnosticsRow, tools.DiagnosticsDescription)
+	row(settingsTerminal, m.SettingsLocalShell, m.SettingsLocalShellDescription)
 	row(settingsTerminal, m.SettingsTerminalOption, m.SettingsTerminalOptionDescription)
 	row(settingsTerminal, m.SettingsTerminalFontSize, m.SettingsTerminalFontSizeDescription)
 	row(settingsTerminal, m.SettingsTerminalFontFamily, tools.FontPickerDescription)
