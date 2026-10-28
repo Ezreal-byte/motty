@@ -1,6 +1,9 @@
 package workbench
 
-import "github.com/vivaui/viva/ui"
+import (
+	"github.com/vivaui/viva/flex"
+	"github.com/vivaui/viva/ui"
+)
 
 // A terminal color scheme is the terminal's own look: its background and text,
 // the cursor and the sixteen named colors. It does not touch the window around
@@ -279,7 +282,15 @@ func (state *State) declareScheme(page *settingsPage, index int) {
 	}
 	card := f.Column().Grow(1).Basis(0).PadSides(7-width, 10-width, 0, 10-width).Background(background).Radius(radius.popup).Border(width, border)
 	card.Children(func() {
-		f.Text(name).FontSize(metrics.FontSizeS).Weight(ui.WeightSemibold).Color(foreground).LineHeight(18).MarginSides(0, 0, 6, 0)
+		// The border is the window's accent, which can be the card's own color, so
+		// the choice is also marked with a check in the card's text color: that one
+		// always reads on the card.
+		f.Row().Items(flex.Center).MarginSides(0, 0, 6, 0).Children(func() {
+			f.Text(name).FontSize(metrics.FontSizeS).Weight(ui.WeightSemibold).Color(foreground).LineHeight(18).Grow(1)
+			if selected {
+				f.Icon(lucideIcons[iconCheck]).Size(14, 14).Color(foreground).Shrink(0)
+			}
+		})
 		view := &state.settings
 		view.colors = append(view.colors, swatches[:]...)
 		page.add(settingsControl{kind: controlSwatches, slot: f.Slot().Size(swatchPitch*3+swatchSize, swatchSize).Shrink(0), first: len(view.colors) - len(swatches), count: len(swatches)})
