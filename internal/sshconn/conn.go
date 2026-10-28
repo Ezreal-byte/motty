@@ -153,7 +153,8 @@ type Status struct {
 	System RemoteSystem
 	// Negotiated is what the last endpoint agreed on, once its handshake is done.
 	Negotiated Negotiated
-	// Skipped names identity files the user chose not to unlock.
+	// Skipped names identity files not offered to the server: those the user
+	// chose not to unlock, and unusable ones, which carry the reason.
 	Skipped []string
 	// Err describes a failed connection attempt or an unexpected end to an
 	// established connection. It is nil when Close or Cancel ended the session.

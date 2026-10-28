@@ -730,3 +730,47 @@ func TestCancelClosesEveryEstablishedProxyJumpConnection(t *testing.T) {
 	}
 	t.Fatalf("active connections after cancel: outer=%d inner=%d target=%d", outer.activeConnections(), inner.activeConnections(), target.activeConnections())
 }
+
+// An "ENCRYPTED PRIVATE KEY" file is what OpenSSL 3 writes by default. It used
+// to be dropped without a prompt, so the login failed with nothing to unlock.
+func TestEncryptedPKCS8IdentityPromptsAndAuthenticates(t *testing.T) {
+	path := filepath.Join("..", "keyidentity", "testdata", "pkcs8_ed25519_aes256_sha256.pem")
+	publicText, err := os.ReadFile(strings.TrimSuffix(path, ".pem") + ".pub")
+	if err != nil {
+		t.Fatal(err)
+	}
+	public, _, _, _, err := ssh.ParseAuthorizedKey(publicText)
+	if err != nil {
+		t.Fatal(err)
+	}
+	server := startServer(t, func(s *testServer) { s.authorized = []ssh.PublicKey{public}; s.password = "unused" })
+	h := dial(t, server, func(c *Config) { c.IdentityFiles = []string{path} })
+	h.phase(PhaseHostKeyPrompt)
+	h.conn.TrustHostKey(false)
+	if prompt := h.phase(PhaseKeyPassphrasePrompt); prompt.IdentityPath != path {
+		t.Fatalf("prompt = %+v", prompt)
+	}
+	h.conn.SubmitKeyPassphrase("correct horse")
+	if connected := h.phase(PhaseConnected); connected.Method != "publickey" || len(connected.Skipped) != 0 {
+		t.Fatalf("connected = %+v", connected)
+	}
+}
+
+// A key file that exists but cannot be read must be reported with its reason,
+// not left out as if it had never been configured.
+func TestUnusableIdentityIsReportedWithItsReason(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "id_broken")
+	if err := os.WriteFile(path, []byte("-----BEGIN OPENSSH PRIVATE KEY-----\nbm90IGEga2V5\n-----END OPENSSH PRIVATE KEY-----\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	missing := filepath.Join(t.TempDir(), "id_absent")
+	other := newSigner(t)
+	server := startServer(t, func(s *testServer) { s.authorized = []ssh.PublicKey{other.PublicKey()}; s.password = "pw" })
+	h := dial(t, server, func(c *Config) { c.IdentityFiles = []string{missing, path} })
+	h.phase(PhaseHostKeyPrompt)
+	h.conn.TrustHostKey(false)
+	status := h.phase(PhasePasswordPrompt)
+	if len(status.Skipped) != 1 || !strings.HasPrefix(status.Skipped[0], path+" (") {
+		t.Fatalf("skipped = %q, want only the unreadable key and its reason", status.Skipped)
+	}
+}

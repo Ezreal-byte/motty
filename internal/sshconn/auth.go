@@ -140,7 +140,8 @@ func (conn *Conn) askPassword(question string) (string, error) {
 
 // loadIdentities reads configured private keys and asks for encrypted-key
 // passphrases one at a time. A declined key is skipped without canceling the
-// connection, so agent and password authentication can still proceed.
+// connection, so agent and password authentication can still proceed. A key
+// that is present but unusable is skipped too, with the reason in skipped.
 func (conn *Conn) loadIdentities(authentication Authentication) (signers []ssh.Signer, skipped []string, err error) {
 	paths := authentication.IdentityFiles
 	if paths == nil {
@@ -158,7 +159,13 @@ func (conn *Conn) loadIdentities(authentication Authentication) (signers []ssh.S
 		if err != nil {
 			var passphrase *ssh.PassphraseMissingError
 			if !errors.As(err, &passphrase) {
-				continue // absent, unreadable, or invalid keys are not offered
+				// A default identity that is not there is the normal case. A
+				// key that is there but cannot be used must say why, or the
+				// login fails with no sign that the key was ever considered.
+				if !errors.Is(err, os.ErrNotExist) {
+					skipped = append(skipped, fmt.Sprintf("%s (%v)", path, err))
+				}
+				continue
 			}
 			var accepted bool
 			signer, accepted, err = conn.unlockIdentity(path)

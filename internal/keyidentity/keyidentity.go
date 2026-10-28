@@ -34,8 +34,8 @@ type Info struct {
 
 // Inspect validates path as a supported private key and returns its public
 // metadata. Encrypted OpenSSH keys and PPK files expose their public key
-// without a passphrase; older encrypted PEM forms may leave Algorithm and
-// Fingerprint empty until authentication.
+// without a passphrase; older encrypted PEM forms and encrypted PKCS#8 files
+// may leave Algorithm and Fingerprint empty until authentication.
 func Inspect(path string) (Info, error) {
 	absolute, data, file, err := read(path)
 	if err != nil {
@@ -51,6 +51,13 @@ func Inspect(path string) (Info, error) {
 			return Info{}, fmt.Errorf("inspect SSH private key: %w", err)
 		}
 		info.Algorithm, info.Fingerprint, info.Encrypted = public.Type(), ssh.FingerprintSHA256(public), encrypted
+		return info, nil
+	}
+	if block := encryptedPKCS8(data); block != nil {
+		if _, err := parsePKCS8Scheme(block.Bytes); err != nil {
+			return Info{}, fmt.Errorf("inspect SSH private key: %w", err)
+		}
+		info.Encrypted = true
 		return info, nil
 	}
 	if err := securityKeyCheck(data); err != nil {
@@ -97,6 +104,9 @@ func Load(path string, passphrase []byte) (ssh.Signer, error) {
 	}
 	if ppk.LooksLikePPK(data) {
 		return ppk.Parse(data, passphrase)
+	}
+	if block := encryptedPKCS8(data); block != nil {
+		return loadEncryptedPKCS8(block, passphrase)
 	}
 	if err := securityKeyCheck(data); err != nil {
 		return nil, err
