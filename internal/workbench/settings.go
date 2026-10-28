@@ -129,6 +129,9 @@ func terminalOptionModeFromString(value string) terminalOptionMode {
 }
 
 func (state *State) openSettings() {
+	if localShellSettingVisible() && state.settingsCategory == settingsTerminal && !state.localShellMenu.loaded {
+		state.refreshLocalShells()
+	}
 	if session, ok := state.sessionByIDPointer(state.activeSessionID); ok {
 		state.releaseIdleSFTP(session)
 	}

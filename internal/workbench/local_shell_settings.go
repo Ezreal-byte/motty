@@ -48,9 +48,6 @@ func (state *State) paintLocalShellSetting(page *settingsPage) {
 	if !localShellSettingVisible() {
 		return
 	}
-	if !state.localShellMenu.loaded {
-		state.refreshLocalShells()
-	}
 	page.add(settingsControl{kind: controlLocalShellSelect, slot: page.rowFrame(state.messages.SettingsLocalShell, state.messages.SettingsLocalShellDescription)})
 }
 
