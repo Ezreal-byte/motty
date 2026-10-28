@@ -122,14 +122,7 @@ type Messages struct {
 	SettingsTerminalOptionMeta             string
 	SettingsLocalShell                     string
 	SettingsLocalShellDescription          string
-	SettingsLocalShellDefault              string
-	SettingsLocalShellProgram              string
-	SettingsLocalShellPlaceholder          string
-	SettingsLocalShellEdit                 string
-	SettingsLocalShellBrowse               string
-	SettingsLocalShellReset                string
-	SettingsLocalShellSave                 string
-	SettingsLocalShellInvalidFmt           string
+	SettingsLocalShellEmpty                string
 	SettingsTerminalFontSize               string
 	SettingsTerminalFontSizeDescription    string
 	SettingsTerminalFontFamily             string

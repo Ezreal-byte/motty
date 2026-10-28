@@ -168,11 +168,10 @@ The command palette is **Command+Shift+P** on macOS and **Control+Shift+P**
 elsewhere. Default shortcuts use Command on macOS and Control on Windows/Linux;
 all of them are configurable.
 
-Choose the local shell in **Settings → Terminal → Local shell**. Enter an
-executable name such as `pwsh.exe`, browse to the executable, or reset to
-automatic selection. The choice stays on this computer and applies to new or
-reconnected local terminals. On Windows, automatic selection tries PowerShell 7,
-Windows PowerShell, then the system command interpreter.
+On Windows, choose the local shell from the dropdown in **Settings → Terminal
+→ Local shell**, below **Inline suggestions**. Motty detects installed shells
+such as PowerShell, CMD and Git Bash from PATH and common installation folders.
+The choice stays on this computer and applies to new or reconnected local terminals.
 
 | Action | macOS | Windows / Linux |
 | --- | --- | --- |

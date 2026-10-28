@@ -136,7 +136,6 @@ func (state *State) eachSettingsEntry(add func(settingsEntry)) {
 	row(settingsGeneral, tools.GeneralUpdateStartup, tools.GeneralUpdateStartupDescription)
 	row(settingsGeneral, tools.GeneralUpdate, tools.GeneralUpdateDescription)
 	row(settingsGeneral, tools.DiagnosticsRow, tools.DiagnosticsDescription)
-	row(settingsTerminal, m.SettingsLocalShell, m.SettingsLocalShellDescription)
 	row(settingsTerminal, m.SettingsTerminalOption, m.SettingsTerminalOptionDescription)
 	row(settingsTerminal, m.SettingsTerminalFontSize, m.SettingsTerminalFontSizeDescription)
 	row(settingsTerminal, m.SettingsTerminalFontFamily, tools.FontPickerDescription)
@@ -148,6 +147,9 @@ func (state *State) eachSettingsEntry(add func(settingsEntry)) {
 	row(settingsTerminal, tools.NotifyRow, tools.NotifyDescription)
 	row(settingsTerminal, state.messages.History.SettingsRow, state.messages.History.SettingsDescription)
 	row(settingsTerminal, state.messages.History.SuggestRow, state.messages.History.SuggestDescription)
+	if localShellSettingVisible() {
+		row(settingsTerminal, m.SettingsLocalShell, m.SettingsLocalShellDescription)
+	}
 	row(settingsTerminal, state.messages.History.ClearRow, state.messages.History.ClearDescription)
 	group(settingsTerminal, tools.SchemeGroup, tools.SchemeGroup, tools.SchemeDescription)
 	row(settingsTerminal, tools.HighlightBuiltin, tools.HighlightBuiltinDescription)

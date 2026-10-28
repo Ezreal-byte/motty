@@ -134,10 +134,9 @@ agent 通过 stdio 启动它，它只使用你对 agent 开放的主机，没有
 **Control+Shift+P**。默认快捷键 macOS 用 Command，Windows/Linux 用 Control，
 全部可以在设置里修改。
 
-在 **设置 → 终端 → 本地 Shell** 中，可以填写 `pwsh.exe` 等程序名或完整路径，
-也可以浏览选择可执行文件，或恢复自动选择。此配置仅保存在本机，对新建或重连的
-本地终端生效。Windows 自动选择时依次尝试 PowerShell 7、Windows PowerShell
-和系统命令解释器。
+Windows 下可在 **设置 → 终端 → 本地 Shell**（“行内建议”下方）的下拉框中选择
+本地终端使用的 Shell。Motty 会从 PATH 和常见安装目录中自动检测 PowerShell、
+CMD、Git Bash 等已安装的 Shell。此配置仅保存在本机，对新建或重连的本地终端生效。
 
 | 操作 | macOS | Windows / Linux |
 | --- | --- | --- |
