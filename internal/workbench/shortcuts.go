@@ -144,6 +144,13 @@ func (chord shortcutChord) keys(dst []string) []string {
 	return append(dst, keycapText[key])
 }
 
+// validForSnippet is valid with one more rule. Control alone is how a terminal
+// reads its own keys (Ctrl+R searches history, Ctrl+D ends input), so where
+// Command is not the modifier a snippet chord needs Shift or Alt as well.
+func (chord shortcutChord) validForSnippet() bool {
+	return chord.valid() && chord.Modifiers&(ui.ModifierMeta|ui.ModifierShift|ui.ModifierAlt) != 0
+}
+
 func shortcutChordFromEvent(event ui.KeyEvent) (shortcutChord, bool) {
 	if len(event.Text) != 1 {
 		return shortcutChord{}, false
@@ -244,6 +251,9 @@ func shortcutActionFromString(value string) shortcutAction {
 func (state *State) Shortcut(event ui.KeyEvent) (outcome ui.EventResult) {
 	defer state.afterEvent(&outcome)
 	chord, ok := shortcutChordFromEvent(event)
+	if state.modal == modalSnippet && state.snippets.capturing {
+		return state.captureSnippetShortcut(event, chord, ok)
+	}
 	if !ok {
 		return ui.EventResult{}
 	}
@@ -265,6 +275,10 @@ func (state *State) Shortcut(event ui.KeyEvent) (outcome ui.EventResult) {
 	if state.modal == modalShortcutCapture {
 		if event.Repeat {
 			return ui.EventResult{Handled: true}
+		}
+		if owner := state.snippetNamed(chord); owner != "" {
+			state.shortcutError = fmt.Sprintf(state.messages.ShortcutsConflictFmt, owner)
+			return ui.EventResult{Handled: true, Repaint: true}
 		}
 		conflict, bound := state.shortcuts.bind(state.shortcutCapture, chord)
 		if !bound {
@@ -293,6 +307,12 @@ func (state *State) Shortcut(event ui.KeyEvent) (outcome ui.EventResult) {
 	}
 	action := state.shortcuts.actionFor(chord)
 	if action == shortcutNone {
+		if index := state.snippetFor(chord, -1); index >= 0 && state.activeSection == sectionTerminal {
+			if !event.Repeat {
+				state.sendSnippet(index)
+			}
+			return ui.EventResult{Handled: true, Repaint: true}
+		}
 		return ui.EventResult{}
 	}
 	if action == shortcutCopy && chord.Modifiers == ui.ModifierControl && chord.Key == 'c' {

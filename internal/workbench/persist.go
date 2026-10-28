@@ -72,6 +72,7 @@ type savedState struct {
 	HighlightBuiltin           string              `json:"highlight_builtin,omitempty"`
 	Highlights                 []savedHighlight    `json:"highlights,omitempty"`
 	Snippets                   []savedSnippet      `json:"snippets,omitempty"`
+	SnippetShortcuts           []savedSnippetKey   `json:"snippet_shortcuts,omitempty"`
 	Autofill                   []savedAutofill     `json:"autofill_rules,omitempty"`
 	CommandHistory             bool                `json:"command_history,omitempty"`
 	CommandSuggestOff          bool                `json:"command_suggest_off,omitempty"`
@@ -117,6 +118,15 @@ type savedSnippet struct {
 	Name    string `json:"name"`
 	Command string `json:"command"`
 	Run     bool   `json:"run,omitempty"`
+}
+
+// savedSnippetKey is the shortcut of the snippet of that name. It lives apart
+// from the snippet, which is shared with other computers: the modifier a
+// shortcut can use differs by platform.
+type savedSnippetKey struct {
+	Name      string `json:"name"`
+	Key       string `json:"key"`
+	Modifiers uint8  `json:"modifiers"`
 }
 
 type savedShortcut struct {
@@ -391,6 +401,11 @@ func (state *State) snapshot() savedState {
 	saved.Autofill = state.savedAutofillRules()
 	for _, entry := range state.snippets.list {
 		saved.Snippets = append(saved.Snippets, savedSnippet{Name: entry.Name, Command: entry.Command, Run: entry.Run})
+		if entry.Shortcut.valid() {
+			saved.SnippetShortcuts = append(saved.SnippetShortcuts, savedSnippetKey{
+				Name: entry.Name, Key: string([]byte{entry.Shortcut.Key}), Modifiers: uint8(entry.Shortcut.Modifiers),
+			})
+		}
 	}
 	if state.proxy.kind != sshconn.ProxyNone || state.proxy.bypass != "" {
 		saved.OutboundProxy = &savedOutboundProxy{

@@ -1261,6 +1261,7 @@ func (state *State) Click(id ui.ID) {
 		state.openSettings()
 	case id == hitShortcutReset:
 		state.shortcuts = defaultShortcuts()
+		state.dropSnippetChordsTaken()
 		state.save()
 	case id == hitConnect:
 		state.connectTyped()
@@ -1893,6 +1894,10 @@ func (state *State) key(event ui.KeyEvent) ui.EventResult {
 	}
 	if result, handled := state.restoredPageKey(event); handled {
 		return result
+	}
+	if state.modal == modalSnippet && state.snippets.capturing && event.Key == ui.KeyEscape && !event.Repeat {
+		state.snippets.capturing = false
+		return ui.EventResult{Handled: true, Repaint: true}
 	}
 	if state.modal == modalShortcutCapture && event.Key == ui.KeyEscape && !event.Repeat {
 		state.clickShortcutCapture(hitShortcutCaptureCancel)

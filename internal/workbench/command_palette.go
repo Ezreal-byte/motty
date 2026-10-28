@@ -127,7 +127,11 @@ func (state *State) rebuildCommandPalette() {
 			palette.add(label, hitBroadcast)
 		}
 		for index, entry := range state.snippets.list {
-			palette.add(fmt.Sprintf(messages.Tools.SnippetPaletteFmt, entry.Name), hitSnippetSendList.At(index))
+			detail := ""
+			if entry.Shortcut.valid() {
+				detail = entry.Shortcut.label()
+			}
+			palette.addDetailed(fmt.Sprintf(messages.Tools.SnippetPaletteFmt, entry.Name), detail, hitSnippetSendList.At(index))
 		}
 	}
 	for index := range state.sessions {

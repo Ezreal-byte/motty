@@ -330,5 +330,21 @@ func (state *State) restoreTerminalTools(saved savedState) {
 		}
 		state.snippets.list = append(state.snippets.list, clean)
 	}
+	for _, entry := range saved.SnippetShortcuts {
+		if len(entry.Key) != 1 {
+			continue
+		}
+		chord := shortcutChord{Modifiers: ui.Modifiers(entry.Modifiers), Key: entry.Key[0]}
+		for index := range state.snippets.list {
+			// The first snippet of that name without a shortcut takes it; a chord
+			// that a built-in action or an earlier snippet has is not given twice.
+			if snippet := &state.snippets.list[index]; snippet.Name == entry.Name && !snippet.Shortcut.valid() {
+				if chord.validForSnippet() && state.chordOwner(chord, index) == "" {
+					snippet.Shortcut = chord
+				}
+				break
+			}
+		}
+	}
 	state.recompileHighlights()
 }

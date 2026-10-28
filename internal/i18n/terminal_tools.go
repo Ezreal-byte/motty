@@ -55,6 +55,11 @@ type ToolsMessages struct {
 	SnippetCommand            string
 	SnippetCommandPlaceholder string
 	SnippetRun                string
+	SnippetShortcut           string
+	SnippetShortcutNone       string
+	SnippetShortcutRecording  string
+	SnippetShortcutClear      string
+	SnippetShortcutInvalid    string
 	SnippetErrorName          string
 	SnippetErrorCommand       string
 	SnippetErrorTooMany       string
