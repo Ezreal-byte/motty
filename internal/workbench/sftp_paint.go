@@ -61,6 +61,10 @@ func (state *State) paintSFTPPage(canvas *ui.Canvas, size ui.Size, session *Sess
 	pal, messages := state.pal, state.messages
 	headerBackground, headerBorder := state.connectionBarColors(session, false)
 	folder, local := view.active(), view.local
+	if folder.pathEditing && !state.sftpPathInput && canvas.Focused() != hitSFTPPath {
+		folder.pathEditing = false
+		folder.resetPathInput()
+	}
 
 	// What the page shows decides its parts. The selection bar and the file
 	// actions are as tall as what they hold; the list takes what they leave.

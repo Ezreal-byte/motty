@@ -136,6 +136,7 @@ type sftpView struct {
 	prefetching       map[string]struct{}
 	waiting           string
 	pathRequest       string // the directory submitted through the path input, awaiting its listing
+	abandonedPath     string // a path request the user canceled while it was in flight
 }
 
 // sftpListing is one folder as it was last read.
@@ -1069,6 +1070,12 @@ func (state *State) pumpSFTP(session *Session) {
 				continue
 			}
 			view.busy = false
+			if result.Operation == sftpclient.OperationList && view.abandonedPath != "" && result.Path == view.abandonedPath {
+				// The user canceled this navigation: keep the listing they are
+				// looking at, whatever the late result says.
+				view.abandonedPath = ""
+				continue
+			}
 			if result.Operation == sftpclient.OperationList && view.pathRequest != "" && result.Path == view.pathRequest {
 				view.pathRequest = ""
 				if result.Err != nil && !errors.Is(result.Err, sftpclient.ErrCanceled) {

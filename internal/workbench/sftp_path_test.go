@@ -264,6 +264,7 @@ func TestSFTPPathShortcutOpensTemporaryEditorWithoutChangingPreference(t *testin
 		t.Fatal("temporary path editing changed the saved path-bar preference")
 	}
 	var canvas ui.Canvas
+	canvas.SetInteraction(ui.ID{}, ui.ID{}, result.Focus, result.FocusVisible)
 	state.Paint(&canvas, ui.Size{Width: 1400, Height: 900})
 	if hit, ok := hitByID(&canvas, contextID(hitSFTPPath)); !ok || hit.Role != ui.RoleTextField || hit.Value != view.path {
 		t.Fatalf("temporary path field=%+v, present=%v", hit, ok)
@@ -280,6 +281,7 @@ func TestSFTPPathShortcutOpensTemporaryEditorWithoutChangingPreference(t *testin
 	if !view.sftpFolder.pathEditing || state.EditorFor(hitSFTPPath).String() != "remote draft" {
 		t.Fatalf("remote temporary draft=%q editing=%v", state.EditorFor(hitSFTPPath).String(), view.sftpFolder.pathEditing)
 	}
+	state.tooltip.Dismiss()
 	state.Key(ui.KeyEvent{Target: hitSFTPPath, Key: ui.KeyEscape})
 	if view.sftpFolder.pathEditing || state.EditorFor(hitSFTPPath) != nil || view.sftpFolder.pathInput().String() != view.path {
 		t.Fatalf("Escape left editing=%v value=%q", view.sftpFolder.pathEditing, view.sftpFolder.pathInput().String())
