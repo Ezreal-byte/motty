@@ -223,6 +223,10 @@ func (state *State) paintHostCard(canvas *ui.Canvas, card ui.Rect, host Host) {
 	case canvas.Hovered() == id:
 		background, edge = pal.surfaceSoft, withAlpha(pal.line, 0.9)
 	}
+	// The icon badge picks its fill from the exact card background
+	// (hostBadgeFill); give it the pre-tint one so a selected card keeps the
+	// contrasting badge instead of accentSoft-on-accentSoft.
+	badgeBackground := background
 	background = tintHostSurface(background, host.Color, .10)
 	canvas.RoundedBorder(card, radius.surface, edgeWidth, edge, background)
 	paintHostColorMark(canvas, card, host.Color)
@@ -274,7 +278,7 @@ func (state *State) paintHostCard(canvas *ui.Canvas, card ui.Rect, host Host) {
 		f.Checkbox(hitHostCheckList.At(int(host.ID)), state.hostSelected(host.ID)).Label(host.Label).MarginSides(1, 0, 0, 0)
 	})
 	f.End()
-	state.paintHostCatalogIcon(canvas, host, avatar.Rect(), background)
+	state.paintHostCatalogIcon(canvas, host, avatar.Rect(), badgeBackground)
 	if kind != lightIdle {
 		corner := light.Rect()
 		canvas.Rounded(corner, corner.Width/2, background)

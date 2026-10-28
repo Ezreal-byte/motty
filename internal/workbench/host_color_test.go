@@ -206,3 +206,60 @@ func TestConnectionColorEmptyFilePanelFollowsItsSession(t *testing.T) {
 		}
 	}
 }
+
+// A colored host must keep both the list's selection tone and the card's icon
+// badge: the tint goes on top of the selection fill, and the badge keeps picking
+// its fill from the card background it was painted on.
+func TestColoredHostsKeepSelectionAndBadgeContrast(t *testing.T) {
+	for _, light := range []bool{false, true} {
+		name := "dark"
+		if light {
+			name = "light"
+		}
+		t.Run(name, func(t *testing.T) {
+			state := newTestState(t, testOptions(t))
+			if light {
+				state.setAppearance(appearanceLight)
+			}
+			host := state.hosts[0]
+			host.Icon = hostIconTerminal
+			host.Color = "#3b82f6"
+			state.selectedHostID = host.ID
+			if tint := tintHostSurface(state.pal.workspace, host.Color, .10); tint == state.pal.workspace {
+				t.Fatal("connection color does not reach the surface")
+			}
+
+			var canvas ui.Canvas
+			row := ui.Rect{Width: 900, Height: hostRowHeight}
+			state.paintHostTreeRow(&canvas, row, row, host, hitHostList.At(int(host.ID)))
+			want, hover := tintHostSurface(state.pal.surfaceHot, host.Color, .10), tintHostSurface(state.pal.surfaceSoft, host.Color, .10)
+			selected := false
+			for _, rect := range canvas.Rectangles() {
+				if rect.Bounds != row {
+					continue
+				}
+				if rect.Color == hover {
+					t.Fatal("a selected colored row is painted with the hover fill")
+				}
+				if rect.Color == want {
+					selected = true
+				}
+			}
+			if !selected {
+				t.Fatal("a selected colored row lost the selection tone")
+			}
+
+			canvas.Reset()
+			state.paintHostCard(&canvas, ui.Rect{Width: 360, Height: 150}, host)
+			badge := false
+			for _, rect := range canvas.Rectangles() {
+				if rect.Bounds.Width == 36 && rect.Bounds.Height == 36 && rect.Color == state.pal.surface {
+					badge = true
+				}
+			}
+			if !badge {
+				t.Fatal("a selected colored card paints its icon badge in the card's own color")
+			}
+		})
+	}
+}

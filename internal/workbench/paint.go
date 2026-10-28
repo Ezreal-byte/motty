@@ -1239,8 +1239,14 @@ func (state *State) scrollHosts(event ui.ScrollEvent) ui.EventResult {
 
 func (state *State) paintHostTreeRow(canvas *ui.Canvas, row, content ui.Rect, host Host, id ui.ID) {
 	pal := state.pal
+	// The selection fill is the tree's own accent (theme.Accent is surfaceHot);
+	// keep that tone underneath the connection tint so a colored selected row
+	// still reads as selected, not as merely hovered.
 	rowBackground := pal.workspace
-	if host.ID == state.selectedHostID || canvas.Hovered() == id {
+	switch {
+	case host.ID == state.selectedHostID:
+		rowBackground = pal.surfaceHot
+	case canvas.Hovered() == id:
 		rowBackground = pal.surfaceSoft
 	}
 	if hostAccent(host.Color).Alpha > 0 {
