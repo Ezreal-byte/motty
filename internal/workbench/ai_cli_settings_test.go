@@ -1,11 +1,64 @@
 package workbench
 
 import (
+	"github.com/vivaui/viva/text"
 	"motty/internal/ai/store"
 	"os"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
+
+func TestCLIFormReflectsAutomaticPathWithoutPinningIt(t *testing.T) {
+	for _, tc := range []struct{ kind, program string }{
+		{"codex-cli", "codex"}, {"claude-code-cli", "claude"}, {"opencode-cli", "opencode"},
+	} {
+		t.Run(tc.kind, func(t *testing.T) {
+			bin := t.TempDir()
+			program := tc.program
+			if runtime.GOOS == "windows" {
+				program += ".exe"
+			}
+			path := filepath.Join(bin, program)
+			if err := os.WriteFile(path, nil, 0700); err != nil {
+				t.Fatal(err)
+			}
+			t.Setenv("PATH", bin)
+			w := newSettingsWorld(t, newLister("default"))
+			s := w.state
+			p := store.Provider{ID: "automatic", Name: "Local agent", Kind: tc.kind, Enabled: true}
+			if err := w.db(t).SaveProvider(p); err != nil {
+				t.Fatal(err)
+			}
+			s.reloadAI()
+			s.aiOpenProviderForm(p.ID)
+			if got := s.ai.cfg.cliPath.String(); got != path {
+				t.Fatalf("automatic lookup did not populate the path input: got %q, want %q", got, path)
+			}
+			_, texts := w.paint()
+			if !strings.Contains(strings.Join(texts, "|"), path) {
+				t.Fatal("resolved path was not rendered")
+			}
+			if stored, _ := s.aiProviderByID(p.ID); stored.CLIPath != "" {
+				t.Fatal("opening the form changed the saved automatic path")
+			}
+			s.aiSubmitProvider()
+			s.cancelAIFetch()
+			if stored, _ := s.aiProviderByID(p.ID); stored.CLIPath != "" {
+				t.Fatal("saving an untouched discovered path pinned the executable")
+			}
+			s.aiOpenProviderForm(p.ID)
+			s.ai.cfg.cliPath.SetSelection(text.Range{Start: 0, End: s.ai.cfg.cliPath.RuneCount()})
+			s.ai.cfg.cliPath.Insert("/manual path/agent")
+			s.aiSubmitProvider()
+			s.cancelAIFetch()
+			if stored, _ := s.aiProviderByID(p.ID); stored.CLIPath != "/manual path/agent" {
+				t.Fatal("manual override was not saved")
+			}
+		})
+	}
+}
 
 func TestCLIFormHidesHTTPInputsAndRoundTripsPath(t *testing.T) {
 	for _, kind := range []string{"claude-code-cli", "codex-cli", "opencode-cli"} {
@@ -108,7 +161,7 @@ func TestSwitchingCLIPresetsDropsThePreviousExecutable(t *testing.T) {
 	s.aiChoosePreset(claude)
 	s.ai.cfg.cliPath.Insert("/opt/claude")
 	s.aiChoosePreset(codex)
-	if got := s.ai.cfg.cliPath.String(); got != "" {
+	if got := s.ai.cfg.cliPath.String(); strings.Contains(got, "/opt/claude") {
 		t.Fatalf("switching from Claude Code CLI to Codex CLI kept path %q", got)
 	}
 }

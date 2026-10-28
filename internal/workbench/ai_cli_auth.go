@@ -387,10 +387,30 @@ func (s *State) aiCLIError(message string) string {
 		return message
 	}
 	m := s.messages.AISettings
+	if diagnostic, ok := cli.ParseCompatibilityDiagnostic(message); ok {
+		var reason string
+		switch diagnostic.Reason {
+		case "unavailable":
+			reason = m.CLIErrCheckUnavailable
+		case "invalid_output":
+			reason = m.CLIErrCheckInvalid
+		case "missing_capability":
+			reason = fmt.Sprintf(m.CLIErrCapabilityFmt, diagnostic.Detail)
+		case "not_applied":
+			reason = fmt.Sprintf(m.CLIErrIsolationFmt, diagnostic.Detail)
+		}
+		if reason != "" {
+			if diagnostic.Version == "" {
+				diagnostic.Version = m.CLIVersionUnknown
+			}
+			name := strings.TrimSpace(diagnostic.Program + " " + diagnostic.Version)
+			return fmt.Sprintf(m.CLIErrCompatibilityFmt, name, reason, diagnostic.Command)
+		}
+	}
 	switch strings.TrimSpace(strings.TrimPrefix(message, "cli:")) {
 	case "not_installed", "invalid_path", "node_required", "unsupported_launcher":
 		return m.CLIErrInstall
-	case "unsupported_version", "unsafe_config_unverifiable":
+	case "unsupported_version", "invalid_version", "unsafe_config_unverifiable":
 		return m.CLIErrVersion
 	case "login_required":
 		return m.CLIErrLogin

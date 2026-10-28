@@ -50,6 +50,8 @@ type AISettingsMessages struct {
 	ErrModelName       string
 	CLIPath            string
 	CLIPathDefault     string
+	CLIPathDetected    string
+	CLIPathNotFound    string
 	CLIFormDescription string
 	CLIDefaultModel    string
 	CLIModelsNote      string
@@ -72,6 +74,13 @@ type AISettingsMessages struct {
 	CLIErrVersion     string
 	CLIErrLogin       string
 	CLIErrRunFmt      string
+
+	CLIErrCompatibilityFmt string
+	CLIErrCheckUnavailable string
+	CLIErrCheckInvalid     string
+	CLIErrCapabilityFmt    string
+	CLIErrIsolationFmt     string
+	CLIVersionUnknown      string
 
 	// Importing from magpie and cc-switch.
 	ImportSourcesTitle              string

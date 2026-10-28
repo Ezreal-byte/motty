@@ -199,18 +199,3 @@ func TestOpenCodeCapabilityProbeRequiresAppliedPermission(t *testing.T) {
 		})
 	}
 }
-
-func TestCompatibilityRejectsUntestedCodexExecutionControls(t *testing.T) {
-	for _, tc := range []struct {
-		kind, version string
-		want          bool
-	}{
-		{"codex-cli", "codex-cli 0.163.0", true}, {"codex-cli", "codex-cli 0.162.0", false}, {"codex-cli", "codex-cli 0.164.0", false},
-		{"claude-code-cli", "2.1.309 (Claude Code)", true}, {"claude-code-cli", "2.1.100", false}, {"claude-code-cli", "3.0.0", false},
-		{"opencode-cli", "1.9.1", true}, {"opencode-cli", "2.0.0", false},
-	} {
-		if got := supportedVersion(tc.kind, []byte(tc.version)); got != tc.want {
-			t.Fatal(tc, got)
-		}
-	}
-}

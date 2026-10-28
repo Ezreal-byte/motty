@@ -26,6 +26,85 @@ var codexControls = []string{
 	`features.code_mode=false`, `web_search="disabled"`, `notify=[]`, `hooks={}`,
 }
 
+var adapters = map[string]adapter{
+	store.KindClaudeCLI: {
+		program: "claude",
+		required: []string{"--settings", "--setting-sources", "--strict-mcp-config", "--tools", "--disable-slash-commands",
+			"--include-partial-messages", "--no-session-persistence", "--print", "--output-format", "--mcp-config",
+			"--permission-mode", "--allowedTools"},
+	},
+	store.KindCodexCLI: {
+		program: "codex", required: []string{"--ephemeral", "--json", "--sandbox"},
+		help:   []string{"exec", "--help"},
+		checks: []capabilityCheck{{label: "features list", args: withOverrides([]string{"features", "list"}, codexControls), validate: validateCodexControls}},
+	},
+	store.KindOpenCodeCLI: {
+		program: "opencode", required: []string{"--pure"},
+		checks: []capabilityCheck{{
+			label:    "debug config --pure",
+			args:     []string{"debug", "config", "--pure"},
+			env:      []string{"OPENCODE_DISABLE_PROJECT_CONFIG=1", "OPENCODE_DB=:memory:", `OPENCODE_CONFIG_CONTENT={"permission":"deny"}`},
+			validate: validateOpenCodePermission,
+		}},
+	},
+}
+
+// Check the installed binary's effective feature state, not a version allowlist.
+// A feature the CLI still lists must be off under our overrides; a richer or
+// reworded table is tolerated, and a feature the CLI no longer has cannot be
+// switched on, so it is inert rather than unsafe.
+func validateCodexControls(raw []byte) checkFailure {
+	controlled := make(map[string]bool)
+	for _, override := range codexControls {
+		if name, ok := strings.CutPrefix(override, "features."); ok {
+			name, value, _ := strings.Cut(name, "=")
+			if value == "false" {
+				controlled[name] = true
+			}
+		}
+	}
+	seen := make(map[string]bool)
+	for _, line := range strings.Split(string(raw), "\n") {
+		fields := strings.Fields(line)
+		if len(fields) == 0 || headerRow(fields) {
+			continue
+		}
+		if len(fields) < 3 || seen[fields[0]] {
+			return checkFailure{reason: "invalid_output"}
+		}
+		name, value := fields[0], fields[len(fields)-1]
+		switch value {
+		case "true", "false":
+		default:
+			return checkFailure{reason: "invalid_output"}
+		}
+		seen[name] = true
+		if controlled[name] && value != "false" {
+			return checkFailure{reason: "not_applied", detail: "features." + name + "=false"}
+		}
+	}
+	return checkFailure{}
+}
+
+// headerRow is a human-readable header, not a feature: "Feature Stage Enabled".
+func headerRow(fields []string) bool {
+	switch strings.ToLower(fields[0]) {
+	case "feature", "features", "name":
+		return true
+	}
+	return false
+}
+
+func validateOpenCodePermission(raw []byte) checkFailure {
+	if !json.Valid(raw) {
+		return checkFailure{reason: "invalid_output"}
+	}
+	if !openCodeConfigDenied(raw) {
+		return checkFailure{reason: "not_applied", detail: "permission=deny"}
+	}
+	return checkFailure{}
+}
+
 func withOverrides(args, overrides []string) []string {
 	for _, v := range overrides {
 		args = append(args, "-c", v)
@@ -65,13 +144,13 @@ func foreignMCP(parent context.Context, kind string, c command, dir string) ([]s
 		c.args = append(c.args, "--settings", settings, "plugin", "list", "--json")
 		raw, err := capture(ctx, c, 4<<20)
 		if err != nil {
-			return nil, errors.New("cli: unsafe_config_unverifiable")
+			return nil, compatibilityFailure(adapters[kind].program, c, "plugin list --json", "unavailable", "")
 		}
 		var plugins []struct {
 			ID string `json:"id"`
 		}
 		if json.Unmarshal(raw, &plugins) != nil {
-			return nil, errors.New("cli: unsafe_config_unverifiable")
+			return nil, compatibilityFailure(adapters[kind].program, c, "plugin list --json", "invalid_output", "")
 		}
 		for _, plugin := range plugins {
 			if plugin.ID != "" {
@@ -82,13 +161,13 @@ func foreignMCP(parent context.Context, kind string, c command, dir string) ([]s
 		c.args = withOverrides(append(c.args, "mcp", "list", "--json"), codexControls)
 		raw, err := capture(ctx, c, 4<<20)
 		if err != nil {
-			return nil, errors.New("cli: unsafe_config_unverifiable")
+			return nil, compatibilityFailure(adapters[kind].program, c, "mcp list --json", "unavailable", "")
 		}
 		var servers []struct {
 			Name string `json:"name"`
 		}
 		if json.Unmarshal(raw, &servers) != nil {
-			return nil, errors.New("cli: unsafe_config_unverifiable")
+			return nil, compatibilityFailure(adapters[kind].program, c, "mcp list --json", "invalid_output", "")
 		}
 		for _, s := range servers {
 			if s.Name != "" {
@@ -100,13 +179,13 @@ func foreignMCP(parent context.Context, kind string, c command, dir string) ([]s
 		c.env = openCodeEnv(map[string]any{"permission": "deny"})
 		raw, err := capture(ctx, c, 4<<20)
 		if err != nil {
-			return nil, errors.New("cli: unsafe_config_unverifiable")
+			return nil, compatibilityFailure(adapters[kind].program, c, "debug config --pure", "unavailable", "")
 		}
 		var config struct {
 			MCP map[string]json.RawMessage `json:"mcp"`
 		}
 		if json.Unmarshal(raw, &config) != nil {
-			return nil, errors.New("cli: unsafe_config_unverifiable")
+			return nil, compatibilityFailure(adapters[kind].program, c, "debug config --pure", "invalid_output", "")
 		}
 		for name := range config.MCP {
 			names = append(names, name)

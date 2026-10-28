@@ -822,6 +822,13 @@ var chineseAISettings = AISettingsMessages{
 	CLIErrLogin:       "CLI 返回认证错误。请检查第三方平台凭据，或按需使用「去登录」。",
 	CLIErrRunFmt:      "本机 CLI 执行失败（%s），请检查安装、认证和模型设置。",
 
+	CLIErrCompatibilityFmt: "%s 检查失败：%s（检查命令：%s）。",
+	CLIErrCheckUnavailable: "无法执行检查命令",
+	CLIErrCheckInvalid:     "无法解析检查结果",
+	CLIErrCapabilityFmt:    "缺少必要能力：%s",
+	CLIErrIsolationFmt:     "隔离设置未生效：%s",
+	CLIVersionUnknown:      "版本未知",
+
 	ImportSourcesTitle:              "导入服务商",
 	ImportSourcesDesc:               "从本机的 magpie 或 cc-switch 读取服务商配置，不会发送到网络。",
 	ImportChooseTitle:               "选择 magpie 或 cc-switch 文件",
@@ -909,6 +916,8 @@ var chineseAISettings = AISettingsMessages{
 	ErrModelName:       "模型名称不能包含空格。",
 	CLIPath:            "CLI 可执行文件路径",
 	CLIPathDefault:     "自动查找（本机 PATH）",
+	CLIPathDetected:    "已自动找到；未修改将继续自动查找。",
+	CLIPathNotFound:    "未找到可执行文件，请安装或手动填写路径。",
 	CLIFormDescription: "使用本机已安装的 CLI，沿用其平台与凭据配置；官方登录可选，Motty 不复制凭据。",
 	CLIDefaultModel:    "CLI 默认模型",
 	CLIModelsNote:      "默认和手工 CLI 模型为本地配置，尚未做远端验证。",

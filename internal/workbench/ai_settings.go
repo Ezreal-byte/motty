@@ -151,15 +151,17 @@ type aiSettingsUI struct {
 	kind   string
 	// preset is the entry of aiPresets the form was last filled from, open
 	// whether its list is showing.
-	preset     int
-	presetOpen bool
-	name       text.Editor
-	baseURL    text.Editor
-	apiKey     text.Editor
-	cliPath    text.Editor
-	authStyle  string // Anthropic only; empty means the API key default
-	hadKey     bool
-	formErr    string
+	preset         int
+	presetOpen     bool
+	name           text.Editor
+	baseURL        text.Editor
+	apiKey         text.Editor
+	cliPath        text.Editor
+	cliAutoPath    string
+	cliPathMissing bool
+	authStyle      string // Anthropic only; empty means the API key default
+	hadKey         bool
+	formErr        string
 	// deleteID is the provider the delete question is about.
 	deleteID string
 
@@ -477,6 +479,7 @@ func (state *State) aiCloseDialog() {
 	cfg.notice = ""
 	cfg.name, cfg.baseURL, cfg.apiKey = text.Editor{}, text.Editor{}, text.Editor{}
 	cfg.cliPath, cfg.authStyle = text.Editor{}, ""
+	cfg.cliAutoPath, cfg.cliPathMissing = "", false
 	// The import candidates hold credentials in memory; closing the dialog is
 	// also how they are forgotten.
 	cfg.importStep, cfg.importErr = aiImportSources, ""
@@ -761,6 +764,7 @@ func (state *State) aiOpenProviderForm(id string) {
 	cfg.name.Insert(provider.Name)
 	cfg.baseURL.Insert(provider.BaseURL)
 	cfg.cliPath.Insert(provider.CLIPath)
+	state.aiDiscoverCLIPath()
 }
 
 // printableLine accepts what a one-line field may hold: no control characters
@@ -812,6 +816,9 @@ func (state *State) aiSubmitProvider() {
 	provider := store.Provider{ID: cfg.editID, Name: name, Kind: cfg.kind, BaseURL: base, APIKey: key, HasKey: key != "", Enabled: true}
 	if cliProvider {
 		provider.CLIPath = strings.TrimSpace(cfg.cliPath.String())
+		if provider.CLIPath == cfg.cliAutoPath {
+			provider.CLIPath = ""
+		}
 	} else if cfg.kind == store.KindAnthropic {
 		provider.AuthStyle = cfg.authStyle
 	}

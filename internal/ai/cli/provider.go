@@ -17,23 +17,10 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
 	"runtime"
-	"strconv"
 	"strings"
 	"time"
 )
-
-type adapter struct {
-	program  string
-	required []string
-}
-
-var adapters = map[string]adapter{
-	store.KindClaudeCLI:   {"claude", []string{"--settings", "--setting-sources", "--strict-mcp-config", "--tools", "--disable-slash-commands", "--include-partial-messages", "--no-session-persistence"}},
-	store.KindCodexCLI:    {"codex", []string{"--ephemeral", "--json", "--sandbox"}},
-	store.KindOpenCodeCLI: {"opencode", []string{"--pure"}},
-}
 
 type provider struct{ kind, path string }
 
@@ -43,10 +30,12 @@ func (p *provider) Stream(context.Context, llm.Request) (<-chan llm.Event, error
 	return nil, errors.New("cli: native_session_required")
 }
 
-func resolve(kind, path string) (command, error) {
+// ExecutablePath locates the CLI entry point without running it. Launcher paths
+// are preserved so displaying or saving a Windows npm shim does not pin node.exe.
+func ExecutablePath(kind, path string) (string, error) {
 	a, ok := adapters[kind]
 	if !ok {
-		return command{}, errors.New("cli: unsupported_provider")
+		return "", errors.New("cli: unsupported_provider")
 	}
 	path = strings.TrimSpace(path)
 	if path == "" {
@@ -55,7 +44,7 @@ func resolve(kind, path string) (command, error) {
 	if strings.HasPrefix(path, "~/") || strings.HasPrefix(path, `~\`) {
 		home, err := os.UserHomeDir()
 		if err != nil {
-			return command{}, errors.New("cli: invalid_path")
+			return "", errors.New("cli: invalid_path")
 		}
 		path = filepath.Join(home, path[2:])
 	}
@@ -70,7 +59,19 @@ func resolve(kind, path string) (command, error) {
 		}
 	}
 	if err != nil {
-		return command{}, errors.New("cli: not_installed")
+		return "", errors.New("cli: not_installed")
+	}
+	resolved, err = filepath.Abs(resolved)
+	if err != nil {
+		return "", errors.New("cli: invalid_path")
+	}
+	return resolved, nil
+}
+
+func resolve(kind, path string) (command, error) {
+	resolved, err := ExecutablePath(kind, path)
+	if err != nil {
+		return command{}, err
 	}
 	c := command{program: resolved}
 	if runtime.GOOS == "windows" && (strings.EqualFold(filepath.Ext(resolved), ".cmd") || strings.EqualFold(filepath.Ext(resolved), ".bat")) {
@@ -102,50 +103,6 @@ func resolve(kind, path string) (command, error) {
 	}
 	return c, nil
 }
-func probe(ctx context.Context, kind string, c command) error {
-	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
-	defer cancel()
-	version := c
-	version.args = append(append([]string{}, c.args...), "--version")
-	rawVersion, err := capture(ctx, version, 64<<10)
-	if err != nil {
-		return err
-	}
-	if !supportedVersion(kind, rawVersion) {
-		return errors.New("cli: unsupported_version")
-	}
-	help := c
-	help.args = append(append([]string{}, c.args...), "--help")
-	if kind == store.KindCodexCLI {
-		help.args = append(append([]string{}, c.args...), "exec", "--help")
-	}
-	raw, err := capture(ctx, help, 2<<20)
-	if err != nil {
-		return err
-	}
-	for _, flag := range adapters[kind].required {
-		if !strings.Contains(string(raw), flag) {
-			return errors.New("cli: unsupported_version")
-		}
-	}
-	if kind == store.KindOpenCodeCLI {
-		config := c
-		config.args = append(append([]string{}, c.args...), "debug", "config", "--pure")
-		config.env = append(append([]string{}, c.env...),
-			"OPENCODE_DISABLE_PROJECT_CONFIG=1",
-			"OPENCODE_DB=:memory:",
-			`OPENCODE_CONFIG_CONTENT={"permission":"deny"}`,
-		)
-		raw, err := capture(ctx, config, 4<<20)
-		if err != nil {
-			return errors.New("cli: unsafe_config_unverifiable")
-		}
-		if !openCodeConfigDenied(raw) {
-			return errors.New("cli: unsafe_config_unverifiable")
-		}
-	}
-	return nil
-}
 
 // openCodeConfigDenied proves the running OpenCode build actually applies the
 // inline config that carries its execution policy. Accepting only --pure is not
@@ -169,32 +126,12 @@ func openCodeConfigDenied(raw []byte) bool {
 	return json.Unmarshal(rules["*"], &wildcard) == nil && wildcard == "deny"
 }
 
-var cliVersionPattern = regexp.MustCompile(`\b([0-9]+)\.([0-9]+)\.([0-9]+)\b`)
-
-func supportedVersion(kind string, raw []byte) bool {
-	parts := cliVersionPattern.FindSubmatch(raw)
-	if len(parts) != 4 {
-		return false
-	}
-	major, _ := strconv.Atoi(string(parts[1]))
-	minor, _ := strconv.Atoi(string(parts[2]))
-	patch, _ := strconv.Atoi(string(parts[3]))
-	switch kind {
-	case store.KindCodexCLI:
-		return major == 0 && minor == 163
-	case store.KindClaudeCLI:
-		return major == 2 && minor == 1 && patch >= 309
-	case store.KindOpenCodeCLI:
-		return major == 1
-	}
-	return false
-}
 func (p *provider) Models(ctx context.Context) ([]string, error) {
 	c, err := resolve(p.kind, p.path)
 	if err != nil {
 		return nil, err
 	}
-	if err = probe(ctx, p.kind, c); err != nil {
+	if err = probe(ctx, p.kind, &c); err != nil {
 		return nil, err
 	}
 	return []string{"default"}, nil
@@ -206,7 +143,7 @@ func (p *provider) RunSession(parent context.Context, req llm.Request, call func
 	if err != nil {
 		return err
 	}
-	if err = probe(ctx, p.kind, c); err != nil {
+	if err = probe(ctx, p.kind, &c); err != nil {
 		return err
 	}
 	dir, err := os.MkdirTemp("", "motty-cli-")

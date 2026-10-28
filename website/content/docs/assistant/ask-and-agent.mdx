@@ -16,6 +16,11 @@ or enter the path to the executable (spaces are supported; shell commands and
 extra arguments are not). Executable paths are local to each computer and are
 not copied by configuration sync. Other provider settings and models still sync.
 
+Opening the form or changing the CLI type fills the path field with the discovered
+executable, or shows a not-found hint. Saving that value unchanged preserves
+automatic lookup; editing it saves an explicit path. Discovery does not run the
+CLI or start a login flow.
+
 No Endpoint or API Key is required in Motty. The CLI keeps its own credentials
 and provider configuration. Select **CLI default model** to use its configured
 default, or manually add a model ID. The default entry and a successful version
@@ -69,9 +74,11 @@ step. HTTP providers retain their existing tool-requesting-model-turn counting.
 Sends have a 30-minute total timeout; individual tool approval limits still apply.
 Motty does not automatically install, upgrade, or log in to a CLI.
 
-This adapter revision accepts Claude Code **2.1.309 or later in 2.1.x**, Codex
-**0.163.x**, and OpenCode **1.x with `--pure` support**. Other versions fail
-closed until their tool controls and protocol have been checked. Codex retains
+The shared CLI runtime reads the installed version and checks the capabilities
+declared by its adapter; it does not use a version-number allowlist. Missing
+parameters, ineffective isolation settings, failed checks and invalid check
+output are reported with the CLI name, detected version and failing check.
+Native tool isolation remains required regardless of the version. Codex retains
 protocol-only MCP resource helpers, but the private Motty endpoint publishes no
 resources and rejects resource list/read requests. These helpers cannot read
 local files or reach another MCP server.

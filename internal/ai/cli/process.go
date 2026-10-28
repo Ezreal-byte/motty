@@ -18,6 +18,7 @@ const maxStderr = 64 << 10
 
 type command struct {
 	program   string
+	version   string
 	args, env []string
 	dir       string
 	input     string

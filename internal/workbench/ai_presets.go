@@ -76,11 +76,14 @@ func (state *State) aiChoosePreset(index int) {
 		if cfg.preset != index {
 			// A path belongs to one CLI executable, not to the preset slot.
 			cfg.cliPath = text.Editor{}
+			cfg.cliPath.Restrict(printableLine, 4096)
+			cfg.cliAutoPath, cfg.cliPathMissing = "", false
 		}
 		cfg.apiKey = text.Editor{}
 		cfg.hadKey = false
 	}
 	cfg.kind, cfg.preset, cfg.presetOpen = preset.kind, index, false
+	state.aiDiscoverCLIPath()
 }
 
 // aiPresetName is the name a preset gives a provider: none for the custom one.

@@ -822,6 +822,13 @@ var englishAISettings = AISettingsMessages{
 	CLIErrLogin:       "The CLI reported an authentication error. Check its third-party credentials or use Sign in if needed.",
 	CLIErrRunFmt:      "Local CLI failed (%s). Check its installation, authentication and model settings.",
 
+	CLIErrCompatibilityFmt: "%s check failed: %s (check command: %s).",
+	CLIErrCheckUnavailable: "Cannot run check command",
+	CLIErrCheckInvalid:     "Cannot parse check output",
+	CLIErrCapabilityFmt:    "Missing required capability: %s",
+	CLIErrIsolationFmt:     "Isolation setting was not applied: %s",
+	CLIVersionUnknown:      "version unknown",
+
 	ImportSourcesTitle:              "Import providers",
 	ImportSourcesDesc:               "Read provider configurations from magpie or cc-switch on this computer. Nothing is sent over the network.",
 	ImportChooseTitle:               "Choose a magpie or cc-switch file",
@@ -909,6 +916,8 @@ var englishAISettings = AISettingsMessages{
 	ErrModelName:       "A model name has no spaces.",
 	CLIPath:            "CLI executable path",
 	CLIPathDefault:     "Automatic (local PATH)",
+	CLIPathDetected:    "Automatically found; unchanged keeps automatic lookup.",
+	CLIPathNotFound:    "Executable not found. Install it or enter its path.",
 	CLIFormDescription: "Use an installed local CLI and its existing provider credentials. Official sign-in is optional; Motty never copies credentials.",
 	CLIDefaultModel:    "CLI default model",
 	CLIModelsNote:      "Default/manual CLI models are configured locally, not remotely verified.",
