@@ -1759,7 +1759,7 @@ var englishAbout = AboutMessages{
 	Version:          "Version",
 	Platform:         "Platform",
 	Build:            "Build",
-	BuildDevelopment: "Development build",
+	BuildUnavailable: "Build information unavailable",
 	Runtime:          "Runtime",
 
 	CopyRow:         "Copy version info",

@@ -48,13 +48,18 @@ type aboutBuildInfo struct {
 // aboutFacts reads the build once. The strings are made here, not on a paint,
 // because a settings page repaints on every pointer move and must not allocate.
 var aboutFacts = sync.OnceValue(func() aboutBuildInfo {
+	info, _ := debug.ReadBuildInfo()
+	return readAboutFacts(info)
+})
+
+func readAboutFacts(info *debug.BuildInfo) aboutBuildInfo {
 	facts := aboutBuildInfo{
 		version:  update.Current,
 		platform: aboutPlatform(runtime.GOOS, runtime.GOARCH),
 		runtime:  runtime.Version(),
 	}
 	facts.versionText = "v" + facts.version
-	if info, ok := debug.ReadBuildInfo(); ok {
+	if info != nil {
 		var revision, when string
 		for _, setting := range info.Settings {
 			switch setting.Key {
@@ -79,7 +84,7 @@ var aboutFacts = sync.OnceValue(func() aboutBuildInfo {
 		facts.copyText += "build: " + facts.build + "\n"
 	}
 	return facts
-})
+}
 
 // aboutPlatform names the operating system and architecture as a person reads
 // them, while keeping the runtime's own names for anything unrecognised.
@@ -107,7 +112,7 @@ func aboutPlatform(goos, goarch string) string {
 // buildText names the build, with a word of its own when no commit was recorded.
 func (facts aboutBuildInfo) buildText(m i18n.AboutMessages) string {
 	if facts.build == "" {
-		return m.BuildDevelopment
+		return m.BuildUnavailable
 	}
 	return facts.build
 }

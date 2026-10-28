@@ -18,6 +18,15 @@ git tag v0.1.3 && git push origin v0.1.3
 `tools/release.sh` refuses a tag that is not `v` plus the version in `viva.toml`,
 and the draft job refuses a tag whose commit has no notes file.
 
+The application is built from a clean local clone with a real `.git` directory.
+Go 1.26 does not automatically stamp Git metadata from the `.git` file of a
+linked worktree. Before each generated executable is packaged, `tools/checkbuild`
+reads its Go build information and checks the exact commit, commit time, clean
+source status and target OS/architecture. Viva packages that checked executable
+through `--program`. This check also works for cross-compiled Windows binaries.
+The optional `--installer` input is an externally built installer and is not
+covered by this executable check; the automated release workflow does not use it.
+
 ## What each job does
 
 | Job | Runs on | Does |

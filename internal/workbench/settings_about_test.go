@@ -1,11 +1,51 @@
 package workbench
 
 import (
+	"runtime/debug"
 	"strings"
 	"testing"
 
 	"github.com/vivaui/viva/ui"
+	"motty/internal/i18n"
 )
+
+func TestAboutBuildMetadataAndMissingInformation(t *testing.T) {
+	for _, test := range []struct {
+		name  string
+		info  *debug.BuildInfo
+		build string
+	}{
+		{name: "no build info"},
+		{name: "no VCS settings", info: &debug.BuildInfo{}},
+		{name: "release", info: &debug.BuildInfo{Settings: []debug.BuildSetting{
+			{Key: "vcs.revision", Value: "429c5f54ea0b283e40c8dcfd7bc0d19300ba1fc8"},
+			{Key: "vcs.time", Value: "2026-10-28T07:55:15Z"},
+		}}, build: "429c5f5 · 2026-10-28"},
+		{name: "revision without a date", info: &debug.BuildInfo{Settings: []debug.BuildSetting{
+			{Key: "vcs.revision", Value: "123456789"},
+			{Key: "vcs.time", Value: "invalid"},
+		}}, build: "1234567"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			facts := readAboutFacts(test.info)
+			if facts.build != test.build {
+				t.Fatalf("build=%q, want %q", facts.build, test.build)
+			}
+			for _, language := range []i18n.Language{i18n.English, i18n.Chinese} {
+				want := test.build
+				if want == "" {
+					want = i18n.For(language).About.BuildUnavailable
+				}
+				if got := facts.buildText(i18n.For(language).About); got != want {
+					t.Fatalf("build text=%q, want %q", got, want)
+				}
+			}
+			if test.build != "" && !strings.Contains(facts.copyText, "build: "+test.build+"\n") {
+				t.Fatal("copied information lost the build identity")
+			}
+		})
+	}
+}
 
 func TestAboutShowsTheBuildAndOpensTheCommunityLinks(t *testing.T) {
 	state := newTestState(t, testOptions(t))

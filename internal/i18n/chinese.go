@@ -1759,7 +1759,7 @@ var chineseAbout = AboutMessages{
 	Version:          "版本",
 	Platform:         "运行平台",
 	Build:            "构建",
-	BuildDevelopment: "本地开发构建",
+	BuildUnavailable: "构建信息未提供",
 	Runtime:          "运行时",
 
 	CopyRow:         "复制版本信息",
