@@ -121,6 +121,9 @@ func (w *sftpWindow) releaseConnection() {
 	if w.owner.sftpWindows[w.session.ID] == w {
 		delete(w.owner.sftpWindows, w.session.ID)
 	}
+	if session, ok := w.owner.sessionByIDPointer(w.session.ID); ok {
+		w.owner.releaseKeptConnection(session)
+	}
 }
 
 func (state *State) releaseClosedSFTPConnections() {

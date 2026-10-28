@@ -520,7 +520,7 @@ func (state *State) finishStartingConnection(session *Session, automatic bool) {
 	session.tone = toneBusy
 	session.stage, session.since, session.finished = stageConnect, state.now(), 0
 	session.showLog, session.serverVersion, session.method = false, "", ""
-	session.err, session.shellFailed = nil, false
+	session.err, session.shellFailed, session.keptAfterShell = nil, false, false
 	session.hostKey = sshconn.HostKeyInfo{}
 	if automatic {
 		state.recordConnectionEvent(session, connectionEventReconnectStarted, "")
@@ -533,7 +533,7 @@ func (state *State) finishStartingConnection(session *Session, automatic bool) {
 		state.configureTerminal(session)
 	} else {
 		t := session.term
-		t.shell, t.ended, t.live, t.told = nil, false, false, toldNothing
+		t.shell, t.ended, t.live, t.inputSent, t.told = nil, false, false, false, toldNothing
 		t.skippedEndpoint, t.skippedRole, t.skipsTold = sshconn.Endpoint{}, sshconn.EndpointTarget, 0
 		t.preedit = app.TextState{}
 		t.write([]byte("\r\n"))

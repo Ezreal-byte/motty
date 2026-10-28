@@ -308,6 +308,14 @@ func serve(sshConn ssh.Conn, sftpRoot string, channel ssh.Channel, requests <-ch
 			}
 		case "shell":
 			request.Reply(true, nil)
+			if os.Getenv("E2E_SFTP_ONLY") == "1" {
+				// An account restricted to SFTP: the shell request is accepted, the
+				// session says so and ends with a failure status.
+				fmt.Fprint(channel, "This service allows sftp connections only.\r\n")
+				channel.SendRequest("exit-status", false, ssh.Marshal(struct{ Status uint32 }{1}))
+				channel.Close()
+				return
+			}
 			once.Do(func() {
 				command := exec.Command("/bin/bash", "--noprofile", "--norc", "-i")
 				command.Env = append([]string{"TERM=" + term, "HOME=" + os.Getenv("HOME"), "PATH=" + os.Getenv("PATH"),

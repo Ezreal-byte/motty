@@ -224,6 +224,7 @@ func TestTheProgramsAnswersGoBackToIt(t *testing.T) {
 
 func TestAnEndedSessionSaysSoAndEnterConnectsAgain(t *testing.T) {
 	state, world, fake, shell := liveSession(t)
+	key(state, 0, ui.KeyEvent{Key: ui.KeyEnter}) // the user typed; the shell did not end by itself
 	shell.say("bye\r\n")
 	shell.end(&exitStatus{3})
 	state.Wake()
@@ -253,6 +254,45 @@ func TestAnEndedSessionSaysSoAndEnterConnectsAgain(t *testing.T) {
 	screen = screenText(state, 0)
 	if !strings.Contains(screen, "bye") || strings.Contains(screen, "Waiting for the server") {
 		t.Fatalf("the tab did not keep its history clean while starting a new attempt:\n%s", screen)
+	}
+}
+
+// A server that only allows SFTP accepts the shell and ends it at once. Nobody
+// wrote to that shell, so the server ended it, and the connection stays for the
+// file panel as it does when a server refuses the shell request.
+func TestAShellTheServerEndsKeepsTheConnectionForTheFiles(t *testing.T) {
+	state, session, fake, _ := openTestSFTP(t)
+	shell := fake.shell(t)
+	shell.say("This service allows sftp connections only.\r\n")
+	shell.end(&exitStatus{1})
+	state.Wake()
+	if !session.term.ended || fake.canceled != 0 || session.files == nil {
+		t.Fatalf("ended=%v canceled=%d files=%v, want the connection kept for the file panel", session.term.ended, fake.canceled, session.files != nil)
+	}
+	state.openSFTPDirectory(session.files, "/home/test/docs")
+	waitSFTP(t, state, session, func(view *sftpView) bool { return !view.busy && len(view.rows) == 1 })
+
+	// Closing the panel does not take the connection with it: Files can be opened again.
+	state.releaseIdleSFTP(session)
+	if fake.canceled != 0 {
+		t.Fatalf("canceled=%d, want the connection kept until the tab closes", fake.canceled)
+	}
+}
+
+// When the user ends the shell, the file panel still keeps the connection up
+// until it is closed, like OpenSSH waiting for its other channels.
+func TestTheConnectionOutlivesAUsersShellWhileTheFilesUseIt(t *testing.T) {
+	state, session, fake, _ := openTestSFTP(t)
+	shell := fake.shell(t)
+	key(state, 0, ui.KeyEvent{Key: ui.KeyEnter})
+	shell.end(&exitStatus{0})
+	state.Wake()
+	if !session.term.ended || fake.canceled != 0 || session.files == nil {
+		t.Fatalf("ended=%v canceled=%d files=%v, want the connection kept for the file panel", session.term.ended, fake.canceled, session.files != nil)
+	}
+	state.releaseIdleSFTP(session)
+	if session.files != nil || fake.canceled == 0 {
+		t.Fatalf("files=%v canceled=%d, want the connection closed with the last of its users", session.files != nil, fake.canceled)
 	}
 }
 

@@ -104,6 +104,7 @@ func (state *State) releaseIdleSFTP(session *Session) {
 		}
 	}
 	state.closeSFTP(session)
+	state.releaseKeptConnection(session)
 }
 
 func (state *State) syncTransfers(view *sftpView) {

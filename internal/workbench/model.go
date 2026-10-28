@@ -157,4 +157,8 @@ type Session struct {
 	reconnectText      string
 	reconnectSecond    int64
 	connectionStory    []connectionEvent
+
+	// keptAfterShell: the shell ended but the file panel or window still uses the
+	// connection, which closes with the last of them.
+	keptAfterShell bool
 }

@@ -62,6 +62,7 @@ type terminal struct {
 	skippedRole     sshconn.EndpointRole
 	skipsTold       int
 	live            bool             // the shell has spoken, or ended: the screen is the page to show
+	inputSent       bool             // the user, or an autofill answer, wrote to the shell: it did not end on its own
 	ended           bool             // the shell finished, or never started
 	shellOpened     time.Duration    // when the shell was asked for, to give a silent one up
 	opening         chan shellResult // a shell being opened in the background, until pump collects it
@@ -304,6 +305,7 @@ func (t *terminal) send(p []byte) bool {
 	}
 	accepted := t.shell.Write(p)
 	if accepted {
+		t.inputSent = true
 		t.recording.append(t.recordingNow(), terminalRecordingInput, p)
 	}
 	return accepted
@@ -320,7 +322,9 @@ func (t *terminal) sendAssistant(p []byte) bool {
 	}
 	t.selection.clear()
 	t.screen.ScrollToBottom()
-	return t.shell.Write(p)
+	accepted := t.shell.Write(p)
+	t.inputSent = t.inputSent || accepted
+	return accepted
 }
 
 // sendSecret writes an autofill answer to the shell. It is not typed input, so
@@ -329,7 +333,9 @@ func (t *terminal) sendSecret(p []byte) bool {
 	if t.shell == nil || len(p) == 0 {
 		return false
 	}
-	return t.shell.Write(p)
+	accepted := t.shell.Write(p)
+	t.inputSent = t.inputSent || accepted
+	return accepted
 }
 
 func (t *terminal) sendProtocol(p []byte) bool {
@@ -593,6 +599,39 @@ func (state *State) shellEnded(session *Session) {
 	}
 	session.tone = toneBusy
 	session.busy = false
+	state.stopRemoteStats(session)
+	switch {
+	case session.hasServer() && !t.inputSent && session.phase == sshconn.PhaseConnected:
+		// The server ended a shell nobody had written to: an account that only
+		// allows SFTP, a refusal printed and exit 1. The connection is sound and
+		// stays, as when the server refuses the shell outright; the tab closes
+		// it, or Enter dials again.
+	case state.connectionInUse(session):
+		session.keptAfterShell = true
+	case session.conn != nil:
+		session.conn.Cancel()
+	}
+}
+
+// connectionInUse reports whether something other than the shell still works
+// over the session's connection: its file panel, which may hold transfers, or a
+// detached file window. Like OpenSSH, which waits for its other channels, the
+// connection stays up for them.
+func (state *State) connectionInUse(session *Session) bool {
+	if session.files != nil {
+		return true
+	}
+	w := state.sftpWindows[session.ID]
+	return w != nil && !w.closed
+}
+
+// releaseKeptConnection closes a connection that outlived its shell once the
+// last thing using it has gone.
+func (state *State) releaseKeptConnection(session *Session) {
+	if session == nil || !session.keptAfterShell || state.connectionInUse(session) {
+		return
+	}
+	session.keptAfterShell = false
 	if session.conn != nil {
 		session.conn.Cancel()
 	}
