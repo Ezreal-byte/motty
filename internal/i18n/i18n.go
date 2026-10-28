@@ -185,6 +185,16 @@ type Messages struct {
 	VaultMasterRemoved                     string
 	VaultCleared                           string
 	SettingsRestore                        string
+	SettingsSSHAgent                       string
+	SettingsSSHAgentDescription            string
+	SettingsSSHAgentUsingFmt               string
+	SettingsSSHAgentSystem                 string
+	SettingsSSHAgentCustom                 string
+	SettingsSSHAgentCustomTitle            string
+	SettingsSSHAgentCustomDescription      string
+	SettingsSSHAgentPathLabel              string
+	SettingsSSHAgentPathPlaceholder        string
+	SettingsSSHAgentPathRequired           string
 	SettingsRestoreDescription             string
 	SettingsRestoreOff                     string
 	SettingsRestoreActive                  string

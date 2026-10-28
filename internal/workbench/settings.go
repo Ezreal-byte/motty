@@ -312,6 +312,14 @@ func (state *State) clickSettings(id ui.ID) bool {
 		changed = state.setRestoreConnectPolicy(restoreConnectOff)
 	case hitSettingsRestoreAll:
 		changed = state.setRestoreConnectPolicy(restoreConnectAll)
+	case hitSettingsAgentSystem:
+		changed = state.setSSHAgent(agentChoice{})
+	case hitSettingsAgentOnePassword:
+		changed = state.setSSHAgent(agentChoice{kind: agentKindOnePassword})
+	case hitSettingsAgentBitwarden:
+		changed = state.setSSHAgent(agentChoice{kind: agentKindBitwarden})
+	case hitSettingsAgentCustom:
+		state.openSSHAgentPathForm()
 	case hitSettingsShareToggle:
 		if state.shareConnections == shareConnectionsOff {
 			changed = state.setShareConnections(shareConnectionsOn)
@@ -489,6 +497,9 @@ func (state *State) settingsKey(event ui.KeyEvent) (ui.EventResult, bool) {
 		next, handled = components.SegmentedControlKeyDown(event.Target, options[:], components.DirectionLTR, event.Key)
 	case hitSettingsRestoreOff, hitSettingsRestoreActive, hitSettingsRestoreAll:
 		options := state.settingsRestoreOptions()
+		next, handled = components.SegmentedControlKeyDown(event.Target, options[:], components.DirectionLTR, event.Key)
+	case hitSettingsAgentSystem, hitSettingsAgentOnePassword, hitSettingsAgentBitwarden, hitSettingsAgentCustom:
+		options := state.settingsAgentOptions()
 		next, handled = components.SegmentedControlKeyDown(event.Target, options[:], components.DirectionLTR, event.Key)
 	default:
 		return ui.EventResult{}, false

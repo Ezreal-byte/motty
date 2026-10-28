@@ -190,8 +190,12 @@ type Config struct {
 	// identities when IdentityFiles is nil).
 	AdditionalIdentityFiles []string
 	// Agent controls whether the running ssh-agent is offered. It is ignored
-	// when SSH_AUTH_SOCK is unset.
+	// when there is no agent to offer (see AgentAddress).
 	Agent bool
+	// AgentAddress is where the ssh-agent listens: a Unix socket path, or on
+	// Windows a named pipe such as \\.\pipe\openssh-ssh-agent. Empty uses
+	// SSH_AUTH_SOCK, and on Windows the OpenSSH pipe when that is unset.
+	AgentAddress string
 	// Authentication overrides the legacy identity, agent and password policy
 	// for individual endpoints. An endpoint not in the map uses the fields
 	// above and every supported authentication method.

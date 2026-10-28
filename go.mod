@@ -16,6 +16,7 @@ require (
 )
 
 require (
+	github.com/Microsoft/go-winio v0.6.4 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/ebitengine/purego v0.11.1 // indirect
 	github.com/google/uuid v1.6.0 // indirect

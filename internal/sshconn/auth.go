@@ -50,8 +50,14 @@ func (conn *Conn) publicKeySigners(authentication Authentication) ([]ssh.Signer,
 		conn.update(func(status *Status) { status.Skipped = append(status.Skipped, skipped...) })
 	}
 	if authentication.Agent {
-		if agentSigners, err := conn.agentSigners(); err == nil {
+		agentSigners, err := conn.agentSigners()
+		switch {
+		case err == nil:
 			signers = append(agentSigners, signers...)
+		case conn.config.AgentAddress != "":
+			// The user pointed at this agent; saying nothing would leave a
+			// failed login with no hint that the agent was never reached.
+			conn.update(func(status *Status) { status.Skipped = append(status.Skipped, fmt.Sprintf("ssh-agent (%v)", err)) })
 		}
 	}
 	return signers, nil

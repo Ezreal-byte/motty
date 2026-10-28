@@ -21,8 +21,10 @@ type hostCatalog struct {
 	proxies    []proxyRecord
 	identities []identityRecord
 	// proxy is the outbound proxy every host inherits unless it names its own.
-	proxy               outboundProxy
-	connectionTimeout   time.Duration
+	proxy             outboundProxy
+	connectionTimeout time.Duration
+	// sshAgent is the ssh-agent connections offer their keys to.
+	sshAgent            agentChoice
 	connectionKeepAlive time.Duration
 	// systemUser is the login used for a host that names none.
 	systemUser string
@@ -265,6 +267,7 @@ func (catalog *hostCatalog) sshConfigFor(host, proxyHost Host, env connectEnv) (
 		Host: host.Address, Port: host.Port, User: catalog.login(host),
 		KnownHostsPath:          env.KnownHostsPath,
 		Agent:                   true,
+		AgentAddress:            catalog.sshAgent.resolved(),
 		DialTimeout:             catalog.connectionTimeout,
 		AdditionalIdentityFiles: catalog.identityPaths(),
 		Authentication:          make(map[sshconn.Endpoint]sshconn.Authentication, 1),
@@ -438,6 +441,7 @@ func catalogFromSaved(saved savedState, systemUser string, messages keyMessages)
 		agentHosts: agentHostSet(saved.AgentHosts),
 	}
 	catalog.connectionTimeout, catalog.connectionKeepAlive = connectionTimes(saved)
+	catalog.sshAgent = agentChoiceFromSaved(saved.SSHAgent, saved.SSHAgentPath)
 	return catalog
 }
 

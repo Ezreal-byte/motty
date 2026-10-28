@@ -350,6 +350,7 @@ func (state *State) paintConnectionSettings(page *settingsPage) {
 			page.row(messages.SettingsConnectionReconnect, messages.SettingsConnectionReconnectDescription, reconnect[:], selectedReconnect)
 			page.toggleRow(messages.SettingsShare, messages.SettingsShareDescription, state.shareConnections != shareConnectionsOff, hitSettingsShareToggle)
 			page.row(messages.SettingsRestore, messages.SettingsRestoreDescription, restore[:], selectedRestore)
+			state.paintSSHAgentRow(page)
 			state.paintOutboundProxyRow(page)
 		})
 		state.paintSSHSyncSettings(page)

@@ -21,8 +21,8 @@ func TestEverySavedStateFieldIsSharedOrKeptOnThisDevice(t *testing.T) {
 		"workspace": true, "active_session": true, "shortcuts": true, "identity_files": true, "agent_hosts": true, "sessions": true, "deck": true, "sync": true,
 		"host_view": true, "background": true,
 		"toolbars":    true,
-		"local_shell": true,
-		"window_x":    true, "window_y": true, "window_width": true, "window_height": true,
+		"local_shell": true, "ssh_agent": true, "ssh_agent_path": true,
+		"window_x": true, "window_y": true, "window_width": true, "window_height": true,
 	}
 	entity := map[string]bool{}
 	for _, field := range entityFields {

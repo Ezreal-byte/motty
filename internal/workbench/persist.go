@@ -32,6 +32,8 @@ type savedState struct {
 	Theme                      string              `json:"theme,omitempty"`
 	TerminalOption             string              `json:"terminalOption,omitempty"`
 	LocalShell                 string              `json:"local_shell,omitempty"`
+	SSHAgent                   string              `json:"ssh_agent,omitempty"`
+	SSHAgentPath               string              `json:"ssh_agent_path,omitempty"`
 	TerminalFontSize           int                 `json:"terminal_font_size,omitempty"`
 	TerminalFontFace           string              `json:"terminal_font_face,omitempty"`
 	TerminalFontFamily         string              `json:"terminal_font_family,omitempty"`
@@ -321,12 +323,15 @@ func writeFileAtomic(path string, data []byte) error {
 
 // snapshot is the state as it should be saved right now.
 func (state *State) snapshot() savedState {
+	savedAgent, savedAgentPath := state.sshAgent.saved()
 	saved := savedState{
 		Version:                    stateFileVersion,
 		Language:                   state.savedLanguage(),
 		Theme:                      state.appearanceMode.saved(),
 		TerminalOption:             state.terminalOption.String(),
 		LocalShell:                 state.localShell,
+		SSHAgent:                   savedAgent,
+		SSHAgentPath:               savedAgentPath,
 		TerminalFontSize:           int(state.terminalFontSize),
 		TerminalFontFace:           terminalFontFaceString(state.terminalFontFace),
 		TerminalFontFamily:         state.fonts.family,
@@ -547,6 +552,7 @@ func (state *State) restoreSettings(saved savedState) {
 func (state *State) restoreLocal(saved savedState) {
 	state.toolbars.restore(saved.Toolbars)
 	state.localShell = saved.LocalShell
+	state.sshAgent = agentChoiceFromSaved(saved.SSHAgent, saved.SSHAgentPath)
 	// A saved language is the user's choice. Without one (a first run, or a state
 	// from before the choice was told apart) the system's language decides, and
 	// stays undecided so a change of system language is followed.
