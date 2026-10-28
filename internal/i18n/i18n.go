@@ -291,6 +291,9 @@ type Messages struct {
 	FieldTags                   string
 	FieldTagsPlaceholder        string
 	HostTagsEmpty               string
+	HostGroupsEmpty             string
+	HostGroupCreatePrefix       string
+	ErrHostGroupInvalid         string
 	HostTagsCreatePrefix        string
 	FieldIcon                   string
 	FieldColor                  string

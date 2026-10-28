@@ -221,6 +221,9 @@ func (state *State) singleHostAction() (Host, bool) {
 }
 
 func (state *State) submitHostDialog() {
+	if !state.commitHostGroupQuery() {
+		return
+	}
 	if !state.commitHostTagQuery() {
 		return
 	}

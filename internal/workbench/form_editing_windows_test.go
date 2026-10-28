@@ -112,7 +112,9 @@ func TestWindowsHostFormsUseFrameworkEditing(t *testing.T) {
 				if editor.String() != "前中文主机后" {
 					t.Fatal("cut was not undoable")
 				}
-				if id == hitDialogTags {
+				// Searchable selectors own their popup until it is dismissed;
+				// leave it before testing editing in the next independent field.
+				if id == hitDialogGroup || id == hitDialogTags {
 					if err := driver.Key(ui.KeyEscape, 0); err != nil {
 						t.Fatal(err)
 					}
