@@ -50,7 +50,7 @@ func (conn *localConn) SkipIdentity()              {}
 func (conn *localConn) Cancel()                    {}
 
 func (conn *localConn) OpenShell(config sshconn.ShellConfig) (Shell, error) {
-	return localshell.Start(localshell.Config{Shell: conn.shell, Cols: config.Cols, Rows: config.Rows, Dir: conn.dir, Notify: config.Notify})
+	return localshell.Start(localshell.Config{Shell: conn.shell, Args: localshell.ArgsFor(conn.shell), Cols: config.Cols, Rows: config.Rows, Dir: conn.dir, Notify: config.Notify})
 }
 
 func (conn *localConn) OpenSFTP() (sftpclient.Remote, error) { return nil, errLocalOnly }

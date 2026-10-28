@@ -29,7 +29,6 @@ func InstalledWindowsShells() []Choice {
 	if root := os.Getenv("LOCALAPPDATA"); root != "" {
 		versions, _ := filepath.Glob(filepath.Join(root, "Microsoft", "PowerShell", "*", "pwsh.exe"))
 		pwsh = append(pwsh, versions...)
-		pwsh = append(pwsh, filepath.Join(root, "Microsoft", "WindowsApps", "pwsh.exe"))
 	}
 	if home := os.Getenv("USERPROFILE"); home != "" {
 		pwsh = append(pwsh, filepath.Join(home, "scoop", "apps", "pwsh", "current", "pwsh.exe"))
