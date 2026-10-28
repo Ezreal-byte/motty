@@ -97,7 +97,7 @@ func (state *State) paintSnippetsWorkspace(canvas *ui.Canvas, bounds ui.Rect) {
 	state.paintToolbarButton(canvas, hitSnippetAdd, add.Rect().X, add.Rect().Y, addWidth, m.SnippetAdd, addIcon, true, canAdd, condensed)
 
 	if len(form.list) == 0 {
-		state.paintEmptyPage(canvas, emptyIcon, emptyAdd, iconPlay, hitSnippetAdd, m.SnippetAdd, canAdd)
+		state.paintEmptyPage(canvas, emptyIcon, emptyAdd, iconNote, hitSnippetAdd, m.SnippetAdd, canAdd)
 		return
 	}
 	columns := [...]components.TableColumn{{Width: 220}, {Width: 170}, {Width: 0}}

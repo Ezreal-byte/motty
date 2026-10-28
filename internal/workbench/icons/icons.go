@@ -7654,6 +7654,29 @@ var StarSolid = ui.Icon{
 	},
 }
 
+// sticky-note is a compiled vector icon.
+var StickyNote = ui.Icon{
+	ViewBox: 24.0,
+	Stroke:  2.0,
+	Cap:     ui.CapRound,
+	Join:    ui.JoinRound,
+	Commands: []ui.PathCommand{
+		ui.MoveTo(16.0, 3.0),
+		ui.LineTo(5.0, 3.0),
+		ui.CubicTo(3.89543, 3.0, 3.0, 3.89543, 3.0, 5.0),
+		ui.LineTo(3.0, 19.0),
+		ui.CubicTo(3.0, 20.1046, 3.89543, 21.0, 5.0, 21.0),
+		ui.LineTo(19.0, 21.0),
+		ui.CubicTo(20.1046, 21.0, 21.0, 20.1046, 21.0, 19.0),
+		ui.LineTo(21.0, 8.0),
+		ui.ClosePath(),
+		ui.MoveTo(15.0, 3.0),
+		ui.LineTo(15.0, 7.0),
+		ui.CubicTo(15.0, 8.10457, 15.8954, 9.0, 17.0, 9.0),
+		ui.LineTo(21.0, 9.0),
+	},
+}
+
 // sun is a compiled vector icon.
 var Sun = ui.Icon{
 	ViewBox: 24.0,

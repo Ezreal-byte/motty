@@ -91,6 +91,7 @@ const (
 	iconDiscord
 	iconGitHub
 	iconChevronLeft
+	iconNote
 )
 
 // terminalPage reports whether the window shows the panes of a workspace rather
@@ -638,7 +639,7 @@ func (state *State) declareNavigation(f *flex.Frame) {
 		{hitProxies, iconGlobe, m.NavProxies, state.activeSection == sectionProxies},
 		{hitPortForwarding, iconForward, m.NavPortForwarding, state.activeSection == sectionForwards},
 		{hitKnownHosts, iconKnown, m.NavKnownHosts, state.activeSection == sectionKnownHosts},
-		{hitSnippets, iconPlay, m.NavSnippets, state.activeSection == sectionSnippets},
+		{hitSnippets, iconNote, m.NavSnippets, state.activeSection == sectionSnippets},
 	}
 	f.Column().Width(navigationWidth).Shrink(0).Children(func() {
 		// The logo with the name beside it, painted into this slot after layout.
@@ -1589,6 +1590,7 @@ var lucideIcons = [...]ui.Icon{
 	iconWeChat:       icons.Wechat,
 	iconDiscord:      icons.Discord,
 	iconGitHub:       icons.Github,
+	iconNote:         icons.StickyNote,
 }
 
 func paintIcon(canvas *ui.Canvas, kind uint8, bounds ui.Rect, foreground ui.Color) {

@@ -19,6 +19,7 @@ waitfor "No snippets" 3000
 shot /tmp/snippet-page-empty.png
 click "Add snippet"
 waitfor "Add a snippet" 3000
+shot /tmp/snippet-add-dialog.png
 type Say hello
 key tab
 type echo snippet-$((6*7))
