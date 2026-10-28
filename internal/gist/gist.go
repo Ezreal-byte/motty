@@ -64,7 +64,7 @@ func New(config Config, client *http.Client) (*Client, error) {
 	if err != nil || base.Host == "" || base.User != nil {
 		return nil, fmt.Errorf("gist: %q is not a server address", config.APIBase)
 	}
-	if err := cloudsync.CheckAddress(base); err != nil {
+	if err := cloudsync.CheckAddress(base, false); err != nil {
 		if errors.Is(err, cloudsync.ErrInsecure) {
 			return nil, err
 		}
@@ -85,7 +85,7 @@ func New(config Config, client *http.Client) (*Client, error) {
 	if strings.ContainsAny(config.File, "/\\\x00\r\n") {
 		return nil, errors.New("gist: a gist file name cannot contain a slash")
 	}
-	return &Client{config: config, base: base, http: cloudsync.HTTPClient(client)}, nil
+	return &Client{config: config, base: base, http: cloudsync.HTTPClient(client, false)}, nil
 }
 
 // ID is the gist the backup is in. It is empty until the first Put created one.

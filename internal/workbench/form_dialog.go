@@ -21,6 +21,7 @@ var (
 	hitFormCancel    = tree.ID(formDialogHits, "form-cancel")
 	hitFormClose     = tree.ID(formDialogHits, "form-close")
 	hitFormDismiss   = tree.ID(formDialogHits, "form-dismiss")
+	hitFormCheckbox  = tree.ID(formDialogHits, "form-checkbox")
 )
 
 const maxFormFields = 5
@@ -39,10 +40,14 @@ type formDialog struct {
 	title, description string
 	submit             string
 	danger             bool
-	fields             [maxFormFields]formField
-	count              int
-	dialogError        string
-	run                func(*State, *formDialog) string
+	// A form may ask for explicit consent after its fields. The caller owns
+	// the label, explanation and saved value; other forms have no checkbox.
+	checkLabel, checkDescription string
+	checked                      bool
+	fields                       [maxFormFields]formField
+	count                        int
+	dialogError                  string
+	run                          func(*State, *formDialog) string
 	// cancel, if set, runs instead of closing when the user cancels; a form that
 	// stands between two screens uses it to go back.
 	cancel func(*State)
@@ -81,6 +86,10 @@ func (state *State) formEditor(hit ui.ID) *text.Editor {
 
 func (state *State) clickForm(id ui.ID) {
 	switch id {
+	case hitFormCheckbox:
+		if state.form.checkLabel != "" {
+			state.form.checked = !state.form.checked
+		}
 	case hitFormSubmit:
 		state.submitForm()
 	case hitFormCancel, hitFormClose, hitFormDismiss:
@@ -113,7 +122,11 @@ func (state *State) submitForm() {
 // bodyHeight is the dialog body's height: its fields, and the error under them
 // when there is one.
 func (form *formDialog) bodyHeight() float32 {
-	return withError(float32(form.count)*66, form.dialogError)
+	height := float32(form.count) * 66
+	if form.checkLabel != "" {
+		height += 72
+	}
+	return withError(height, form.dialogError)
 }
 
 func (state *State) paintFormDialog(canvas *ui.Canvas, viewport ui.Rect) {
@@ -130,10 +143,21 @@ func (state *State) paintFormDialog(canvas *ui.Canvas, viewport ui.Rect) {
 	})
 	layout := dialog.Begin(form.title, form.description)
 	var slots [maxFormFields]flex.Box
+	var checkbox flex.Box
 	f := state.settingsRow.Begin(canvas, theme, layout.Body)
 	f.Column().Fill().PadSides(4, 4, 0, 4).Children(func() {
 		for index := 0; index < form.count; index++ {
 			slots[index] = f.Slot().Height(62).MarginSides(0, 0, 4, 0)
+		}
+		if form.checkLabel != "" {
+			f.Column().Height(72).Gap(2).PadSides(8, 0, 4, 0).Children(func() {
+				checkbox = f.Row().Height(24).Items(flex.Center)
+				checkbox.Children(func() {
+					f.Slot().Width(28)
+					f.Text(form.checkLabel).FontSize(metrics.FontSizeM).Color(state.pal.text)
+				})
+				f.Paragraph(form.checkDescription, 2).FontSize(metrics.FontSizeS).LineHeight(16).Color(state.pal.muted).MarginSides(0, 0, 0, 28)
+			})
 		}
 		state.problemLine(f, form.dialogError)
 	})
@@ -148,6 +172,12 @@ func (state *State) paintFormDialog(canvas *ui.Canvas, viewport ui.Rect) {
 			ID: id, Label: field.label, Value: value, Placeholder: field.placeholder, Secure: field.secure,
 			Focused: focused, PlatformEditing: focused && value != "",
 		})
+	}
+	if form.checkLabel != "" {
+		rect := checkbox.Rect()
+		side := components.CheckboxExtent(theme)
+		components.BeginCheckbox(canvas, theme, hitFormCheckbox, ui.Rect{X: rect.X, Y: rect.Y + (rect.Height-side)/2}, form.checked).Label(form.checkLabel).Paint()
+		canvas.HitLabel(hitFormCheckbox, ui.Rect{X: rect.X + 28, Y: rect.Y, Width: max(rect.Width-28, 0), Height: rect.Height}, form.checkLabel, false)
 	}
 	variant := components.ButtonDefault
 	if form.danger {

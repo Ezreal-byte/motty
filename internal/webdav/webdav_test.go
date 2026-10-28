@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -11,6 +12,31 @@ import (
 	"sync"
 	"testing"
 )
+
+func TestApprovedRemoteHTTPTransfersTheEncryptedFile(t *testing.T) {
+	server, _ := newFakeServer(t)
+	config := Config{URL: "http://backup.lan/dav", User: "alice", Password: "s3cret", Path: "motty/backup.mottybak"}
+	if _, err := New(config, nil); !errors.Is(err, ErrInsecure) {
+		t.Fatalf("unapproved remote HTTP: %v", err)
+	}
+	// Keep real HTTP/authentication on the wire, routed only to our local fixture.
+	transport := &http.Transport{DialContext: func(ctx context.Context, network, _ string) (net.Conn, error) {
+		return (&net.Dialer{}).DialContext(ctx, network, server.Listener.Addr().String())
+	}}
+	t.Cleanup(transport.CloseIdleConnections)
+	config.AllowInsecureHTTP = true
+	client, err := New(config, &http.Client{Transport: transport})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := client.Put(context.Background(), []byte("encrypted backup"), ""); err != nil {
+		t.Fatal(err)
+	}
+	data, _, err := client.Get(context.Background())
+	if err != nil || string(data) != "encrypted backup" {
+		t.Fatalf("download: %q, %v", data, err)
+	}
+}
 
 // fakeServer is a WebDAV folder in memory: collections, one file store and
 // basic auth, with an ETag that changes on every write.

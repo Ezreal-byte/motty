@@ -26,7 +26,7 @@ import (
 type Config struct {
 	// Endpoint is the service's address, such as https://s3.eu-west-1.amazonaws.com
 	// or https://<account>.r2.cloudflarestorage.com. https:// only, except for a
-	// loopback address.
+	// loopback address or an explicit AllowInsecureHTTP opt-in.
 	Endpoint string
 	// Region the requests are signed for; empty means us-east-1. R2 uses "auto".
 	Region string
@@ -38,6 +38,8 @@ type Config struct {
 	// PathStyle puts the bucket in the path (endpoint/bucket/key), as MinIO and
 	// most self-hosted services want; otherwise it is the host (bucket.endpoint).
 	PathStyle bool
+	// AllowInsecureHTTP is the user's consent to HTTP outside loopback.
+	AllowInsecureHTTP bool
 }
 
 // DefaultKey is the object name used when the user gives none.
@@ -65,7 +67,7 @@ func New(config Config, client *http.Client) (*Client, error) {
 	if err != nil || base.Host == "" || base.User != nil {
 		return nil, fmt.Errorf("s3: %q is not a server address", config.Endpoint)
 	}
-	if err := cloudsync.CheckAddress(base); err != nil {
+	if err := cloudsync.CheckAddress(base, config.AllowInsecureHTTP); err != nil {
 		if errors.Is(err, cloudsync.ErrInsecure) {
 			return nil, err
 		}
@@ -87,7 +89,7 @@ func New(config Config, client *http.Client) (*Client, error) {
 	if config.AccessKey == "" || config.Secret == "" {
 		return nil, errors.New("s3: an access key and its secret are required")
 	}
-	return &Client{config: config, base: base, http: cloudsync.HTTPClient(client), MaxBytes: defaultMaxBytes}, nil
+	return &Client{config: config, base: base, http: cloudsync.HTTPClient(client, config.AllowInsecureHTTP), MaxBytes: defaultMaxBytes}, nil
 }
 
 // address is the object's URL. The path is encoded the way it is signed, so the
@@ -167,6 +169,10 @@ func check(response *http.Response) (code string, err error) {
 	case response.StatusCode == http.StatusUnauthorized || response.StatusCode == http.StatusForbidden:
 		code, detail := failure(response)
 		return code, fmt.Errorf("%w (%s)", cloudsync.ErrUnauthorized, strings.TrimPrefix(detail.Error(), "s3: the server answered "))
+	case response.StatusCode >= 300 && response.StatusCode < 400:
+		// A redirect the client did not follow (another host, or too many hops)
+		// is not a success: nothing was verified.
+		return "", fmt.Errorf("s3: the server answered %s", response.Status)
 	case response.StatusCode >= 400:
 		return failure(response)
 	}

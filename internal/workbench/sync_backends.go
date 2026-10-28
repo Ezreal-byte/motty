@@ -144,11 +144,13 @@ func (view *syncState) fieldsError(m i18n.ToolsMessages) string {
 func (view *syncState) newStore(secret string) (cloudsync.Store, error) {
 	switch view.kind {
 	case syncS3:
-		return s3.New(view.s3.config(secret), nil)
+		config := view.s3.config(secret)
+		config.AllowInsecureHTTP = view.allowInsecureHTTP
+		return s3.New(config, nil)
 	case syncGist:
 		return gist.New(gist.Config{Token: secret, ID: view.gist.id, File: view.gist.file, APIBase: view.gist.api}, nil)
 	}
-	return webdav.New(webdav.Config{URL: view.url, User: view.user, Password: secret, Path: view.path}, nil)
+	return webdav.New(webdav.Config{URL: view.url, User: view.user, Password: secret, Path: view.path, AllowInsecureHTTP: view.allowInsecureHTTP}, nil)
 }
 
 func (settings s3Settings) config(secret string) s3.Config {
@@ -210,7 +212,9 @@ func (state *State) openS3Configure() {
 	}
 	form := state.openForm(formDialog{
 		title: m.S3DialogTitle, description: m.S3DialogDescription, submit: m.SyncSave,
-		run: (*State).runS3Bucket,
+		run:        (*State).runS3Bucket,
+		checkLabel: m.SyncAllowInsecureHTTP, checkDescription: m.SyncInsecureHTTPDescription,
+		checked: state.sync.kind == syncS3 && state.sync.allowInsecureHTTP,
 	},
 		formField{label: m.S3Endpoint, placeholder: "https://s3.eu-west-1.amazonaws.com"},
 		formField{label: m.S3Region, placeholder: "us-east-1"},
@@ -253,6 +257,7 @@ func (state *State) runS3Bucket(form *formDialog) string {
 	}
 	check := settings.config("x")
 	check.AccessKey = "x"
+	check.AllowInsecureHTTP = form.checked
 	if _, err := s3.New(check, nil); err != nil {
 		if errors.Is(err, cloudsync.ErrInsecure) {
 			return m.SyncErrInsecure
@@ -261,15 +266,18 @@ func (state *State) runS3Bucket(form *formDialog) string {
 	}
 	// The second form opens once this one has closed, in a frame of its own, so
 	// that its first field takes the focus like any newly opened dialog.
-	state.aiPost(func(state *State) { state.openS3Login(settings) })
+	allowInsecureHTTP := form.checked
+	state.aiPost(func(state *State) { state.openS3Login(settings, allowInsecureHTTP) })
 	return ""
 }
 
-func (state *State) openS3Login(settings s3Settings) {
+func (state *State) openS3Login(settings s3Settings, allowInsecureHTTP bool) {
 	m := state.messages.Tools
 	form := state.openForm(formDialog{
 		title: m.S3LoginTitle, description: m.S3LoginDescription, submit: m.SyncSave,
-		run: func(state *State, form *formDialog) string { return state.runS3Login(form, settings) },
+		run: func(state *State, form *formDialog) string {
+			return state.runS3Login(form, settings, allowInsecureHTTP)
+		},
 	},
 		formField{label: m.S3AccessKey},
 		formField{label: m.S3Secret, secure: true},
@@ -278,7 +286,7 @@ func (state *State) openS3Login(settings s3Settings) {
 	form.set(0, settings.accessKey)
 }
 
-func (state *State) runS3Login(form *formDialog, settings s3Settings) string {
+func (state *State) runS3Login(form *formDialog, settings s3Settings, allowInsecureHTTP bool) string {
 	m := state.messages.Tools
 	settings.accessKey = strings.TrimSpace(form.value(0))
 	secret, backupPassword := form.value(1), form.value(2)
@@ -298,6 +306,7 @@ func (state *State) runS3Login(form *formDialog, settings s3Settings) string {
 	if state.sync.kind != syncS3 || state.sync.s3 != settings {
 		state.switchSync(syncState{kind: syncS3, s3: settings})
 	}
+	state.sync.allowInsecureHTTP = allowInsecureHTTP
 	state.sync.rowText = ""
 	state.save()
 	state.testSync()

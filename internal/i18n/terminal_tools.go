@@ -402,6 +402,8 @@ type ToolsMessages struct {
 	SyncErrUnauthorized             string
 	SyncErrNotFound                 string
 	SyncErrInsecure                 string
+	SyncAllowInsecureHTTP           string
+	SyncInsecureHTTPDescription     string
 	SyncErrNeedsVault               string
 	SyncErrFields                   string
 	SyncErrAddress                  string

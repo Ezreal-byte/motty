@@ -160,6 +160,12 @@ S3-compatible storage or a GitHub Gist. Records carry hybrid logical clocks and
 other. Tabs, window layout, shortcuts, fonts, key paths and cloud credentials
 stay local.
 
+Remote WebDAV and S3 addresses require HTTPS by default. To use a trusted LAN
+service over HTTP, check **Allow insecure remote HTTP** at the bottom of its
+configuration form. The connection is unencrypted and authentication details may
+be intercepted; the backup file is still encrypted before upload. This choice
+stays on this computer.
+
 ## 🚀 Quick start
 
 1. Open **Hosts** and choose **New host**.
