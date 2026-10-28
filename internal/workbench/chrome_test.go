@@ -101,6 +101,154 @@ func TestHostActionsAppearOnlyWhileSomethingIsChecked(t *testing.T) {
 	}
 }
 
+// narrowSection paints the state with the assistant panel as wide as it goes,
+// which leaves the section beside it the least room it promises: about 345px on
+// a 1262-wide window, the narrowest a real window can put a section in.
+func narrowSection(t *testing.T, state *State) (*ui.Canvas, []string) {
+	t.Helper()
+	state.ai.open = true
+	state.ai.panelWidth = 5000 // a width dragged on a wider window: it keeps what this one has
+	return paintAt(state, ui.Size{Width: 1262, Height: 900})
+}
+
+// TestTheHostsToolbarCondensesIntoIcons guards the toolbar's narrow form: a
+// section squeezed by the assistant panel keeps its three actions as icons whose
+// tooltips name them, rather than spilling the last one out of the card.
+func TestTheHostsToolbarCondensesIntoIcons(t *testing.T) {
+	state := newTestState(t, testOptions(t))
+	m := state.messages
+	buttons := []struct {
+		id    ui.ID
+		label string
+	}{{hitConnect, m.Connect}, {hitImportMenu, m.ImportMenu}, {hitAddHost, m.NewHost}}
+	wide, _ := paintAt(state, ui.Size{Width: 1400, Height: 900})
+	for _, button := range buttons {
+		if hit := panelHit(t, wide, button.id); hit.Hint != "" || hit.Bounds.Width <= toolbarIconButton {
+			t.Errorf("%q is already condensed in a wide section: %+v", button.label, hit)
+		}
+	}
+	canvas, _ := narrowSection(t, state)
+	section := state.hostsBounds
+	if section.Width > 360 {
+		t.Fatalf("the fixture left the section %v wide, too wide to be narrow", section.Width)
+	}
+	for _, button := range buttons {
+		hit := panelHit(t, canvas, button.id)
+		if hit.Label != button.label || hit.Hint != button.label {
+			t.Errorf("condensed %q keeps label %q and hint %q", button.label, hit.Label, hit.Hint)
+		}
+		if hit.Bounds.Width != toolbarIconButton {
+			t.Errorf("condensed %q is %v wide, want %v", button.label, hit.Bounds.Width, toolbarIconButton)
+		}
+		if hit.Bounds.X+hit.Bounds.Width > section.X+section.Width {
+			t.Errorf("condensed %q reaches out of the section: %+v", button.label, hit.Bounds)
+		}
+	}
+	if _, ok := hitByID(canvas, hitSearch); !ok {
+		t.Error("the condensed toolbar dropped the search box")
+	}
+}
+
+// headerHit is the control with id nearest the top: a section paints some of its
+// buttons twice, once in its header and once in its empty state.
+func headerHit(t *testing.T, canvas *ui.Canvas, id ui.ID) ui.Hit {
+	t.Helper()
+	var found ui.Hit
+	first := true
+	for _, hit := range canvas.Hits() {
+		if hit.ID == id && (first || hit.Bounds.Y < found.Bounds.Y) {
+			found, first = hit, false
+		}
+	}
+	if first {
+		t.Fatalf("hit %d is not painted", id)
+	}
+	return found
+}
+
+// TestTheSectionToolbarsCondenseIntoIcons guards the same narrow form on the
+// other section pages: their actions keep their icons and tooltips, and the
+// search box keeps the width it works at.
+func TestTheSectionToolbarsCondenseIntoIcons(t *testing.T) {
+	sections := []struct {
+		name string
+		page uint8
+		ids  []ui.ID
+	}{
+		{"keys", sectionKeys, []ui.ID{hitKeysImport, hitKeysRemove}},
+		{"proxies", sectionProxies, []ui.ID{hitProxyAdd, hitProxyRemove}},
+		{"forwards", sectionForwards, []ui.ID{hitForwardAdd, hitForwardStartStop, hitForwardRemove}},
+		{"known hosts", sectionKnownHosts, []ui.ID{hitKnownHostsRefresh, hitKnownHostsRetrust, hitKnownHostsDelete}},
+	}
+	for _, section := range sections {
+		state := newTestState(t, testOptions(t))
+		state.activeSection = section.page
+		wide, _ := paintAt(state, ui.Size{Width: 1400, Height: 900})
+		for _, id := range section.ids {
+			if hit := headerHit(t, wide, id); hit.Hint != "" || hit.Bounds.Width <= toolbarIconButton {
+				t.Errorf("%s: %q is already condensed in a wide section: %+v", section.name, hit.Label, hit)
+			}
+		}
+		canvas, _ := narrowSection(t, state)
+		for _, id := range section.ids {
+			hit := headerHit(t, canvas, id)
+			if hit.Label == "" || hit.Hint != hit.Label || hit.Bounds.Width != toolbarIconButton {
+				t.Errorf("%s: condensed %q keeps hint %q and width %v", section.name, hit.Label, hit.Hint, hit.Bounds.Width)
+			}
+		}
+		if section.page == sectionKnownHosts {
+			if hit := headerHit(t, canvas, hitKnownHostsSearch); hit.Bounds.Width < 100 {
+				t.Errorf("the known-hosts search box collapsed to %v wide", hit.Bounds.Width)
+			}
+		}
+		state.Close()
+	}
+}
+
+// TestTheHostActionsCondenseIntoIcons guards the row of actions on a checked
+// host: a narrow card keeps the five of them as icons whose tooltips name them,
+// beside the count of what is checked and the view switch.
+func TestTheHostActionsCondenseIntoIcons(t *testing.T) {
+	state := newTestState(t, testOptions(t))
+	state.hostSelections = append(state.hostSelections, state.hosts[0].ID)
+	state.selectedHostID = state.hosts[0].ID
+	actions := []ui.ID{hitExportHosts, hitEditHost, hitCopyHost, hitMoveHostGroup, hitDeleteHost}
+	wide, _ := paintAt(state, ui.Size{Width: 1400, Height: 900})
+	for _, id := range actions {
+		if hit := panelHit(t, wide, id); hit.Hint != "" || hit.Bounds.Width <= actionIconSize {
+			t.Errorf("action %d is already condensed in a wide section: %+v", id, hit)
+		}
+	}
+	canvas, _ := narrowSection(t, state)
+	section := state.hostsBounds
+	for _, id := range actions {
+		hit := panelHit(t, canvas, id)
+		if hit.Label == "" || hit.Hint != hit.Label || hit.Bounds.Width != actionIconSize {
+			t.Errorf("condensed action %d keeps hint %q and width %v", id, hit.Hint, hit.Bounds.Width)
+		}
+		if hit.Bounds.X+hit.Bounds.Width > section.X+section.Width {
+			t.Errorf("condensed action %d reaches out of the section: %+v", id, hit.Bounds)
+		}
+	}
+}
+
+// TestANarrowHostRowKeepsTheName guards the row itself: a row with no room for
+// both the name and the status in words keeps the name and shows the light.
+func TestANarrowHostRowKeepsTheName(t *testing.T) {
+	state := newTestState(t, testOptions(t))
+	_, wide := paintAt(state, ui.Size{Width: 1400, Height: 900})
+	if !hasText(wide, state.messages.HostStateIdle) {
+		t.Fatal("a wide row does not say its status")
+	}
+	_, narrow := narrowSection(t, state)
+	if hasText(narrow, state.messages.HostStateIdle) {
+		t.Error("a narrow row still paints the status words beside the name")
+	}
+	if !hasText(narrow, "Production") {
+		t.Errorf("a narrow row lost the host name: %q", narrow)
+	}
+}
+
 func TestWholeCatalogExportIsInTheImportMenu(t *testing.T) {
 	options := testOptions(t)
 	options.SaveFile = func(app.SaveFileOptions) (string, error) { return "", app.ErrCanceled } // never a real dialog

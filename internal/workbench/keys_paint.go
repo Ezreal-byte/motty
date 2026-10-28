@@ -8,8 +8,17 @@ import (
 
 func (state *State) paintKeysWorkspace(canvas *ui.Canvas, bounds ui.Rect) {
 	pal, messages := state.pal, state.messages
-	importWidth := toolbarButtonWidth(canvas, messages.KeyImport, true)
-	removeWidth := toolbarButtonWidth(canvas, messages.KeyRemove, false)
+	// The title keeps a readable column beside the buttons; a card too narrow for
+	// both shows the buttons as their icons, whose tooltips name them.
+	const (
+		titleLeast = float32(220)
+		gap        = float32(10)
+	)
+	labeled := toolbarButtonWidth(canvas, messages.KeyRemove, false) + gap + toolbarButtonWidth(canvas, messages.KeyImport, true) + gap + titleLeast
+	condensed := labeled > bounds.Width-36
+	removeWidth, removeIcon := toolbarButtonLayout(canvas, messages.KeyRemove, 0, iconTrash, condensed)
+	importWidth, importIcon := toolbarButtonLayout(canvas, messages.KeyImport, iconPlus, iconPlus, condensed)
+	titleRoom := max(bounds.Width-36-removeWidth-gap-importWidth, 0)
 	statusColor, statusValue := pal.muted, ""
 	if selected, ok := state.identityByID(state.selectedIdentityID); ok {
 		statusValue = selected.Path
@@ -23,10 +32,10 @@ func (state *State) paintKeysWorkspace(canvas *ui.Canvas, bounds ui.Rect) {
 	f.Column().Fill().PadSides(12, 18, 0, 18).Children(func() {
 		f.Row().Children(func() {
 			f.Column().Grow(1).PadSides(3, 0, 0, 0).Children(func() {
-				f.Text(messages.KeyTitle).FontSize(18).Weight(ui.WeightSemibold).Color(pal.text).LineHeight(28).Width(bounds.Width * 0.45)
-				f.Paragraph(messages.KeyDescription, 2).FontSize(metrics.FontSizeS).Color(pal.muted).LineHeight(22).Width(bounds.Width * 0.62)
+				f.Text(messages.KeyTitle).FontSize(18).Weight(ui.WeightSemibold).Color(pal.text).LineHeight(28).Width(min(bounds.Width*0.45, titleRoom)).Ellipsis()
+				f.Paragraph(messages.KeyDescription, 2).FontSize(metrics.FontSizeS).Color(pal.muted).LineHeight(22).Width(min(bounds.Width*0.62, titleRoom))
 			})
-			removeButton = f.Slot().Size(removeWidth, toolbarHeight).MarginSides(0, 10, 0, 0).Shrink(0)
+			removeButton = f.Slot().Size(removeWidth, toolbarHeight).MarginSides(0, gap, 0, 0).Shrink(0)
 			importButton = f.Slot().Size(importWidth, toolbarHeight).Shrink(0)
 		})
 		content = f.Slot().Grow(1).MarginSides(17, 0, 9, 0)
@@ -40,8 +49,8 @@ func (state *State) paintKeysWorkspace(canvas *ui.Canvas, bounds ui.Rect) {
 	})
 	f.End()
 
-	state.paintToolbarButton(canvas, hitKeysImport, importButton.Rect().X, importButton.Rect().Y, importWidth, messages.KeyImport, iconPlus, true, true)
-	state.paintToolbarButton(canvas, hitKeysRemove, removeButton.Rect().X, removeButton.Rect().Y, removeWidth, messages.KeyRemove, 0, false, state.selectedIdentityID != 0)
+	state.paintToolbarButton(canvas, hitKeysImport, importButton.Rect().X, importButton.Rect().Y, importWidth, messages.KeyImport, importIcon, true, true, condensed)
+	state.paintToolbarButton(canvas, hitKeysRemove, removeButton.Rect().X, removeButton.Rect().Y, removeWidth, messages.KeyRemove, removeIcon, false, state.selectedIdentityID != 0, condensed)
 
 	if len(state.identities) == 0 {
 		state.paintEmptyKeys(canvas, content.Rect())
@@ -71,12 +80,12 @@ func (state *State) paintEmptyKeys(canvas *ui.Canvas, bounds ui.Rect) {
 		tile = f.Column().Size(62, 62).Center().Shrink(0).Children(func() {
 			icon = f.Slot().Size(24, 24)
 		})
-		f.Text(messages.KeyEmpty).FontSize(17).Weight(ui.WeightSemibold).Color(pal.text).LineHeight(28).TextCenter().MarginSides(18, 0, 0, 0).Width(560)
-		f.Text(messages.KeyEmptySub).FontSize(metrics.FontSizeM).Color(pal.muted).LineHeight(23).TextCenter().MarginSides(5, 0, 0, 0).Width(600)
+		f.Text(messages.KeyEmpty).FontSize(17).Weight(ui.WeightSemibold).Color(pal.text).LineHeight(28).TextCenter().MarginSides(18, 0, 0, 0).Width(min(560, max(bounds.Width-24, 0))).Ellipsis()
+		f.Paragraph(messages.KeyEmptySub, 3).FontSize(metrics.FontSizeM).Color(pal.muted).LineHeight(23).TextCenter().MarginSides(5, 0, 0, 0).Width(max(bounds.Width-24, 0))
 		button = f.Slot().Size(width, toolbarHeight).MarginSides(18, 0, 0, 0)
 	})
 	f.End()
 	canvas.Rounded(tile.Rect(), 15, pal.surface)
 	paintIcon(canvas, iconKey, icon.Rect(), pal.muted)
-	state.paintToolbarButton(canvas, hitKeysImport, button.Rect().X, button.Rect().Y, width, messages.KeyImport, iconPlus, true, true)
+	state.paintToolbarButton(canvas, hitKeysImport, button.Rect().X, button.Rect().Y, width, messages.KeyImport, iconPlus, true, true, false)
 }

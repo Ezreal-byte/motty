@@ -13,12 +13,24 @@ func (state *State) paintForwardsWorkspace(canvas *ui.Canvas, bounds ui.Rect) {
 	pal, messages := state.pal, state.messages
 	selected, hasSelection := state.forwardByID(state.selectedForwardID)
 	actionLabel := messages.ForwardStart
-	if selected.runner != nil || selected.pending || selected.starting {
+	actionIcon := uint8(iconPlay)
+	running := selected.runner != nil || selected.pending || selected.starting
+	if running {
 		actionLabel = messages.ForwardStop
+		actionIcon = iconStop
 	}
-	addWidth := toolbarButtonWidth(canvas, messages.ForwardAdd, true)
-	actionWidth := toolbarButtonWidth(canvas, actionLabel, false)
-	removeWidth := toolbarButtonWidth(canvas, messages.ForwardRemove, false)
+	// The title keeps a readable column beside the buttons; a card too narrow for
+	// both shows the buttons as their icons, whose tooltips name them.
+	const (
+		titleLeast = float32(220)
+		gap        = float32(10)
+	)
+	labeled := toolbarButtonWidth(canvas, messages.ForwardRemove, false) + gap + toolbarButtonWidth(canvas, actionLabel, false) +
+		gap + toolbarButtonWidth(canvas, messages.ForwardAdd, true) + gap + titleLeast
+	condensed := labeled > bounds.Width-36
+	removeWidth, removeIcon := toolbarButtonLayout(canvas, messages.ForwardRemove, 0, iconTrash, condensed)
+	actionWidth, realActionIcon := toolbarButtonLayout(canvas, actionLabel, 0, actionIcon, condensed)
+	addWidth, addIcon := toolbarButtonLayout(canvas, messages.ForwardAdd, iconPlus, iconPlus, condensed)
 	detailColor := pal.muted
 	if selected.lastError != "" {
 		detailColor = pal.danger
@@ -27,9 +39,9 @@ func (state *State) paintForwardsWorkspace(canvas *ui.Canvas, bounds ui.Rect) {
 	var content, emptyIcon, emptyAdd, remove, action, add flex.Box
 	f := state.forwardLayout.Begin(canvas, state.Theme(), bounds)
 	f.Column().Fill().PadSides(12, 18, 0, 18).Children(func() {
-		f.Row().MinHeight(58).Gap(10).MarginSides(0, 0, 12, 0).Items(flex.Start).Children(func() {
+		f.Row().MinHeight(58).Gap(gap).MarginSides(0, 0, 12, 0).Items(flex.Start).Children(func() {
 			f.Column().Grow(1).Gap(3).MarginSides(4, 0, 0, 0).Children(func() {
-				f.Text(messages.ForwardTitle).FontSize(18).Weight(ui.WeightSemibold).Color(pal.text)
+				f.Text(messages.ForwardTitle).FontSize(18).Weight(ui.WeightSemibold).Color(pal.text).Ellipsis()
 				f.Paragraph(messages.ForwardDescription, 2).FontSize(metrics.FontSizeS).Color(pal.muted)
 			})
 			remove = f.Slot().Size(removeWidth, toolbarHeight)
@@ -51,9 +63,9 @@ func (state *State) paintForwardsWorkspace(canvas *ui.Canvas, bounds ui.Rect) {
 	})
 	f.End()
 
-	state.paintToolbarButton(canvas, hitForwardRemove, remove.Rect().X, remove.Rect().Y, removeWidth, messages.ForwardRemove, 0, false, hasSelection)
-	state.paintToolbarButton(canvas, hitForwardStartStop, action.Rect().X, action.Rect().Y, actionWidth, actionLabel, 0, false, hasSelection)
-	state.paintToolbarButton(canvas, hitForwardAdd, add.Rect().X, add.Rect().Y, addWidth, messages.ForwardAdd, iconPlus, true, true)
+	state.paintToolbarButton(canvas, hitForwardRemove, remove.Rect().X, remove.Rect().Y, removeWidth, messages.ForwardRemove, removeIcon, false, hasSelection, condensed)
+	state.paintToolbarButton(canvas, hitForwardStartStop, action.Rect().X, action.Rect().Y, actionWidth, actionLabel, realActionIcon, false, hasSelection, condensed)
+	state.paintToolbarButton(canvas, hitForwardAdd, add.Rect().X, add.Rect().Y, addWidth, messages.ForwardAdd, addIcon, true, true, condensed)
 
 	if len(state.forwards) == 0 {
 		state.paintEmptyPage(canvas, emptyIcon, emptyAdd, iconForward, hitForwardAdd, messages.ForwardAdd, true)
@@ -89,8 +101,8 @@ func (state *State) declareEmptyPage(f *flex.Frame, bounds ui.Rect, title, sub, 
 		f.Column().Size(62, 62).Center().Background(pal.surface).Radius(15).Children(func() {
 			icon = f.Slot().Size(24, 24)
 		})
-		f.Text(title).FontSize(17).Weight(ui.WeightSemibold).Color(pal.text).MarginSides(20, 0, 0, 0).TextCenter()
-		f.Text(sub).FontSize(metrics.FontSizeM).Color(pal.muted).MarginSides(8, 0, 0, 0).TextCenter()
+		f.Text(title).FontSize(17).Weight(ui.WeightSemibold).Color(pal.text).MarginSides(20, 0, 0, 0).TextCenter().Ellipsis()
+		f.Paragraph(sub, 3).FontSize(metrics.FontSizeM).Color(pal.muted).MarginSides(8, 0, 0, 0).Width(max(bounds.Width-44, 0)).TextCenter()
 		button = f.Slot().Size(toolbarButtonWidth(f.Canvas(), add, true), toolbarHeight).MarginSides(20, 0, 0, 0)
 	})
 	return icon, button
@@ -100,7 +112,7 @@ func (state *State) declareEmptyPage(f *flex.Frame, bounds ui.Rect, title, sub, 
 func (state *State) paintEmptyPage(canvas *ui.Canvas, iconBox, buttonBox flex.Box, icon uint8, id ui.ID, label string, enabled bool) {
 	paintIcon(canvas, icon, iconBox.Rect(), state.pal.muted)
 	button := buttonBox.Rect()
-	state.paintToolbarButton(canvas, id, button.X, button.Y, button.Width, label, iconPlus, true, enabled)
+	state.paintToolbarButton(canvas, id, button.X, button.Y, button.Width, label, iconPlus, true, enabled, false)
 }
 
 func (state *State) paintForwardDialog(canvas *ui.Canvas, viewport ui.Rect) {

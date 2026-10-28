@@ -10,9 +10,20 @@ func (state *State) paintKnownHostsWorkspace(canvas *ui.Canvas, bounds ui.Rect) 
 	state.syncKnownHostsVisible()
 	view, messages, pal := &state.knownHosts, state.messages, state.pal
 	value := view.search.String()
-	deleteWidth := toolbarButtonWidth(canvas, messages.KnownHostsDelete, false)
-	retrustWidth := toolbarButtonWidth(canvas, messages.KnownHostsRetrust, false)
-	refreshWidth := toolbarButtonWidth(canvas, messages.KnownHostsRefresh, false)
+	// The search box keeps the least width it works at and the buttons keep their
+	// labels while the row holds both; a narrower card shows their icons alone,
+	// whose tooltips name them.
+	const (
+		searchLeast = float32(140)
+		gap         = float32(8)
+	)
+	labeled := searchLeast + gap + toolbarButtonWidth(canvas, messages.KnownHostsRefresh, false) +
+		gap + toolbarButtonWidth(canvas, messages.KnownHostsRetrust, false) +
+		gap + toolbarButtonWidth(canvas, messages.KnownHostsDelete, false)
+	condensed := labeled > bounds.Width-36
+	refreshWidth, refreshIcon := toolbarButtonLayout(canvas, messages.KnownHostsRefresh, 0, iconRefresh, condensed)
+	retrustWidth, retrustIcon := toolbarButtonLayout(canvas, messages.KnownHostsRetrust, 0, iconCircleCheck, condensed)
+	deleteWidth, deleteIcon := toolbarButtonLayout(canvas, messages.KnownHostsDelete, 0, iconTrash, condensed)
 	statusColor := pal.muted
 	if view.errorText != "" {
 		statusColor = pal.danger
@@ -23,11 +34,11 @@ func (state *State) paintKnownHostsWorkspace(canvas *ui.Canvas, bounds ui.Rect) 
 	f := state.knownHostsLayout.Begin(canvas, state.Theme(), bounds)
 	f.Column().Fill().PadSides(12, 18, 0, 18).Children(func() {
 		f.Column().MarginSides(4, 0, 12, 0).Gap(3).Children(func() {
-			f.Text(messages.KnownHostsTitle).FontSize(18).Weight(ui.WeightSemibold).Color(pal.text)
+			f.Text(messages.KnownHostsTitle).FontSize(18).Weight(ui.WeightSemibold).Color(pal.text).Ellipsis()
 			f.Paragraph(messages.KnownHostsDescription, 2).FontSize(metrics.FontSizeS).Color(pal.muted)
 		})
-		f.Row().Height(40).Gap(8).Items(flex.Center).Children(func() {
-			search = f.Slot().Grow(1).MaxWidth(470).Height(40)
+		f.Row().Height(40).Gap(gap).Items(flex.Center).Children(func() {
+			search = f.Slot().Grow(1).MaxWidth(470).MinWidth(searchLeast).Height(40)
 			f.Spacer()
 			refresh = f.Slot().Size(refreshWidth, toolbarHeight)
 			retrust = f.Slot().Size(retrustWidth, toolbarHeight)
@@ -35,10 +46,13 @@ func (state *State) paintKnownHostsWorkspace(canvas *ui.Canvas, bounds ui.Rect) 
 		})
 		content = f.Slot().Grow(1).MarginSides(14, 0, 0, 0)
 		f.Divider().Background(pal.line)
+		// The footer's columns narrow with the card so the status keeps its room.
+		countWidth := min(168, (bounds.Width-36)*0.30)
+		selectionWidth := min(138, (bounds.Width-36)*0.22)
 		f.Row().Height(49).Gap(12).Items(flex.Center).Children(func() {
-			f.Text(view.countText).FontSize(metrics.FontSizeS).Weight(ui.WeightMedium).Color(pal.faint).Width(168)
-			f.Text(view.selectionText).FontSize(metrics.FontSizeS).Weight(ui.WeightMedium).Color(pal.muted).Width(138)
-			f.Text(view.status).FontSize(metrics.FontSizeS).Color(statusColor).Grow(1)
+			f.Text(view.countText).FontSize(metrics.FontSizeS).Weight(ui.WeightMedium).Color(pal.faint).Width(countWidth).Ellipsis()
+			f.Text(view.selectionText).FontSize(metrics.FontSizeS).Weight(ui.WeightMedium).Color(pal.muted).Width(selectionWidth).Ellipsis()
+			f.Text(view.status).FontSize(metrics.FontSizeS).Color(statusColor).Grow(1).Ellipsis()
 			if paginated {
 				pagination = f.Slot().Size(242, 30)
 			}
@@ -46,9 +60,9 @@ func (state *State) paintKnownHostsWorkspace(canvas *ui.Canvas, bounds ui.Rect) 
 	})
 	f.End()
 
-	state.paintToolbarButton(canvas, hitKnownHostsRefresh, refresh.Rect().X, refresh.Rect().Y, refreshWidth, messages.KnownHostsRefresh, 0, false, true)
-	state.paintToolbarButton(canvas, hitKnownHostsRetrust, retrust.Rect().X, retrust.Rect().Y, retrustWidth, messages.KnownHostsRetrust, 0, false, view.selected > 0)
-	state.paintToolbarButton(canvas, hitKnownHostsDelete, remove.Rect().X, remove.Rect().Y, deleteWidth, messages.KnownHostsDelete, 0, false, view.selected > 0)
+	state.paintToolbarButton(canvas, hitKnownHostsRefresh, refresh.Rect().X, refresh.Rect().Y, refreshWidth, messages.KnownHostsRefresh, refreshIcon, false, true, condensed)
+	state.paintToolbarButton(canvas, hitKnownHostsRetrust, retrust.Rect().X, retrust.Rect().Y, retrustWidth, messages.KnownHostsRetrust, retrustIcon, false, view.selected > 0, condensed)
+	state.paintToolbarButton(canvas, hitKnownHostsDelete, remove.Rect().X, remove.Rect().Y, deleteWidth, messages.KnownHostsDelete, deleteIcon, false, view.selected > 0, condensed)
 	components.PaintInputGroup(canvas, state.Theme(), search.Rect(), components.InputGroupSnapshot{
 		ID: hitKnownHostsSearch, Label: messages.NavSearch, Value: value, Placeholder: messages.KnownHostsSearchPlaceholder,
 		NativeEditing: canvas.Focused() == hitKnownHostsSearch && value != "",
@@ -117,8 +131,8 @@ func (state *State) paintKnownHostsEmpty(canvas *ui.Canvas, bounds ui.Rect, titl
 	f := state.knownHostsEmptyLayout.Begin(canvas, state.Theme(), bounds)
 	f.Column().Fill().Items(flex.Center).Children(func() {
 		f.Spacer().HeightPercent(42).Grow(0).MarginSides(0, 0, -16, 0).Shrink(0)
-		f.Text(title).FontSize(17).Weight(ui.WeightSemibold).Color(state.pal.text).LineHeight(28).TextCenter().FillWidth()
-		f.Text(description).FontSize(metrics.FontSizeS).Color(descriptionColor).LineHeight(24).TextCenter().FillWidth().MarginSides(6, 0, 0, 0)
+		f.Text(title).FontSize(17).Weight(ui.WeightSemibold).Color(state.pal.text).LineHeight(28).TextCenter().FillWidth().Ellipsis()
+		f.Paragraph(description, 3).FontSize(metrics.FontSizeS).Color(descriptionColor).LineHeight(24).TextCenter().MarginSides(6, 0, 0, 0).Width(max(bounds.Width-12, 0))
 	})
 	f.End()
 }

@@ -51,6 +51,8 @@ const (
 	iconActivity
 	iconRecord
 	iconRecordStop
+	iconPlay
+	iconStop
 	iconFilm
 	iconFileDown
 	iconColumns2
@@ -708,14 +710,29 @@ func (state *State) paintHostsHeader(canvas *ui.Canvas, bounds ui.Rect) ui.Rect 
 	// The buttons keep their natural width, so the search box gives way to them
 	// rather than the other way round: a label that is wider than expected (a
 	// heavier or wider font) must not slide a button under its neighbour.
-	connectWidth := toolbarButtonWidth(canvas, m.Connect, false)
-	newHostWidth := toolbarButtonWidth(canvas, m.NewHost, true)
-	importWidth := toolbarButtonWidth(canvas, m.ImportMenu, true)
+	const (
+		toolbarMargin = float32(18)  // the toolbar row's own margin inside the section card
+		buttonGap     = float32(10)  // the air between the search box and the buttons
+		searchLeast   = float32(140) // the narrowest the search box stays a search box at
+	)
+	// A section squeezed by the assistant panel has no room for the labels: the
+	// buttons keep only their icons, whose tooltips name them, and the search box
+	// keeps the least width it works at.
+	labeled := searchLeast + buttonGap + toolbarButtonWidth(canvas, m.Connect, false) +
+		buttonGap + toolbarButtonWidth(canvas, m.ImportMenu, true) +
+		buttonGap + toolbarButtonWidth(canvas, m.NewHost, true)
+	condensed := labeled > bounds.Width-2*toolbarMargin
+	connectWidth, connectIcon := toolbarButtonLayout(canvas, m.Connect, 0, iconPlug, condensed)
+	importWidth, importIcon := toolbarButtonLayout(canvas, m.ImportMenu, iconDownload, iconDownload, condensed)
+	newHostWidth, newHostIcon := toolbarButtonLayout(canvas, m.NewHost, iconPlus, iconPlus, condensed)
 	searchWidth := min(max(bounds.Width*0.41, 330), 485)
 
 	const (
 		rowHeight   = float32(28)
 		toggleWidth = float32(56)
+		rowGap      = float32(12)
+		rowPad      = float32(18)
+		actionGap   = float32(4)
 	)
 	anySelected := len(state.hostSelections) > 0
 	// While something is checked the first label lines up with the list's left
@@ -724,22 +741,36 @@ func (state *State) paintHostsHeader(canvas *ui.Canvas, bounds ui.Rect) ui.Rect 
 	actions := [...]struct {
 		id      ui.ID
 		label   string
+		icon    uint8
 		enabled bool
 		danger  bool
 	}{
-		{hitExportHosts, m.ExportHosts, len(state.hosts) > 0, false},
-		{hitEditHost, m.EditHost, false, false},
-		{hitCopyHost, m.CopyHost, false, false},
-		{hitMoveHostGroup, m.MoveHostGroup, false, false},
-		{hitDeleteHost, m.DeleteHost, false, true},
+		{hitExportHosts, m.ExportHosts, iconFileDown, len(state.hosts) > 0, false},
+		{hitEditHost, m.EditHost, iconPencil, false, false},
+		{hitCopyHost, m.CopyHost, iconCopy, false, false},
+		{hitMoveHostGroup, m.MoveHostGroup, iconFolderOpen, false, false},
+		{hitDeleteHost, m.DeleteHost, iconTrash, false, true},
 	}
 	var actionWidths [len(actions)]float32
+	// The actions keep their words while the row has room for them, the count of
+	// what is checked and the view switch; a narrow row keeps only their icons.
+	actionsCondensed := false
 	if anySelected {
 		enabled := state.selectedHostID != 0
 		single := enabled && len(state.hostSelections) <= 1
 		actions[1].enabled, actions[2].enabled, actions[3].enabled, actions[4].enabled = single, single, enabled, enabled
+		used := canvas.TextWidthWeight(state.hostSelectionText, metrics.FontSizeS, ui.WeightMedium) + toggleWidth + 3*rowGap
+		for _, action := range actions {
+			used += canvas.TextWidthWeight(action.label, metrics.FontSizeS, ui.WeightSemibold) + 4 + 2*quietPadding + actionGap
+		}
+		actionsCondensed = used > bounds.Width-2*rowPad
 		for index, action := range actions {
 			actionWidths[index] = canvas.TextWidthWeight(action.label, metrics.FontSizeS, ui.WeightSemibold) + 4 + 2*quietPadding
+		}
+		if actionsCondensed {
+			for index := range actionWidths {
+				actionWidths[index] = actionIconSize
+			}
 		}
 	}
 	// Which chips fit decides what is declared; where they sit is the row's.
@@ -753,11 +784,11 @@ func (state *State) paintHostsHeader(canvas *ui.Canvas, bounds ui.Rect) ui.Rect 
 	f := chrome.header.Begin(canvas, state.Theme(), bounds)
 	f.Column().Fill().Children(func() {
 		f.Column().Height(hostListTop).Shrink(0).PadSides(14, 0, 0, 0).Children(func() {
-			f.Row().Height(toolbarHeight).MarginX(18).Items(flex.Center).Children(func() {
-				search = f.Slot().Basis(searchWidth).Shrink(1).MinWidth(140).Height(toolbarHeight).MarginSides(0, 10, 0, 0)
-				connect = f.Slot().Size(connectWidth, toolbarHeight).MarginSides(0, 10, 0, 0)
+			f.Row().Height(toolbarHeight).MarginX(toolbarMargin).Items(flex.Center).Children(func() {
+				search = f.Slot().Basis(searchWidth).Shrink(1).MinWidth(searchLeast).Height(toolbarHeight).MarginSides(0, buttonGap, 0, 0)
+				connect = f.Slot().Size(connectWidth, toolbarHeight).MarginSides(0, buttonGap, 0, 0)
 				f.Spacer()
-				importButton = f.Slot().Size(importWidth, toolbarHeight).MarginSides(0, 10, 0, 0)
+				importButton = f.Slot().Size(importWidth, toolbarHeight).MarginSides(0, buttonGap, 0, 0)
 				newHost = f.Slot().Size(newHostWidth, toolbarHeight)
 			})
 			// One row under the toolbar. On the left, either the groups to choose from
@@ -766,7 +797,11 @@ func (state *State) paintHostsHeader(canvas *ui.Canvas, bounds ui.Rect) ui.Rect 
 			f.Row().Height(rowHeight).MarginSides(12, 0, 0, 0).PadSides(0, 18, 0, 18).Gap(12).Items(flex.Center).Children(func() {
 				switch {
 				case anySelected:
-					f.Row().Gap(4).MarginSides(0, 0, 0, -quietPadding).Children(func() {
+					actionsLeft := -quietPadding
+					if actionsCondensed {
+						actionsLeft = 0
+					}
+					f.Row().Gap(actionGap).MarginSides(0, 0, 0, actionsLeft).Children(func() {
 						for index := range buttons {
 							buttons[index] = f.Slot().Size(actionWidths[index], rowHeight)
 						}
@@ -805,15 +840,23 @@ func (state *State) paintHostsHeader(canvas *ui.Canvas, bounds ui.Rect) ui.Rect 
 		InlineStart:   components.InputGroupSlot{Kind: components.InputGroupSlotIcon, Icon: lucideIcons[iconSearch]},
 	})
 	// Connect needs something to connect to.
-	state.paintToolbarButtonIn(canvas, hitConnect, connect.Rect(), m.Connect, 0, false, state.typedQuery() != "")
-	state.paintToolbarButtonIn(canvas, hitAddHost, newHost.Rect(), m.NewHost, iconPlus, true, true)
+	state.paintToolbarButtonIn(canvas, hitConnect, connect.Rect(), m.Connect, connectIcon, false, state.typedQuery() != "", condensed)
+	state.paintToolbarButtonIn(canvas, hitAddHost, newHost.Rect(), m.NewHost, newHostIcon, true, true, condensed)
 	chrome.importButton = importButton.Rect()
-	state.paintToolbarButtonIn(canvas, hitImportMenu, chrome.importButton, m.ImportMenu, iconDownload, false, true)
+	state.paintToolbarButtonIn(canvas, hitImportMenu, chrome.importButton, m.ImportMenu, importIcon, false, true, condensed)
 
 	state.paintHostViewToggle(canvas, toggle.Rect().X, toggle.Rect().Y+toggle.Rect().Height/2)
 	if anySelected {
 		for index, action := range actions {
-			state.paintQuietButton(canvas, action.id, buttons[index].Rect(), action.label, action.danger, action.enabled)
+			if actionsCondensed {
+				style := iconButtonQuiet
+				if action.danger {
+					style = iconButtonDanger
+				}
+				state.paintIconButton(canvas, action.id, action.icon, buttons[index].Rect(), action.label, !action.enabled, style, pal.workspace)
+			} else {
+				state.paintQuietButton(canvas, action.id, buttons[index].Rect(), action.label, action.danger, action.enabled)
+			}
 			if action.id == hitMoveHostGroup {
 				state.groupMenu.button = buttons[index].Rect()
 			}
@@ -1035,11 +1078,13 @@ func (state *State) paintHostGroupMenu(canvas *ui.Canvas, bounds, viewport ui.Re
 }
 
 const (
-	toolbarPadding = float32(16)
-	toolbarIconGap = float32(8)
-	toolbarIcon    = float32(16)
-	toolbarHeight  = float32(36) // the search box and its buttons: 13 pt labels in 36, not 12 in 40
-	toolbarFont    = float32(13)
+	toolbarPadding    = float32(16)
+	toolbarIconGap    = float32(8)
+	toolbarIcon       = float32(16)
+	toolbarHeight     = float32(36) // the search box and its buttons: 13 pt labels in 36, not 12 in 40
+	toolbarFont       = float32(13)
+	toolbarIconButton = float32(36) // a toolbar button that shows only its icon: as wide as the row is tall
+	actionIconSize    = float32(28) // a checked-row action that shows only its icon
 )
 
 // toolbarButtonWidth is the width a toolbar button needs for its label, plus
@@ -1052,16 +1097,30 @@ func toolbarButtonWidth(canvas *ui.Canvas, label string, hasIcon bool) float32 {
 	return width
 }
 
-// paintToolbarButton draws a toolbar button whose top left corner is (x, y) and
-// that is width wide, for a page that has not yet declared its button's place.
-func (state *State) paintToolbarButton(canvas *ui.Canvas, id ui.ID, x, y, width float32, label string, icon uint8, primary, enabled bool) {
-	state.paintToolbarButtonIn(canvas, id, ui.Rect{X: x, Y: y, Width: width, Height: toolbarHeight}, label, icon, primary, enabled)
+// toolbarButtonLayout is the width a toolbar button takes in a row and the icon
+// it shows there: its label and the icon it already had, or the icon alone when
+// the row is condensed. compact is the icon a button that has none shows then,
+// since a button without words has to say what it does some other way.
+func toolbarButtonLayout(canvas *ui.Canvas, label string, icon, compact uint8, condensed bool) (width float32, shown uint8) {
+	if condensed {
+		return toolbarIconButton, compact
+	}
+	return toolbarButtonWidth(canvas, label, icon != 0), icon
 }
 
-// paintToolbarButtonIn draws a toolbar button in bounds. Icon and label are centered
-// together as one group, so the button reads as balanced at any label width.
-func (state *State) paintToolbarButtonIn(canvas *ui.Canvas, id ui.ID, bounds ui.Rect, label string, icon uint8, primary, enabled bool) {
-	state.paintButtonSized(canvas, id, bounds, label, icon, primary, false, enabled, toolbarFont)
+// paintToolbarButton draws a toolbar button whose top left corner is (x, y) and
+// that is width wide, for a page that has not yet declared its button's place.
+func (state *State) paintToolbarButton(canvas *ui.Canvas, id ui.ID, x, y, width float32, label string, icon uint8, primary, enabled, condensed bool) {
+	state.paintToolbarButtonIn(canvas, id, ui.Rect{X: x, Y: y, Width: width, Height: toolbarHeight}, label, icon, primary, enabled, condensed)
+}
+
+// paintToolbarButtonIn draws a toolbar button in bounds. Icon and label are
+// centered together as one group, so the button reads as balanced at any label
+// width. Condensed leaves the label out for a row too narrow to hold the words:
+// it becomes the tooltip and the name assistive technology reads, so the button
+// gives up its width and not its meaning.
+func (state *State) paintToolbarButtonIn(canvas *ui.Canvas, id ui.ID, bounds ui.Rect, label string, icon uint8, primary, enabled, condensed bool) {
+	state.paintButtonSized(canvas, id, bounds, label, icon, primary, false, enabled, toolbarFont, condensed)
 }
 
 // paintButton is the workbench's one button: a filled surface with a hairline
@@ -1069,10 +1128,12 @@ func (state *State) paintToolbarButtonIn(canvas *ui.Canvas, id ui.ID, bounds ui.
 // red, so a destructive action is marked without becoming the loudest thing on the
 // page.
 func (state *State) paintButton(canvas *ui.Canvas, id ui.ID, bounds ui.Rect, label string, icon uint8, primary, danger, enabled bool) {
-	state.paintButtonSized(canvas, id, bounds, label, icon, primary, danger, enabled, 12)
+	state.paintButtonSized(canvas, id, bounds, label, icon, primary, danger, enabled, 12, false)
 }
 
-func (state *State) paintButtonSized(canvas *ui.Canvas, id ui.ID, bounds ui.Rect, label string, icon uint8, primary, danger, enabled bool, font float32) {
+// paintButtonSized is paintButton at another font size, and with the label left
+// out when iconOnly: the label is then the tooltip and the accessible name.
+func (state *State) paintButtonSized(canvas *ui.Canvas, id ui.ID, bounds ui.Rect, label string, icon uint8, primary, danger, enabled bool, font float32, iconOnly bool) {
 	pal := state.pal
 	background, foreground := pal.surface, pal.text
 	if danger {
@@ -1095,9 +1156,17 @@ func (state *State) paintButtonSized(canvas *ui.Canvas, id ui.ID, bounds ui.Rect
 	}
 	// Icon and label are centered together as one group, so the button reads as
 	// balanced at any label width; the label has a little air after it.
+	hint := ""
+	if iconOnly {
+		hint = label
+	}
 	f := state.chrome.widget.Begin(canvas, state.Theme(), bounds)
 	f.Row().Fill().Center().Radius(radius.control).Border(1, border.Over(pal.workspace)).Background(background.Over(pal.workspace)).
-		HitWith(id, label, ui.HitOptions{Role: ui.RoleButton, Disabled: !enabled}).Children(func() {
+		HitWith(id, label, ui.HitOptions{Role: ui.RoleButton, Disabled: !enabled, Hint: hint}).Children(func() {
+		if iconOnly {
+			f.Icon(lucideIcons[icon]).Color(foreground)
+			return
+		}
 		if icon == 0 {
 			f.Text(label).FontSize(font).Weight(ui.WeightSemibold).Color(foreground)
 			return
@@ -1266,12 +1335,21 @@ func (state *State) paintHostTreeRow(canvas *ui.Canvas, row, content ui.Rect, ho
 	// pushed out of a narrow window; the address and the tags take what is left, in
 	// proportion, and the tags give way first. Distances are from the content's left.
 	const (
-		statusWidth = float32(124)
-		leadWidth   = float32(92) // the check box, the system and the gaps before the name
+		statusLeast = float32(124) // the status in words, with the light before it
+		lightWidth  = float32(7)   // the size of the connection light
+		leadWidth   = float32(92)  // the check box, the system and the gaps before the name
+		nameLeast   = float32(170)
 	)
 	indent := content.X - row.X
-	nameWidth := max(row.Width*0.24, float32(170))
+	// A row too narrow to hold the name beside the status in words shows the
+	// light alone: the name is what the row is for.
+	statusWidth := statusLeast
+	if row.Width-statusLeast-indent-leadWidth < nameLeast {
+		statusWidth = lightWidth
+	}
+	statusWords := statusWidth > lightWidth
 	statusStart := row.Width - statusWidth - indent
+	nameWidth := min(max(row.Width*0.24, nameLeast), max(statusStart-leadWidth-8, nameLeast/2))
 	addressStart := min(max(row.Width*0.37, float32(330)), max(statusStart-180, leadWidth+nameWidth+8))
 	tagsStart := max(row.Width*0.65, float32(560))
 	addressWidth := max(min(row.Width*0.25, statusStart-addressStart-8), 0)
@@ -1298,12 +1376,15 @@ func (state *State) paintHostTreeRow(canvas *ui.Canvas, row, content ui.Rect, ho
 				f.Checkbox(hitHostCheckList.At(int(host.ID)), state.hostSelected(host.ID)).Label(host.Label).MarginSides(0, checkMargin, 0, 10)
 				avatar = f.Slot().Size(36, 36).MarginSides(0, 10, 0, 0)
 				f.Column().Width(nameWidth).Shrink(0).Gap(2).Children(func() {
-					f.Text(host.Label).FontSize(metrics.FontSizeM).Weight(ui.WeightSemibold).Color(pal.text).LineHeight(22)
-					f.Text(state.hostSubtitle(host)).FontSize(metrics.FontSizeS).Color(pal.muted).LineHeight(19)
+					f.Text(host.Label).FontSize(metrics.FontSizeM).Weight(ui.WeightSemibold).Color(pal.text).LineHeight(22).Ellipsis()
+					f.Text(state.hostSubtitle(host)).FontSize(metrics.FontSizeS).Color(pal.muted).LineHeight(19).Ellipsis()
 				})
 			})
 			f.Row().Width(tagsStart - addressStart).Shrink(0).Children(func() {
-				f.Text(host.target).FontSize(metrics.FontSizeS).Weight(ui.WeightMedium).Color(pal.text).LineHeight(22).Width(addressWidth).Shrink(0)
+				if addressWidth < 60 { // a sliver of an address says less than nothing
+					return
+				}
+				f.Text(host.target).FontSize(metrics.FontSizeS).Weight(ui.WeightMedium).Color(pal.text).LineHeight(22).Width(addressWidth).Shrink(0).Ellipsis()
 			})
 			if tagCount > 0 {
 				f.Row().Width(tagsRoom).Shrink(0).Gap(5).Items(flex.Center).Children(func() {
@@ -1316,7 +1397,12 @@ func (state *State) paintHostTreeRow(canvas *ui.Canvas, row, content ui.Rect, ho
 			}
 		})
 		f.Row().Fill().Justify(flex.End).Items(flex.Center).Children(func() {
-			light = f.Slot().Size(7, 7).MarginSides(0, 8, 3, 0)
+			if !statusWords {
+				// The light alone, still inset from the row's right edge.
+				light = f.Slot().Size(lightWidth, lightWidth).MarginSides(0, indent, 3, 0)
+				return
+			}
+			light = f.Slot().Size(lightWidth, lightWidth).MarginSides(0, 8, 3, 0)
 			f.Text(status).FontSize(metrics.FontSizeS).Weight(ui.WeightMedium).Color(pal.muted).LineHeight(22).Width(statusWidth-15).Shrink(0).MarginSides(0, indent, 0, 0)
 		})
 	})
@@ -1399,11 +1485,11 @@ func (state *State) paintEmptyHosts(canvas *ui.Canvas, bounds ui.Rect) {
 			f.Icon(lucideIcons[iconHosts]).Size(24, 24).Color(pal.muted)
 		})
 		f.Text(m.HostsEmpty).FontSize(17).Weight(ui.WeightSemibold).Color(pal.text).MarginSides(20, 0, 0, 0)
-		f.Text(m.HostsEmptySub).FontSize(metrics.FontSizeM).Color(pal.muted).MarginSides(8, 0, 0, 0)
+		f.Paragraph(m.HostsEmptySub, 2).FontSize(metrics.FontSizeM).Color(pal.muted).MarginSides(8, 0, 0, 0).Width(max(bounds.Width-24, 0)).TextCenter()
 		add = f.Slot().Size(width, toolbarHeight).MarginSides(20, 0, 0, 0)
 	})
 	f.End()
-	state.paintToolbarButtonIn(canvas, hitAddHostEmpty, add.Rect(), m.NewHost, iconPlus, true, true)
+	state.paintToolbarButtonIn(canvas, hitAddHostEmpty, add.Rect(), m.NewHost, iconPlus, true, true, false)
 }
 
 // paintNoMatches is what the list shows when the search box hides every host.
@@ -1413,7 +1499,7 @@ func (state *State) paintNoMatches(canvas *ui.Canvas, bounds ui.Rect) {
 	f.Column().Fill().Items(flex.Center).Children(func() {
 		f.Slot().HeightPercent(40)
 		f.Text(m.NoMatches).FontSize(17).Weight(ui.WeightSemibold).Color(pal.text).MarginSides(2, 0, 0, 0)
-		f.Text(m.NoMatchesSub).FontSize(metrics.FontSizeM).Color(pal.muted).MarginSides(8, 0, 0, 0)
+		f.Paragraph(m.NoMatchesSub, 2).FontSize(metrics.FontSizeM).Color(pal.muted).MarginSides(8, 0, 0, 0).Width(max(bounds.Width-24, 0)).TextCenter()
 	})
 	f.End()
 }
@@ -1454,6 +1540,8 @@ var lucideIcons = [...]ui.Icon{
 	iconActivity:   icons.Activity,
 	iconRecord:     icons.CircleDot,
 	iconRecordStop: icons.CircleStop,
+	iconPlay:       icons.Play,
+	iconStop:       icons.CircleStop,
 	iconFilm:       icons.Film,
 	iconFileDown:   icons.FileDown,
 	iconColumns2:   icons.Columns2,
