@@ -1,0 +1,69 @@
+name: Windows upgrade acceptance
+
+on:
+  push:
+    tags: ['v0.1.90*']
+
+permissions:
+  contents: write
+
+concurrency:
+  group: upgrade-test-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  package:
+    if: github.repository == 'Ezreal-byte/motty'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          path: motty
+      - uses: actions/checkout@v7
+        with:
+          repository: vivaui/viva
+          ref: b491d88cbeceaca6cef0a4120a877f8c365564e2
+          path: viva
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: motty/go.mod
+          cache-dependency-path: motty/go.sum
+      - name: Install NSIS
+        run: sudo apt-get update && sudo apt-get install -y nsis
+      - name: Verify update code and version
+        working-directory: motty
+        run: |
+          set -euo pipefail
+          version=$(sed -n 's/^version *= *"\([^"]*\)".*/\1/p' viva.toml | head -1)
+          test "$GITHUB_REF_NAME" = "v$version"
+          go test ./internal/selfupdate ./internal/update ./internal/updatesign -count=1
+          go test ./internal/workbench -run 'Test.*(Update|Install|Installing|Download)' -count=1
+      - name: Build actual Windows installer
+        working-directory: viva
+        run: go run ./cmd/viva package -C ../motty --target windows --arch amd64 --format nsis --out ../upgrade-out
+      - name: Sign packages and create update manifest
+        working-directory: motty
+        env:
+          TEST_SIGNING_KEY: ${{ secrets.MOTTY_UPGRADE_TEST_SIGNING_KEY_20261028 }}
+        run: |
+          set -euo pipefail
+          version=${GITHUB_REF_NAME#v}
+          key="$RUNNER_TEMP/upgrade-test-signing.key"
+          trap 'rm -f "$key"' EXIT
+          test -n "$TEST_SIGNING_KEY"
+          (umask 077; printf '%s\n' "$TEST_SIGNING_KEY" > "$key")
+          go run ./tools/updatesign sign -key "$key" -version "$version" -dir ../upgrade-out
+          go run ./tools/updatesign verify -pubkey tools/upgrade-test/public.key -version "$version" -dir ../upgrade-out
+          cp tools/upgrade-test/public.key ../upgrade-out/TEST_UPDATE_PUBLIC_KEY
+          python3 tools/upgrade-test/manifest.py "$version" ../upgrade-out
+          (cd ../upgrade-out && sha256sum motty-*-setup.exe > SHA256SUMS)
+      - name: Publish acceptance release
+        working-directory: motty
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          version=${GITHUB_REF_NAME#v}
+          gh release create "$GITHUB_REF_NAME" ../upgrade-out/* --repo "$GITHUB_REPOSITORY" \
+            --verify-tag --prerelease --title "Motty 升级验收 $version" --notes-file "docs/releases/$version.md"

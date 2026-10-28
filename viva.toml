@@ -3,14 +3,14 @@
 #   viva package --target windows --arch amd64         # NSIS installer (not on Apple Silicon: see the ADR)
 #   viva package --target linux --arch amd64 --format tar.gz,deb
 [app]
-name = "Motty"
-id = "dev.motty.app"
-version = "0.1.4"
+name = "Motty Upgrade Test"
+id = "dev.motty.upgrade-test"
+version = "0.1.901"
 executable = "motty"
 package = "./cmd/motty"
 icon = "assets/icon.png"
 # Links the system hands to the program (see docs/decisions/0028 in ../viva).
-url_schemes = ["ssh", "telnet"]
+url_schemes = []
 
 [build]
 out = "build/dist"

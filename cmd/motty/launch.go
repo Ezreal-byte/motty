@@ -15,7 +15,7 @@ import (
 
 // applicationID is the bundle identifier of viva.toml, which also names the login
 // entry and the claim of the one running copy.
-const applicationID = "dev.motty.app"
+const applicationID = "dev.motty.upgrade-test"
 
 // instanceID is the claim's name. A data directory of its own (a test run, a
 // second profile) is a copy of its own, so it gets its own claim.

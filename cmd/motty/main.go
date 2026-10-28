@@ -259,7 +259,7 @@ func openWorkbenchWindow(application *app.Application, status *tray, hub *workbe
 
 	var err error
 	mainWindow, err = application.OpenWindow(app.Config{
-		Title:          "Motty",
+		Title:          "Motty 升级验收",
 		Icon:           workbench.AppIcon(),
 		Tree:           workbench.Tree(),
 		Width:          width,

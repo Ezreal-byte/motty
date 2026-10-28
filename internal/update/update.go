@@ -20,15 +20,15 @@ import (
 )
 
 // Current is the version of this build. A test keeps it equal to viva.toml's.
-const Current = "0.1.4"
+const Current = "0.1.901"
 
 // Feed is the GitHub release the project publishes its builds to.
-const Feed = "https://api.github.com/repos/t8y2/motty/releases/latest"
+const Feed = "https://api.github.com/repos/Ezreal-byte/motty/releases/latest"
 
 // MirrorFeed is the copy of the newest release on the download host. Unlike
 // Feed it names every file with its size and SHA-256, which is what a download
 // is checked against.
-const MirrorFeed = "https://dl.motty.page/latest.json"
+const MirrorFeed = "https://raw.githubusercontent.com/Ezreal-byte/motty/upgrade-test-feed/latest.json"
 
 // ErrNoRelease means the feed has no published release, which is also what a
 // private repository looks like to an anonymous request.
@@ -217,6 +217,11 @@ func LatestMirror(ctx context.Context, client *http.Client, feed, goos, goarch s
 		}
 		name := strings.Replace(stable, "motty-", "motty-"+body.Version+"-", 1)
 		pinned := url.URL{Scheme: "https", Host: base.Host, Path: "/releases/" + body.Tag + "/" + name}
+		// This fork-only channel pins downloads to its own GitHub Releases.
+		// Test fixture feeds retain the normal mirror URL construction.
+		if feed == MirrorFeed {
+			pinned = url.URL{Scheme: "https", Host: "github.com", Path: "/Ezreal-byte/motty/releases/download/" + body.Tag + "/" + name}
+		}
 		release.Asset = Asset{Name: name, URL: pinned.String(), SHA256: file.SHA256, Size: file.Size, Signature: validSignature(file.Signature)}
 		break
 	}
