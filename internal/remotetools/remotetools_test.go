@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -52,7 +54,7 @@ func TestParsingTheProcessListSortsAndSkipsItsOwnPipeline(t *testing.T) {
 		"    1 root      0.1  0.2    10-02:03:04 /sbin/init splash\n" +
 		" 2211 www-data  42.5 1.3       01:02:03 nginx: worker process   (with   spaces)\n" +
 		" 3000 alice      7.0 30.9          05:01 /usr/bin/python3 /srv/app.py --flag\n" +
-		" 9001 alice      0.0  0.0          00:00 sh -c LC_ALL=C ps -eo pid=,user=,pcpu=,pmem=,etime=,args= 2>&1 | sort\n" +
+		" 9001 alice      0.0  0.0          00:00 sh -c " + processCommand(SortCPU) + "\n" +
 		" 9003 alice      0.0  0.0          00:00 sort -k3,3nr\n" +
 		" 9004 alice      0.0  0.0          00:00 head -n 68\n"
 	byCPU, err := ParseProcesses([]byte(output), SortCPU)
@@ -96,6 +98,60 @@ func TestTheProcessListRunsOnThisComputer(t *testing.T) {
 		if ownPipeline(process.Command) {
 			t.Fatalf("the listing's own process is in it: %+v", process)
 		}
+	}
+}
+
+func TestProcessListingReadsAllColumnsOnProcps3310(t *testing.T) {
+	if _, err := exec.LookPath("/bin/sh"); err != nil {
+		t.Skip("no POSIX shell")
+	}
+	bin := t.TempDir()
+	fixture := `#!/bin/sh
+case "$*" in
+  '-eo pid=,user=,pcpu=,pmem=,etime=,args=')
+    printf ',user=,pcpu=,pmem=,etime=,args=\n1\n2\n3\n'
+    ;;
+  '-e -o pid= -o user= -o pcpu= -o pmem= -o etime= -o args=')
+    printf '1 root 0.1 0.2 981-05:50:28 /usr/lib/systemd/systemd\n'
+    printf '2211 www-data 42.5 1.3 01:02:03 nginx: worker process\n'
+    printf '3000 alice 7.0 30.9 05:01 /usr/bin/python3 /srv/app.py --flag\n'
+    ;;
+  *)
+    printf 'unexpected ps arguments: %s\n' "$*" >&2
+    exit 1
+    ;;
+esac
+`
+	if err := os.WriteFile(filepath.Join(bin, "ps"), []byte(fixture), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
+	for _, test := range []struct {
+		name string
+		key  SortKey
+		want Process
+	}{
+		{"cpu", SortCPU, Process{PID: 2211, User: "www-data", CPU: 42.5, Memory: 1.3, Elapsed: "01:02:03", Command: "nginx: worker process"}},
+		{"memory", SortMemory, Process{PID: 3000, User: "alice", CPU: 7.0, Memory: 30.9, Elapsed: "05:01", Command: "/usr/bin/python3 /srv/app.py --flag"}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			list, err := Processes(context.Background(), &shellRunner{}, test.key)
+			if err != nil || len(list) != 3 {
+				t.Fatalf("procps 3.3.10 listing: rows=%+v err=%v", list, err)
+			}
+			if list[0] != test.want {
+				t.Fatalf("first process=%+v, want %+v", list[0], test.want)
+			}
+		})
+	}
+}
+
+func TestProcessListingSkipsItsSeparateOutputOptionPipeline(t *testing.T) {
+	output := "2211 www-data 42.5 1.3 01:02:03 nginx: worker process\n" +
+		"9001 alice 99.0 0.0 00:00 sh -c " + processCommand(SortCPU) + "\n"
+	list, err := ParseProcesses([]byte(output), SortCPU)
+	if err != nil || len(list) != 1 || list[0].PID != 2211 {
+		t.Fatalf("listing retained its own pipeline: rows=%+v err=%v", list, err)
 	}
 }
 

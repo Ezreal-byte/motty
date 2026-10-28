@@ -39,7 +39,7 @@ func (server *remoteServer) run(_ context.Context, command string, _ int) ([]byt
 	defer server.mu.Unlock()
 	server.commands = append(server.commands, command)
 	switch {
-	case strings.Contains(command, "ps -eo"):
+	case strings.Contains(command, "ps -e "):
 		return []byte(processFixture), nil
 	case strings.HasPrefix(command, "docker ps"):
 		if err := server.failures["docker ps"]; err != nil {
