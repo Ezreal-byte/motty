@@ -22,6 +22,7 @@ const (
 	aiButtonHeight   = float32(30)
 	aiSendSize       = float32(28)
 	aiComposerBar    = float32(48) // the row under the text: the model chip and Send
+	aiComposerTarget = float32(32) // the compact target selector above the text
 	aiComposerMargin = float32(8)  // between the box and the panel's edges
 	aiBottomPadding  = float32(12)
 	aiMentionRow     = float32(28)
@@ -55,11 +56,11 @@ func (state *State) aiPrepareBottom(canvas *ui.Canvas, width float32) (boxHeight
 	lineHeight := theme.Metrics.FontSizeM + 7
 	boxWidth := width + 2*aiPad - 2*aiComposerMargin
 	rows := max(panel.inputLayout.RowCount(canvas, theme, ai.input.String(), boxWidth, false), 2) // two rows to begin with
-	panel.mentions, _ = state.mentionSuggestions(panel.mentionBuf[:0])
+	state.aiSyncMentions()
 	if len(ai.approvals) > 0 {
 		state.aiLayoutApprovalSummary(canvas, ai.approvals[0], width)
 	}
-	height := float32(min(rows, aiAutoRows))*lineHeight + 8 + aiComposerBar
+	height := float32(min(rows, aiAutoRows))*lineHeight + 8 + aiComposerBar + aiComposerTarget
 	if limit := panel.rect.Height * 0.6; limit > height {
 		height = min(max(height, ai.composerHeight), limit)
 	}
@@ -157,6 +158,9 @@ func (state *State) declareAIApproval(f *flex.Frame, body *aiBody) {
 			}
 		})
 		body.summary = f.Slot().Height(panel.approvalLay.summaryH).MarginSides(0, 0, 8, 0)
+		if request.SessionLabel != "" {
+			f.Wrap(m.Target+": "+request.SessionLabel).FontSize(aiSmallSize).Color(pal.text).LineHeight(aiSmallLine).MarginSides(0, 0, 8, 0)
+		}
 		if len(assessment.Reasons) > 0 {
 			f.Column().MarginSides(0, 0, 4, 0).Children(func() {
 				for index, reason := range assessment.Reasons {
@@ -251,15 +255,15 @@ func (state *State) paintAIBottom(canvas *ui.Canvas, body *aiBody) {
 	for index, name := range panel.mentions {
 		id := hitAIMentions.At(index)
 		background := ui.Color{}
-		if canvas.Hovered() == id || canvas.FocusVisible() == id {
+		if panel.mentionIndex == index || canvas.FocusVisible() == id {
 			background = pal.surfaceHot
 		}
-		label := "@" + name.name
+		label := "@" + name.title
 		row := state.aiFlex.mention.Begin(canvas, theme, body.mentions[index].Rect())
 		row.Row().Fill().PadX(8).Gap(10).Items(flex.Center).Background(background).Radius(radius.item).
-			HitWith(id, label, ui.HitOptions{Role: ui.RoleButton, Hint: name.detail}).Children(func() {
-			row.Text(label).FontSize(metrics.FontSizeS).Weight(ui.WeightMedium).Color(pal.text).LineHeight(18)
-			row.Text(name.detail).FontSize(metrics.FontSizeS).Color(pal.muted).LineHeight(16)
+			HitWith(id, label, ui.HitOptions{Role: ui.RoleButton, Hint: name.detail, Selected: panel.mentionIndex == index, SkipTab: true}).Children(func() {
+			row.Text(label).FontSize(metrics.FontSizeS).Weight(ui.WeightMedium).Color(pal.text).LineHeight(18).Ellipsis().Grow(1)
+			row.Text(name.detail).FontSize(metrics.FontSizeS).Color(pal.muted).LineHeight(16).MaxWidth(120).Ellipsis()
 		})
 		row.End()
 	}
@@ -269,6 +273,7 @@ func (state *State) paintAIBottom(canvas *ui.Canvas, body *aiBody) {
 	focused := canvas.Focused() == hitAIInput
 	selection, composition := ai.input.Selection(), ai.input.Composition
 	box := body.box.Rect()
+	panel.targetBounds = ui.Rect{X: box.X + 8, Y: box.Y + 6, Width: min(200, max(box.Width-16, 0)), Height: 24}
 	placeholder := m.InputPlaceholder
 	if ai.mode == agent.ModeAsk {
 		placeholder = m.InputPlaceholderAsk
@@ -276,7 +281,7 @@ func (state *State) paintAIBottom(canvas *ui.Canvas, body *aiBody) {
 	snapshot := components.TextareaSnapshot{
 		ID: hitAIInput, Label: m.InputLabel, Value: value, Placeholder: placeholder,
 		Focused: focused, HideEditorText: true, ShowCaret: selection.Start == selection.End,
-		Layout: &panel.inputLayout, InsetBottom: aiComposerBar - 8,
+		Layout: &panel.inputLayout, InsetTop: aiComposerTarget, InsetBottom: aiComposerBar - 8,
 		SelectionStart: aiByteOffset(value, selection.Start), SelectionEnd: aiByteOffset(value, selection.End),
 		Caret: aiByteOffset(value, ai.input.Caret()),
 	}

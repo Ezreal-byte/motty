@@ -2,6 +2,7 @@ package workbench
 
 import (
 	"encoding/json"
+	"fmt"
 	"strings"
 	"unicode/utf8"
 	"unsafe"
@@ -36,6 +37,7 @@ const (
 // anything goes: the row is declared with flex at the position the sum of the
 // heights above it gives.
 type aiRowView struct {
+	targetLabel string
 	// What the layout was built from.
 	valid    bool
 	built    bool // expanded when built
@@ -71,6 +73,7 @@ type aiRowView struct {
 
 func (v *aiRowView) current(item *aiItem, width, cell float32, title string) bool {
 	return v.valid && v.kind == item.kind && v.status == item.status && v.width == width && v.cell == cell &&
+		v.targetLabel == item.targetLabel &&
 		v.built == v.expanded && v.title == title &&
 		v.textData == unsafe.StringData(item.text) && v.textLen == len(item.text) &&
 		v.resData == unsafe.StringData(item.result) && v.resLen == len(item.result) &&
@@ -290,7 +293,8 @@ func (state *State) aiBuild(canvas *ui.Canvas, view *aiRowView, item *aiItem, wi
 		view.expanded = false
 	}
 	*view = aiRowView{
-		valid: true, built: view.expanded, kind: item.kind, status: item.status, width: width, cell: cell, title: title,
+		targetLabel: item.targetLabel,
+		valid:       true, built: view.expanded, kind: item.kind, status: item.status, width: width, cell: cell, title: title,
 		textData: unsafe.StringData(item.text), textLen: len(item.text),
 		resData: unsafe.StringData(item.result), resLen: len(item.result),
 		argData: unsafe.StringData(item.call.Arguments), argLen: len(item.call.Arguments),
@@ -301,6 +305,9 @@ func (state *State) aiBuild(canvas *ui.Canvas, view *aiRowView, item *aiItem, wi
 		inner := max(width*0.9-2*aiUserPadX, 40)
 		count := state.aiWrap(canvas, view, item.text, aiBodySize, inner)
 		view.height = 2*aiUserPadY + float32(count)*aiBodyLine
+	case aiTargetChange:
+		view.detail = fmt.Sprintf(state.messages.AIPanel.TargetSwitchedFmt, item.text)
+		view.height = 30
 	case aiAssistant:
 		view.doc.Parse(item.text)
 		view.height = view.md.Layout(canvas, components.MarkdownStyle{
@@ -616,7 +623,7 @@ func (state *State) paintAIEmpty(canvas *ui.Canvas, list ui.Rect) {
 // is one to look at, and about getting one when there is not.
 func (state *State) aiEmptyTexts() (title, hint string, examples [aiExamples]string) {
 	m := state.messages.AIPanel
-	if _, err := state.aiSession(""); err != nil {
+	if _, err := state.aiTargetSession(); err != nil {
 		return m.IdleTitle, m.IdleHint, [aiExamples]string{m.IdleExample1, m.IdleExample2, m.IdleExample3}
 	}
 	return m.EmptyTitle, m.EmptyHint, [aiExamples]string{m.Example1, m.Example2, m.Example3}
@@ -879,6 +886,14 @@ func (state *State) declareAIRow(f *flex.Frame, index int, view *aiRowView, item
 		row.Items(flex.End).Children(func() {
 			f.Column().MaxWidth(view.width).PadSides(aiUserPadY, aiUserPadX, aiUserPadY, aiUserPadX).Background(pal.accentSoft).Radius(radius.popup).Children(func() {
 				aiTextLines(f, view.lines, aiBodySize, aiBodyLine, pal.text)
+			})
+		})
+	case aiTargetChange:
+		row.Height(view.height).Items(flex.Center).Children(func() {
+			f.Row().Fill().Gap(10).Items(flex.Center).Children(func() {
+				f.Column().Grow(1).Height(1).Background(pal.line)
+				f.Text(view.detail).FontSize(aiSmallSize).Color(pal.faint).LineHeight(aiSmallLine).MaxWidth(max(view.width-48, 0)).Ellipsis()
+				f.Column().Grow(1).Height(1).Background(pal.line)
 			})
 		})
 	case aiAssistant:

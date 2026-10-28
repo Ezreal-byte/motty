@@ -152,7 +152,11 @@ func (panel *aiPanel) aiTextSelectionText() (string, bool) {
 // the geometry of the last paint and small view state. It is all derived or
 // cosmetic; nothing here is saved.
 type aiPanel struct {
-	rows []aiRowView
+	targetOpen                  bool
+	targetBounds                ui.Rect
+	targetTitle, targetValue    string
+	targetWidth, targetFontSize float32
+	rows                        []aiRowView
 
 	// history shows the saved conversations in place of the messages.
 	history      bool
@@ -226,8 +230,12 @@ type aiPanel struct {
 	approvalLay    aiApprovalLayout
 
 	// mentions is what the @ before the caret can name, from the last layout.
-	mentionBuf [maxMentionSuggestions]mentionName
-	mentions   []mentionName
+	mentionBuf       [maxMentionSuggestions]mentionName
+	mentions         []mentionName
+	mentionIndex     int
+	mentionText      string
+	mentionSelection text.Range
+	mentionDismissed bool
 
 	// Strings made from the state once, not every paint.
 	modelName, modelID, modelText string
@@ -239,18 +247,16 @@ type aiPanel struct {
 	moreFormat, moreText          string
 }
 
-// aiPanelVisible reports whether the panel is on screen: it is open and either a
-// terminal workspace is showing, or there is none at all and it sits beside
-// whatever section the window shows.
+// The panel stays available on every page, independently of terminal tabs.
 func (state *State) aiPanelVisible() bool {
-	return state.ai.open && (state.deck.ActiveWorkspace() == 0 || state.activeSection == sectionTerminal)
+	return state.ai.open
 }
 
 // aiSectionReserve is the width the panel takes from the section beside it when
 // no host is open, and zero while a workspace exists: the panel then belongs to
 // the workspace's terminals (aiReserve).
 func (state *State) aiSectionReserve(size ui.Size) float32 {
-	if state.deck.ActiveWorkspace() != 0 {
+	if state.activeSection == sectionTerminal {
 		return 0
 	}
 	if reserve := state.aiReserve(0, size); reserve > 0 {
@@ -324,6 +330,7 @@ func (state *State) setAIPanelOpen(open bool) {
 	}
 	ai.open = open
 	if !open {
+		ai.panel.targetOpen = false
 		ai.panel.history = false
 		ai.panel.modelMenu = false
 		ai.panel.clearAITextSelection()
@@ -332,16 +339,11 @@ func (state *State) setAIPanelOpen(open bool) {
 }
 
 // toggleAIPanel is the window-bar button, the shortcut and the palette entry:
-// it closes a panel that is showing, and otherwise brings it up, from any
-// section, over the active terminal workspace, or beside the section when there
-// is no workspace.
+// it only controls panel visibility, preserving the current page and tab.
 func (state *State) toggleAIPanel() {
 	if state.aiPanelVisible() {
 		state.setAIPanelOpen(false)
 		return
-	}
-	if workspace := state.deck.ActiveWorkspace(); workspace != 0 && state.activeSection != sectionTerminal && state.activateWorkspace(workspace) {
-		state.save()
 	}
 	state.setAIPanelOpen(true)
 }
@@ -380,6 +382,15 @@ func (state *State) aiPanelClick(id ui.ID) bool {
 	ai := &state.ai
 	panel := &ai.panel
 	switch {
+	case id == hitAITarget:
+		if ai.run == nil {
+			panel.targetOpen = !panel.targetOpen
+			panel.modelMenu = false
+		}
+	case id == hitAITargetDismiss:
+		panel.targetOpen = false
+	case id.Scope() == hitAITargets:
+		state.aiChooseTarget(id)
 	case id == hitAIToggle:
 		state.toggleAIPanel()
 	case id == hitAIClose || id == hitAIDrawerDismiss:
@@ -411,6 +422,7 @@ func (state *State) aiPanelClick(id ui.ID) bool {
 			state.aiStartCLILogin(id, false)
 		}
 	case id == hitAIModelChip:
+		panel.targetOpen = false
 		panel.modelMenu = !panel.modelMenu
 		panel.modelTypeahead.Reset()
 		panel.modelHover.Reset()
@@ -637,7 +649,13 @@ func (state *State) aiPanelPointer(event ui.PointerEvent) (ui.EventResult, bool)
 			}
 		}
 	}
-	if event.Kind == ui.PointerUp && event.Target.Scope() == hitAIExamples && event.Button == ui.PointerButtonPrimary {
+	if event.Kind == ui.PointerMove {
+		if index, ok := event.Target.In(hitAIMentions); ok && index < len(panel.mentions) && panel.mentionIndex != index {
+			panel.mentionIndex = index
+			return ui.EventResult{Repaint: true}, true
+		}
+	}
+	if event.Kind == ui.PointerUp && (event.Target.Scope() == hitAIExamples || event.Target.Scope() == hitAIMentions) && event.Button == ui.PointerButtonPrimary {
 		// The click that follows fills the prompt in; the box takes the focus so the
 		// user can edit it or press Enter.
 		return ui.EventResult{Focus: hitAIInput, Repaint: true}, true
@@ -740,6 +758,11 @@ func (state *State) aiPanelKey(event ui.KeyEvent) (ui.EventResult, bool) {
 		return ui.EventResult{Focus: hitAIInput, Repaint: true}, true
 	}
 	handled := ui.EventResult{Handled: true, Repaint: true}
+	if event.Target == hitAITarget && ai.run == nil && !panel.targetOpen && (event.Key == ui.KeyDown || event.Key == ui.KeyUp) {
+		panel.targetOpen = true
+		panel.modelMenu = false
+		return handled, true
+	}
 	// Right opens the provider's models and Left returns to the provider row,
 	// as a submenu moves between levels in Base UI.
 	if command, ok := components.SubmenuCommandForKey(event.Key); ok && !event.Repeat {
@@ -761,6 +784,14 @@ func (state *State) aiPanelKey(event ui.KeyEvent) (ui.EventResult, bool) {
 			panel.modelSubmenu = panel.modelSubmenu.Close()
 			return ui.EventResult{Handled: true, Repaint: true, Focus: trigger, FocusVisible: true}, true
 		}
+	}
+	if event.Target == hitAIInput {
+		if _, composing := ai.input.Composition(); composing {
+			return ui.EventResult{}, false
+		}
+	}
+	if state.aiMentionKey(event) {
+		return ui.EventResult{Handled: true, Repaint: true, Focus: hitAIInput}, true
 	}
 	if event.Target == hitAIInput {
 		// Up, Down, Home, End and the page keys move by the rows the box wrapped to.
@@ -796,12 +827,6 @@ func (state *State) aiPanelKey(event ui.KeyEvent) (ui.EventResult, bool) {
 		if event.Target == hitAIInput {
 			// Back to the terminal the panel is about.
 			return ui.EventResult{Handled: true, Repaint: true, Focus: state.activeTerminalFocusHit()}, true
-		}
-	case ui.KeyTab:
-		// Tab takes the first session the @ before the caret could name.
-		if event.Target == hitAIInput && !event.Repeat && event.Modifiers == 0 && len(panel.mentions) > 0 {
-			state.acceptMention(panel.mentions[0].name)
-			return ui.EventResult{Handled: true, Repaint: true}, true
 		}
 	case ui.KeyEnter:
 		switch event.Target {
@@ -897,8 +922,8 @@ func (state *State) aiPanelEditor(hit ui.ID) *text.Editor {
 
 // AIPanelInput resolves the native editor of the assistant's message box. It
 // edits the same text.Editor the panel paints, but takes Enter itself: Enter
-// (app.TextInsertNewline) sends the message instead of putting a line break in
-// it, while Shift+Enter (app.TextInsertLineBreak) still inserts one.
+// accepts the highlighted @ suggestion, or sends the message when no suggestion
+// is open. Shift+Enter (app.TextInsertLineBreak) still inserts a line break.
 func (state *State) AIPanelInput(context app.TextInputContext) *app.TextInput {
 	if context.ID != hitAIInput || state.ai.panel.rect.Width <= 0 {
 		return nil
@@ -917,11 +942,18 @@ func (state *State) AIPanelInput(context app.TextInputContext) *app.TextInput {
 func (state *State) aiPanelText(event app.TextEvent) app.TextState {
 	ai := &state.ai
 	_, composing := ai.input.Composition()
-	if event.Kind == app.TextCommandEvent && event.Command == app.TextInsertNewline && !composing {
-		state.aiPanelEnter()
-		result := app.TextStateOf(&ai.input)
-		result.Redraw = true // the conversation changed, not only the editor
-		return result
+	if event.Kind == app.TextCommandEvent && !composing && (event.Command == app.TextInsertNewline || event.Command == app.TextInsertTab) {
+		if state.aiAcceptSelectedMention() {
+			result := app.TextStateOf(&ai.input)
+			result.Redraw = true
+			return result
+		}
+		if event.Command == app.TextInsertNewline {
+			state.aiPanelEnter()
+			result := app.TextStateOf(&ai.input)
+			result.Redraw = true // the conversation changed, not only the editor
+			return result
+		}
 	}
 	event.Apply(&ai.input)
 	return app.TextStateOf(&ai.input)
@@ -947,14 +979,27 @@ func (state *State) aiAskAboutSelection(session *Session) {
 		quoted = quoted[:cut] + "\n…"
 	}
 	state.setAIMode(agent.ModeAsk)
-	state.openAIPanelWith(state.messages.AIPanel.PromptSelectionFn + "\n```\n" + quoted + "\n```\n")
+	state.openAIPanelWith(state.aiReferencePrompt(session, state.messages.AIPanel.PromptSelectionFn+"\n```\n"+quoted+"\n```\n"))
 }
 
 // aiExplainOutput puts the question about the terminal's recent output in the
 // message box; Ask mode sends the screen's text along with it.
-func (state *State) aiExplainOutput() {
+func (state *State) aiExplainOutput(session *Session) {
 	state.setAIMode(agent.ModeAsk)
-	state.openAIPanelWith(state.messages.AIPanel.PromptExplain)
+	state.openAIPanelWith(state.aiReferencePrompt(session, state.messages.AIPanel.PromptExplain))
+}
+
+// A terminal-menu shortcut references its source without changing a locked
+// target. In particular, explaining B must not accidentally attach only A.
+func (state *State) aiReferencePrompt(session *Session, prompt string) string {
+	if state.aiTarget().ID != sessionHandle(session.ID) {
+		for _, name := range state.mentionNames(nil) {
+			if name.session == session.ID {
+				return "@" + name.name + " " + prompt
+			}
+		}
+	}
+	return prompt
 }
 
 // aiOpenLink opens the link behind hit number index of the last paint.
