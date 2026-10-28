@@ -3,6 +3,8 @@ package main
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"os"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -198,5 +200,22 @@ func TestAssetForStable(t *testing.T) {
 		if got := assetForStable(testVersion, stable); got != want {
 			t.Fatalf("assetForStable(%q) = %q, want %q", stable, got, want)
 		}
+	}
+}
+
+func TestCodesignDependencyKeepsTheReport(t *testing.T) {
+	if runtime.GOOS != "darwin" {
+		t.Skip("codesign only exists on macOS")
+	}
+	const installed = "/Applications/Motty.app"
+	if _, err := os.Stat(installed); err != nil {
+		t.Skip("no installed app to read a signature from")
+	}
+	output, err := newDeps(defaultRepo).codesign(installed)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := teamFromCodesign(output); err != nil {
+		t.Fatalf("the codesign dependency lost the report: %v", err)
 	}
 }
