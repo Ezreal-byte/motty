@@ -1,4 +1,6 @@
 import type { MetadataRoute } from 'next';
+import { changelog } from '@/lib/changelog';
+import { docsDates, lastCommitDate } from '@/lib/dates';
 import { docsPath, source } from '@/lib/source';
 import { absolute, hreflang, localePath, locales, type Locale } from '@/lib/seo';
 
@@ -20,10 +22,14 @@ export default function sitemap(): MetadataRoute.Sitemap {
   };
 
   const entries: MetadataRoute.Sitemap = [];
+  // The marketing pages change with a release; a docs page changes with its own
+  // commit, which is what `<lastmod>` is supposed to answer.
+  const release = changelog[0].date;
 
   for (const lang of locales as readonly Locale[]) {
     entries.push({
       url: absolute(localePath(lang)),
+      lastModified: release,
       changeFrequency: 'weekly',
       priority: lang === 'zh' ? 1 : 0.9,
       alternates: { languages: languages('') },
@@ -31,13 +37,23 @@ export default function sitemap(): MetadataRoute.Sitemap {
 
     entries.push({
       url: absolute(localePath(lang, '/download')),
+      lastModified: release,
       changeFrequency: 'monthly',
       priority: 0.8,
       alternates: { languages: languages('/download') },
     });
 
     entries.push({
+      url: absolute(localePath(lang, '/compare')),
+      lastModified: lastCommitDate('lib/compare-content.ts'),
+      changeFrequency: 'monthly',
+      priority: 0.8,
+      alternates: { languages: languages('/compare') },
+    });
+
+    entries.push({
       url: absolute(localePath(lang, '/changelog')),
+      lastModified: release,
       changeFrequency: 'weekly',
       priority: 0.8,
       alternates: { languages: languages('/changelog') },
@@ -47,6 +63,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
       const path = docsPath(page.slugs);
       entries.push({
         url: absolute(localePath(lang, path)),
+        lastModified: docsDates(page.slugs, lang).modified,
         changeFrequency: 'monthly',
         priority: page.slugs.length === 0 ? 0.8 : 0.7,
         alternates: { languages: languages(path, page.slugs) },

@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { changelog } from '@/lib/changelog';
 import { i18n } from '@/lib/i18n';
 
 /**
@@ -28,7 +29,7 @@ export const hreflang: Record<Locale, string> = { en: 'en', zh: 'zh-CN' };
 
 export const copy: Record<Locale, { title: string; description: string; keywords: string[] }> = {
   en: {
-    title: 'Motty — native SSH workspace with SFTP, VNC and RDP',
+    title: 'Motty — free native SSH client with SFTP, VNC and RDP',
     description:
       'Native desktop SSH workspace: terminal, SFTP/SCP, port forwarding, VNC and RDP desktops, and an AI assistant in one window. Go, no Electron. Free for macOS, Windows and Linux.',
     keywords: [
@@ -48,7 +49,7 @@ export const copy: Record<Locale, { title: string; description: string; keywords
     ],
   },
   zh: {
-    title: 'Motty — 原生 SSH 工作台：SFTP、VNC 与 RDP',
+    title: 'Motty — 原生 SSH 客户端：SFTP、VNC 与 RDP',
     description:
       '原生桌面 SSH 工作台：终端、SFTP/SCP、端口转发、VNC 与 RDP 远程桌面、AI 助手都在一个窗口里。Go 编写，没有 Electron，空闲时保持安静。免费开源，支持 macOS、Windows 和 Linux。',
     keywords: [
@@ -149,6 +150,19 @@ export const robots: NonNullable<Metadata['robots']> = {
   },
 };
 
+/**
+ * The person behind the project, as the public GitHub account. A `Person` node
+ * is what E-E-A-T means in structured data: an article `author` that resolves to
+ * something, instead of the publisher pointing at itself.
+ */
+export const maintainer = {
+  '@type': 'Person',
+  '@id': `${site.url}/#maintainer`,
+  name: 't8y2',
+  url: 'https://github.com/t8y2',
+  sameAs: ['https://github.com/t8y2'],
+} as const;
+
 export function organizationJsonLd(): Record<string, unknown> {
   return {
     '@context': 'https://schema.org',
@@ -158,6 +172,7 @@ export function organizationJsonLd(): Record<string, unknown> {
     url: site.url,
     logo: { '@type': 'ImageObject', url: absolute('/icon-512.png'), width: 512, height: 512 },
     sameAs: [site.github],
+    founder: { '@id': `${site.url}/#maintainer` },
     description: copy.en.description,
   };
 }
@@ -191,6 +206,10 @@ export function softwareApplicationJsonLd(lang: Locale): Record<string, unknown>
     softwareHelp: absolute(localePath(lang, '/docs')),
     license: 'https://www.apache.org/licenses/LICENSE-2.0',
     isAccessibleForFree: true,
+    softwareVersion: changelog[0].version,
+    releaseNotes: absolute(localePath(lang, '/changelog')),
+    codeRepository: site.github,
+    dateModified: changelog[0].date,
     offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
     screenshot: absolute('/hero-dark.webp'),
     sameAs: [site.github],
@@ -219,18 +238,29 @@ export function techArticleJsonLd(
   path: string,
   title: string,
   description: string,
+  dates: { published: string; modified: string },
+  translation?: { lang: Locale; path: string },
 ): Record<string, unknown> {
+  const url = absolute(localePath(lang, path));
   return {
     '@context': 'https://schema.org',
     '@type': 'TechArticle',
+    '@id': `${url}#article`,
     headline: title,
     description,
-    url: absolute(localePath(lang, path)),
-    mainEntityOfPage: absolute(localePath(lang, path)),
+    url,
+    mainEntityOfPage: url,
+    image: absolute('/og.png'),
+    datePublished: dates.published,
+    dateModified: dates.modified,
     inLanguage: hreflang[lang],
     isPartOf: { '@id': `${site.url}/#website` },
+    about: { '@id': `${site.url}/#software` },
     publisher: { '@id': `${site.url}/#organization` },
-    author: { '@id': `${site.url}/#organization` },
+    author: { '@id': `${site.url}/#maintainer` },
+    ...(translation
+      ? { workTranslation: absolute(localePath(translation.lang, translation.path)) }
+      : {}),
   };
 }
 
@@ -245,6 +275,16 @@ export function faqJsonLd(items: { q: string; a: string }[]): Record<string, unk
       acceptedAnswer: { '@type': 'Answer', text: item.a },
     })),
   };
+}
+
+/**
+ * The three nodes every page needs, emitted once per document by the locale
+ * layout. Article and WebPage nodes elsewhere point at these by `@id`, and a
+ * reference only resolves if the node it names is in the same document — which
+ * is why the graph lives in the layout rather than on the home page alone.
+ */
+export function siteGraph(lang: Locale): Record<string, unknown>[] {
+  return [organizationJsonLd(), websiteJsonLd(lang), softwareApplicationJsonLd(lang), maintainer];
 }
 
 /**

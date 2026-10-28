@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { JsonLd } from '@/components/json-ld';
 import { getMDXComponents } from '@/components/mdx';
+import { docsDates, formatUpdated } from '@/lib/dates';
 import { resolveLang } from '@/lib/i18n';
 import {
   alternates,
@@ -29,12 +30,17 @@ export default async function Page(props: PageProps<'/[lang]/docs/[[...slug]]'>)
   const trail = [{ name: 'Motty', path: '' }, { name: lang === 'zh' ? '文档' : 'Documentation', path: '/docs' }];
   if (page.slugs.length > 0) trail.push({ name: page.data.title, path });
 
+  const dates = docsDates(page.slugs, lang);
+  const other = locales.find((candidate) => candidate !== lang);
+  const translation =
+    other && source.getPage(page.slugs, other) ? { lang: other, path } : undefined;
+
   return (
     <>
       <JsonLd
         data={[
           breadcrumbJsonLd(lang, trail),
-          techArticleJsonLd(lang, path, page.data.title, description),
+          techArticleJsonLd(lang, path, page.data.title, description, dates, translation),
         ]}
       />
       <DocsPage toc={page.data.toc}>
@@ -43,6 +49,9 @@ export default async function Page(props: PageProps<'/[lang]/docs/[[...slug]]'>)
         <DocsBody>
           <MDX components={getMDXComponents()} />
         </DocsBody>
+        <p className="mt-10 border-t pt-4 text-sm text-fd-muted-foreground">
+          <time dateTime={dates.modified}>{formatUpdated(dates.modified, lang)}</time>
+        </p>
       </DocsPage>
     </>
   );

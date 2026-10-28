@@ -1,9 +1,10 @@
 import '../global.css';
 import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
+import { JsonLd } from '@/components/json-ld';
 import { Provider } from '@/components/provider';
 import { i18n, resolveLang } from '@/lib/i18n';
-import { copy, robots, site } from '@/lib/seo';
+import { copy, robots, site, siteGraph } from '@/lib/seo';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -43,10 +44,14 @@ export function generateStaticParams() {
 export const dynamicParams = false;
 
 export default async function Layout({ params, children }: LayoutProps<'/[lang]'>) {
-  const { lang } = await params;
+  const { lang: raw } = await params;
+  const lang = resolveLang(raw);
   return (
     <html lang={lang === 'zh' ? 'zh-CN' : lang} className={inter.className} suppressHydrationWarning>
       <body className="flex min-h-screen flex-col">
+        {/* Organization, WebSite, SoftwareApplication and the maintainer, once
+            per document: every other node on the page references these by @id. */}
+        <JsonLd data={siteGraph(lang)} />
         <Provider lang={lang}>{children}</Provider>
       </body>
     </html>

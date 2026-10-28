@@ -45,6 +45,11 @@ export function baseOptions(locale: string): BaseLayoutProps {
         text: lang === 'zh' ? '更新日志' : 'Changelog',
         url: `/${lang}/changelog`,
       },
+      {
+        type: 'main',
+        text: lang === 'zh' ? '对比' : 'Compare',
+        url: `/${lang}/compare`,
+      },
     ],
   };
 }

@@ -99,7 +99,23 @@ blocks Next emits per page, and the content under `website/content/docs/`.
 - `website/lib/seo.ts` holds the site constants, the per-language copy, the
   canonical/hreflang helper, the Open Graph and Twitter cards, the shared robots
   policy and the JSON-LD builders (Organization, WebSite, SoftwareApplication,
-  FAQPage, BreadcrumbList, TechArticle).
+  FAQPage, BreadcrumbList, TechArticle, Person).
+- `siteGraph()` is rendered once per document by `app/[lang]/layout.tsx`, not by
+  the pages: a docs `TechArticle` points `author`, `publisher` and `isPartOf` at
+  `#maintainer`, `#organization` and `#website` by `@id`, and a reference only
+  resolves if the node it names is in the same document.
+- Dates come from git, not from frontmatter: `website/lib/dates.ts` asks for the
+  last commit that touched an MDX file and feeds `sitemap.xml` `<lastmod>` and
+  the article's `datePublished`/`dateModified`. CI therefore checks out with
+  `fetch-depth: 0`; a shallow clone falls back to the constant in that file.
+- Two shapes are load-bearing for answer engines and should survive edits: the
+  "What Motty is" paragraph on the landing page is one self-contained block of
+  120-160 words, and every FAQ answer is 40-60 words. Both are written to be
+  quoted without surrounding context.
+- `/en/compare` and `/zh/compare` (`website/lib/compare-content.ts`) carry the
+  category comparisons. Every competitor cell is a fact from that project's own
+  public page or repository, the "where Motty is behind" section stays, and the
+  checked date is printed on the page — re-verify it before changing a row.
 - Each page sets its own canonical and hreflang set. `alternates()` only lists a
   translation that exists, and marks `x-default` as `/zh` because `/` answers 301
   to the Chinese home page.

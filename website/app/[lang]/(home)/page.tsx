@@ -3,16 +3,7 @@ import { JsonLd } from '@/components/json-ld';
 import { Landing } from '@/components/landing';
 import { landing } from '@/lib/landing-content';
 import { i18n, resolveLang } from '@/lib/i18n';
-import {
-  alternates,
-  copy,
-  faqJsonLd,
-  openGraph,
-  organizationJsonLd,
-  softwareApplicationJsonLd,
-  twitter,
-  websiteJsonLd,
-} from '@/lib/seo';
+import { alternates, copy, faqJsonLd, openGraph, twitter } from '@/lib/seo';
 
 export function generateStaticParams() {
   return i18n.languages.map((lang) => ({ lang }));
@@ -38,14 +29,7 @@ export default async function Page({ params }: PageProps<'/[lang]'>) {
 
   return (
     <>
-      <JsonLd
-        data={[
-          organizationJsonLd(),
-          websiteJsonLd(lang),
-          softwareApplicationJsonLd(lang),
-          faqJsonLd(landing[lang].faq),
-        ]}
-      />
+      <JsonLd data={faqJsonLd(landing[lang].faq)} />
       <Landing lang={lang} />
     </>
   );

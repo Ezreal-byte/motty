@@ -127,6 +127,11 @@ export function Landing({ lang }: { lang: string }) {
         </div>
       </section>
 
+      <section className="mx-auto max-w-3xl px-4 py-16">
+        <h2 className="mb-6 text-2xl font-semibold tracking-tight">{c.aboutTitle}</h2>
+        <p className="text-lg leading-relaxed text-fd-muted-foreground">{c.about}</p>
+      </section>
+
       <section className="mx-auto max-w-5xl px-4 py-16">
         <h2 className="mb-10 text-center text-2xl font-semibold tracking-tight">{c.faqTitle}</h2>
         <div className="grid gap-4 sm:grid-cols-2">
