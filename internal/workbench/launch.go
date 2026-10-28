@@ -187,6 +187,12 @@ func (state *State) paintLaunchDialog(canvas *ui.Canvas, viewport ui.Rect) {
 }
 
 func (state *State) clickUpdateDialog(id ui.ID) {
+	if index, ok := id.In(hitUpdateNotesLinks); ok {
+		if dest := state.update.notes.view.Link(index); dest != "" {
+			state.openExternal(dest)
+		}
+		return
+	}
 	switch id {
 	case hitUpdateDismiss, hitUpdateClose, hitUpdateLater:
 	case hitUpdateSkip:
@@ -367,7 +373,7 @@ func (state *State) checkForUpdates(asked bool) {
 				}
 			case update.Newer(update.Current, release.Version):
 				state.update.release, state.update.available = release, true
-				state.update.notes = updateNotes{text: update.PlainNotes(release.Notes)}
+				state.update.notes = updateNotes{text: release.Notes}
 				state.update.text = fmt.Sprintf(m.UpdateAvailableFmt, release.Version)
 				state.status = state.update.text
 				// A check the user asked for always answers; one made at startup

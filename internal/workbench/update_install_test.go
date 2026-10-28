@@ -230,7 +230,7 @@ func TestLongReleaseNotesScrollInsideABoundedArea(t *testing.T) {
 	for range 50 {
 		long.WriteString("- an entry of the changelog\n")
 	}
-	state.update.notes = updateNotes{text: update.PlainNotes(long.String())}
+	state.update.notes = updateNotes{text: long.String()}
 	paintedTexts(state)
 	if !notes.scrolls || notes.viewHeight != updateNotesMaxHeight || notes.max <= 0 {
 		t.Fatalf("fifty notes should fill the cap and scroll: %+v", notes)

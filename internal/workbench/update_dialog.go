@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/vivaui/viva/components"
+	"github.com/vivaui/viva/markdown"
 	"github.com/vivaui/viva/ui"
 	"motty/internal/update"
 )
@@ -24,22 +25,45 @@ const (
 	updateWhyLines              = 2
 )
 
-var hitUpdateNotes = tree.ID(launchHits, "update-notes")
+var (
+	hitUpdateNotes = tree.ID(launchHits, "update-notes")
+	// Every link in the notes is one identity of its own, so a click can open it.
+	hitUpdateNotesLinks = tree.Sub(launchHits, tree.Name("update-notes-links"))
+)
 
-// updateNotes is the release notes as the dialog shows them: what was measured
-// for the width it has, and where the text is scrolled to.
+// updateNotes is the release notes as the dialog shows them: the Markdown
+// document laid out for the width it has, and where it is scrolled to.
 type updateNotes struct {
-	text string // the notes as plain lines; empty when the release has none
+	text string // the notes as published, in Markdown; empty when the release has none
+	doc  markdown.Document
+	view components.MarkdownView
 
 	measuredText  string
 	measuredWidth float32
-	lines         int
 	scrolls       bool
 
 	scroll float32
 	// viewHeight, contentHeight and max are as of the last paint, which the
 	// wheel and the keys act on.
 	viewHeight, contentHeight, max float32
+}
+
+// updateNotesStyle is the type the notes are laid out and painted in: the
+// dialog's body size, in the terminal's fixed-pitch face for code.
+func (state *State) updateNotesStyle() components.MarkdownStyle {
+	return components.MarkdownStyle{
+		Size: metrics.FontSizeS, LineHeight: updateNotesLine,
+		MonoFace: state.terminalFontFace, Highlight: highlightCode,
+	}
+}
+
+// updateNotesText is what the box shows: the release's notes, or a line saying
+// there are none.
+func (state *State) updateNotesText() string {
+	if state.update.notes.text != "" {
+		return state.update.notes.text
+	}
+	return state.messages.Tools.UpdateNotesEmpty
 }
 
 // wrappedLines is how many lines text takes in width, counting a blank line as one.
@@ -56,18 +80,25 @@ func wrappedLines(canvas *ui.Canvas, text string, size, width float32) int {
 	return total
 }
 
-// measure counts the lines of text in the width the dialog gives it, and whether
-// they are more than fit, in which case the scrollbar takes some of that width.
-func (notes *updateNotes) measure(canvas *ui.Canvas, text string, width float32) {
-	if notes.lines > 0 && notes.measuredWidth == width && notes.measuredText == text {
+// measureNotes lays the notes out in the width the dialog gives them and records
+// their height, plus whether they are more than fit, in which case the scrollbar
+// takes some of that width. Markdown shapes the height (headings and code blocks
+// are taller than their lines), so it is measured rather than counted in lines.
+func (state *State) measureNotes(canvas *ui.Canvas, width float32) {
+	notes := &state.update.notes
+	text := state.updateNotesText()
+	if notes.contentHeight > 0 && notes.measuredWidth == width && notes.measuredText == text {
 		return
 	}
 	notes.measuredText, notes.measuredWidth = text, width
-	notes.lines = wrappedLines(canvas, text, metrics.FontSizeS, width)
-	notes.scrolls = float32(notes.lines)*updateNotesLine > updateNotesMaxHeight
+	notes.doc.Parse(text)
+	style := state.updateNotesStyle()
+	height := notes.view.Layout(canvas, style, &notes.doc, width)
+	notes.scrolls = height > updateNotesMaxHeight
 	if notes.scrolls {
-		notes.lines = wrappedLines(canvas, text, metrics.FontSizeS, width-updateNotesGutter)
+		height = notes.view.Layout(canvas, style, &notes.doc, width-updateNotesGutter)
 	}
+	notes.contentHeight = height
 }
 
 func (state *State) paintUpdateDialog(canvas *ui.Canvas, viewport ui.Rect) {
@@ -83,16 +114,12 @@ func (state *State) paintUpdateDialog(canvas *ui.Canvas, viewport ui.Rect) {
 	}
 
 	// The body is as tall as what it holds, up to the cap, so a short note does
-	// not leave a gap above the buttons.
-	const contentWidth float32 = 560
+	// not leave a gap above the buttons. The dialog narrows with the window, and
+	// the notes are laid out in the width it ends up with.
+	contentWidth := min(float32(560), viewport.Width-32)
 	bodyWidth := contentWidth - 2*(metrics.PadSurface+metrics.GapItem)
 	viewWidth := bodyWidth - updateNotesPadX - updateNotesPadRight
-	text := notes.text
-	if text == "" {
-		text = m.UpdateNotesEmpty
-	}
-	notes.measure(canvas, text, viewWidth)
-	notes.contentHeight = float32(notes.lines) * updateNotesLine
+	state.measureNotes(canvas, viewWidth)
 	notes.viewHeight = min(notes.contentHeight, updateNotesMaxHeight)
 	boxHeight := notes.viewHeight + 2*updateNotesPadY
 	whyHeight := float32(0)
@@ -116,15 +143,23 @@ func (state *State) paintUpdateDialog(canvas *ui.Canvas, viewport ui.Rect) {
 	}
 	scroller := components.BeginMessageScroller(canvas, state.Theme(), view, notes.contentHeight, notes.scroll)
 	geometry := scroller.BeginContent()
-	textWidth := view.Width
-	if notes.scrolls {
-		textWidth -= updateNotesGutter
+	look := components.MarkdownLookFor(state.Theme())
+	look.Text, look.Muted = state.pal.muted, state.pal.faint
+	look.Line, look.CodeFill, look.InlineCodeFill = state.pal.line, state.pal.terminal, state.pal.surfaceSoft
+	blue := state.pal.ansi[4] // the accent is nearly white; a link has to stand out from the text
+	look.Link = ui.RGB(blue[0], blue[1], blue[2])
+	look.Selection = withAlpha(state.pal.text, 0.25)
+	ansi := func(index int) ui.Color {
+		return ui.RGB(state.pal.ansi[index][0], state.pal.ansi[index][1], state.pal.ansi[index][2])
 	}
-	f := state.settingsRow.Begin(canvas, state.Theme(), ui.Rect{X: geometry.Content.X, Y: geometry.Content.Y, Width: textWidth, Height: notes.contentHeight})
-	f.Column().Fill().Children(func() {
-		f.Wrap(text).FontSize(metrics.FontSizeS).Color(state.pal.muted).LineHeight(updateNotesLine)
+	look.Code = [components.MarkdownCodeClasses]ui.Color{
+		components.CodeComment: state.pal.faint, components.CodeString: ansi(2), components.CodeNumber: ansi(3),
+		components.CodeKeyword: ansi(5), components.CodeFunction: ansi(4), components.CodeVariable: ansi(6),
+		components.CodeFlag: ansi(6), components.CodeKey: ansi(4), components.CodeAdded: ansi(2), components.CodeRemoved: ansi(1),
+	}
+	notes.view.Paint(canvas, components.MarkdownPaint{
+		Look: look, X: geometry.Content.X, Y: geometry.Content.Y, Clip: view, Links: hitUpdateNotesLinks,
 	})
-	f.End()
 	geometry = scroller.EndContent()
 	notes.scroll, notes.max = geometry.Offset, geometry.MaxOffset
 

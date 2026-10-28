@@ -108,14 +108,6 @@ func TestLatestRefusesWhatItCannotTrust(t *testing.T) {
 	}
 }
 
-func TestPlainNotesReadsAsPlainLines(t *testing.T) {
-	got := PlainNotes("<!-- hidden\nstill hidden -->\n## What's new\n\n\n- **Fast** `scp`\n* more\n---\nDone.\n")
-	want := "What's new\n\n• Fast scp\n• more\n\nDone."
-	if got != want {
-		t.Fatalf("got %q, want %q", got, want)
-	}
-}
-
 func TestLatestKeepsTheReleaseNotes(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Write([]byte(`{"tag_name":"v1.2.3","html_url":"https://example.com/r","body":"notes"}`))

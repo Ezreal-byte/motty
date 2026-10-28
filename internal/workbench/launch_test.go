@@ -187,24 +187,62 @@ func TestCheckingForUpdatesOffersTheDownloadOfANewerVersion(t *testing.T) {
 	}
 }
 
-func TestANewVersionIsOfferedInADialogWithItsNotes(t *testing.T) {
+func TestANewVersionIsOfferedInADialogWithItsNotesAsMarkdown(t *testing.T) {
 	_, options := newWorld(t)
 	options.Invalidate = func() {}
 	options.CheckUpdate = func() (update.Release, error) {
-		return update.Release{Version: "99.0.0", URL: "https://example.com/release", Notes: "## Fixed\n- the **thing**"}, nil
+		return update.Release{Version: "99.0.0", URL: "https://example.com/release", Notes: "## Fixed\n- the thing"}, nil
 	}
 	var opened []string
 	options.OpenURL = func(url string) error { opened = append(opened, url); return nil }
 	state := newTestState(t, options)
 	state.Click(hitSettingsUpdateCheck)
 	waitUpdate(t, state, func() bool { return state.modal == modalUpdate })
-	_, texts := paintedTexts(state)
-	if !contains(texts, "99.0.0") || !contains(texts, "• the thing") {
+	canvas, texts := paintedTexts(state)
+	if !contains(texts, "99.0.0") || !contains(texts, "Fixed") || !contains(texts, "the thing") {
 		t.Fatalf("the dialog does not show the version and its notes: %q", texts)
+	}
+	// The notes are Markdown: a level-two heading is set larger than the body,
+	// where plain lines would have painted both at the same size.
+	heading, body := float32(0), float32(0)
+	for _, text := range canvas.Texts() {
+		switch text.Value {
+		case "Fixed":
+			heading = text.Style.Size
+		case "the thing":
+			body = text.Style.Size
+		}
+	}
+	if heading <= body {
+		t.Fatalf("the notes' heading (%.1f) is not larger than their body (%.1f): they are not Markdown", heading, body)
 	}
 	state.Click(hitUpdateDownload)
 	if state.modal != modalNone || !reflect.DeepEqual(opened, []string{"https://example.com/release"}) {
 		t.Fatalf("modal %d, opened %q", state.modal, opened)
+	}
+}
+
+func TestALinkInTheReleaseNotesOpensInTheBrowser(t *testing.T) {
+	_, options := newWorld(t)
+	options.Invalidate = func() {}
+	options.CheckUpdate = func() (update.Release, error) {
+		return update.Release{
+			Version: "99.0.0", URL: "https://example.com/release",
+			Notes: "See [#12](https://example.com/12) for the details.",
+		}, nil
+	}
+	var opened []string
+	options.OpenURL = func(url string) error { opened = append(opened, url); return nil }
+	state := newTestState(t, options)
+	state.Click(hitSettingsUpdateCheck)
+	waitUpdate(t, state, func() bool { return state.modal == modalUpdate })
+	paintedTexts(state)
+	state.Click(hitUpdateNotesLinks.At(0))
+	if !reflect.DeepEqual(opened, []string{"https://example.com/12"}) {
+		t.Fatalf("opened %q", opened)
+	}
+	if state.modal != modalUpdate {
+		t.Fatalf("a link in the notes closed the dialog: modal %d", state.modal)
 	}
 }
 

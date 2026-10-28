@@ -125,50 +125,6 @@ func cutUTF8(text string, limit int) string {
 	return text[:limit]
 }
 
-// PlainNotes turns release notes written in Markdown into plain lines for a
-// dialog: headings lose their marks, bullets become dots, emphasis and code
-// marks go, and rules, HTML comments and runs of blank lines disappear.
-func PlainNotes(markdown string) string {
-	var out []string
-	blank := true // no blank line at the start, and none twice in a row
-	inComment := false
-	for _, line := range strings.Split(strings.ReplaceAll(markdown, "\r\n", "\n"), "\n") {
-		line = strings.TrimRight(line, " \t\r")
-		trimmed := strings.TrimSpace(line)
-		switch {
-		case inComment:
-			inComment = !strings.Contains(trimmed, "-->")
-			continue
-		case strings.HasPrefix(trimmed, "<!--"):
-			inComment = !strings.Contains(trimmed, "-->")
-			continue
-		case trimmed == "" || strings.Trim(trimmed, "-*_ ") == "" && len(trimmed) >= 3:
-			if !blank {
-				out = append(out, "")
-			}
-			blank = true
-			continue
-		}
-		indent := ""
-		switch {
-		case strings.HasPrefix(trimmed, "#"):
-			trimmed = strings.TrimSpace(strings.TrimLeft(trimmed, "#"))
-		case strings.HasPrefix(trimmed, "- "), strings.HasPrefix(trimmed, "* "), strings.HasPrefix(trimmed, "+ "):
-			indent = "• "
-			trimmed = strings.TrimSpace(trimmed[2:])
-		}
-		trimmed = markdownMarks.Replace(trimmed)
-		out = append(out, indent+trimmed)
-		blank = false
-	}
-	for len(out) > 0 && out[len(out)-1] == "" {
-		out = out[:len(out)-1]
-	}
-	return strings.Join(out, "\n")
-}
-
-var markdownMarks = strings.NewReplacer("**", "", "__", "", "`", "")
-
 // Check asks the mirror for the newest release and, when the mirror cannot
 // answer, GitHub. The package is chosen for goos and goarch; a GitHub answer has
 // none, because it carries no checksums to hold a download to.
