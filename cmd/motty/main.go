@@ -83,7 +83,18 @@ func main() {
 		}
 		// macOS hands links to the running program; elsewhere they are arguments.
 		application.OnOpenURL(func(url string) { windows.launch([]string{url}) })
-		return openWindow()
+		if background {
+			// Started at login: the first window opens hidden, so the icon can
+			// go up first and closing it still leaves the application running.
+			status.show(application)
+		}
+		if err := openWindow(); err != nil {
+			return err
+		}
+		// Putting the icon in the status area costs about 60 ms, which would
+		// otherwise be part of how long the window takes to appear.
+		status.show(application)
+		return nil
 	})
 	hub.Close()
 	if err != nil {
@@ -91,19 +102,28 @@ func main() {
 	}
 }
 
-// newTray puts the icon in the status area. Without one, a desktop with no
-// StatusNotifier host, the application simply has no tray.
+// newTray makes the status-area list without an icon: the icon is added once
+// the first window is up, because making it delays the window (see show).
 func newTray(application *app.Application) *tray {
-	list := workbench.NewTray(func() { windows.quitWithDocuments(application.Quit) })
+	return &tray{list: workbench.NewTray(func() { windows.quitWithDocuments(application.Quit) })}
+}
+
+// show puts the icon in the status area. Without one, a desktop with no
+// StatusNotifier host, the application simply has no tray. It is safe to call
+// more than once.
+func (status *tray) show(application *app.Application) {
+	if status == nil || status.item != nil {
+		return
+	}
 	item, err := application.AddStatusItem(app.StatusItemConfig{
 		Icon: workbench.TrayIcon(),
 		// The system's menu, built when it opens. Where a desktop reports a
 		// primary press as an activation instead (a Linux tray), it brings the
 		// window back.
-		Menu: list.Menu,
+		Menu: status.list.Menu,
 		OnClick: func(click app.StatusClick) {
 			if click.Button == ui.PointerButtonPrimary {
-				list.ShowWindow()
+				status.list.ShowWindow()
 			}
 		},
 	})
@@ -111,10 +131,14 @@ func newTray(application *app.Application) *tray {
 		if !errors.Is(err, app.ErrNoStatusArea) {
 			log.Printf("motty: no status icon: %v", err)
 		}
-		return nil
+		return
 	}
-	return &tray{list: list, item: item}
+	status.item = item
 }
+
+// hasStatusArea reports whether the application is in the status area, which is
+// what lets it keep running when its last window closes.
+func (status *tray) hasStatusArea() bool { return status != nil && status.item != nil }
 
 // refresh brings the icon's tooltip up to date with the sessions that are open.
 // It runs on the event-loop thread.
@@ -155,7 +179,7 @@ func aiDatabasePath(dir string) string {
 }
 
 func (status *tray) refresh() {
-	if status == nil {
+	if !status.hasStatusArea() {
 		return
 	}
 	if text, changed := status.list.Tooltip(); changed {
@@ -190,7 +214,7 @@ func openWorkbenchWindow(application *app.Application, status *tray, hub *workbe
 	// application in the status area instead of quitting it. Any other window
 	// with nothing in it just closes.
 	requestClose := func(allow func()) {
-		if status != nil && (state.WantsToStay() || status.list.WindowCount() <= 1) {
+		if status.hasStatusArea() && (state.WantsToStay() || status.list.WindowCount() <= 1) {
 			mainWindow.Hide()
 			return
 		}
@@ -304,7 +328,7 @@ func openWorkbenchWindow(application *app.Application, status *tray, hub *workbe
 		state.SetWindow(mainWindow.Frame, func() bool { return !mainWindow.Hidden() && !mainWindow.Closed() })
 		hub.Add(state, mainWindow.Show)
 		windows.add(state)
-		if background && status != nil {
+		if background && status.hasStatusArea() {
 			// Started at login: sit in the status area until the user wants it.
 			mainWindow.Hide()
 		}
