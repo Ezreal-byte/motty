@@ -164,8 +164,8 @@ func TestReverseFolderSyncCannotExecuteAfterTypingDuringListing(t *testing.T) {
 	}
 }
 
-// Bash before 4.4 reports its prompt but never the start of a command, so the
-// terminal can never be proven idle. The panel must say that, not ask the user
+// A shell that reports its prompt but never the start of a command cannot be
+// proven idle. The panel must say that, not ask the user
 // to finish a command that is not running.
 func TestReverseFolderSyncExplainsAShellThatCannotReportCommandStarts(t *testing.T) {
 	state, session, fake, _ := openTestSFTP(t)

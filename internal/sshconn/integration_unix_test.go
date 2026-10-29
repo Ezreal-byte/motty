@@ -135,10 +135,10 @@ func TestIntegrationReportsRealShellDirectoriesWithoutChangingProfiles(t *testin
 				t.Fatalf("waiting for %s: %q", want, output)
 			}
 			await("initial ready prompt", func() bool { return ready > 0 })
-			version, _ := exec.Command(program, "--version").Output()
-			commandReporting := name == "zsh" || strings.Contains(string(version), "version 5.") || strings.Contains(string(version), "version 6.")
-			if commandReporting && commandStarts == 0 {
-				t.Fatal("supported shell did not announce command-start reporting")
+			// Every Bash reports command starts: PS0 from 4.4, a DEBUG trap before.
+			commandReporting := true
+			if commandStarts == 0 {
+				t.Fatal("shell did not announce command-start reporting")
 			}
 			if !strings.Contains(output, "user-profile-loaded") || !strings.Contains(output, "user-hook") {
 				t.Fatalf("profile/hook lost: %q", output)
@@ -191,5 +191,118 @@ func TestIntegrationRejectsUnsupportedShells(t *testing.T) {
 		if command := integrationCommand(shell); command != "" {
 			t.Errorf("unsupported shell %q enabled integration", shell)
 		}
+	}
+}
+
+// Bash before 4.4 has no PS0, so it reports the start of a command line from a
+// DEBUG trap. The trap path is forced here so that a current Bash exercises it,
+// and macOS's Bash 3.2 takes it by itself. Each line typed must be announced
+// once, nothing else may be, and the user's own DEBUG trap must still run.
+func TestIntegrationDebugTrapReportsEachCommandLineOnce(t *testing.T) {
+	program, err := exec.LookPath("bash")
+	if err != nil {
+		t.Skip("bash unavailable")
+	}
+	checkCommandStartReports(t, program, true)
+}
+
+// MOTTY_TEST_OLD_BASH names a real Bash before 4.4, such as the 4.2 of CentOS 7,
+// which then starts the way it does for a user, with nothing forced.
+func TestIntegrationRealOldBashReportsEachCommandLineOnce(t *testing.T) {
+	program := os.Getenv("MOTTY_TEST_OLD_BASH")
+	if program == "" {
+		t.Skip("MOTTY_TEST_OLD_BASH names no Bash before 4.4")
+	}
+	checkCommandStartReports(t, program, false)
+}
+
+func checkCommandStartReports(t *testing.T, program string, forceTrap bool) {
+	t.Helper()
+	home, runtimeDir := t.TempDir(), t.TempDir()
+	profile := "PS1='user-prompt> '\nPROMPT_COMMAND='printf \"user-hook\\n\"'\ntrap 'printf \"user-debug:%s\\n\" \"$BASH_COMMAND\"' DEBUG\n"
+	if err := os.WriteFile(filepath.Join(home, ".bash_profile"), []byte(profile), 0600); err != nil {
+		t.Fatal(err)
+	}
+	script := integrationScriptWith(program, forceTrap, "debug-trap-token")
+	shell, err := localshell.Start(localshell.Config{
+		Shell: "/bin/sh", Args: []string{"-c", script, "sh", program}, Dir: home,
+		Env:  []string{"HOME=" + home, "SHELL=" + program, "TMPDIR=" + runtimeDir, "LANG=en_US.UTF-8"},
+		Cols: 120, Rows: 24,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(shell.Close)
+	screen := term.New(120, 24, 0)
+	screen.SetPromptToken("debug-trap-token")
+	ready, starts, output := 0, 0, ""
+	screen.SetPromptReady(func() { ready++ })
+	screen.SetCommandStart(func() { starts++ })
+	await := func(what string, done func() bool) {
+		t.Helper()
+		deadline := time.Now().Add(8 * time.Second)
+		for time.Now().Before(deadline) {
+			data := shell.Drain(nil)
+			output += string(data)
+			screen.Write(data)
+			if done() {
+				return
+			}
+			time.Sleep(5 * time.Millisecond)
+		}
+		t.Fatalf("waiting for %s (ready=%d starts=%d): %q", what, ready, starts, output)
+	}
+	// run sends input and waits for the prompts that follow it, then lets the
+	// shell go quiet so that a stray extra report would be seen.
+	run := func(input string, prompts int, text string) {
+		t.Helper()
+		before := ready
+		shell.Write([]byte(input))
+		await(input, func() bool { return ready >= before+prompts && strings.Contains(output, text) })
+		time.Sleep(100 * time.Millisecond)
+		data := shell.Drain(nil)
+		output += string(data)
+		screen.Write(data)
+	}
+	await("first prompt", func() bool { return ready > 0 })
+	if starts != 1 {
+		t.Fatalf("the shell did not announce command-start reporting once: %d", starts)
+	}
+	steps := []struct {
+		name, input, text string
+		prompts, starts   int
+	}{
+		{"one command", "echo marker-one\r", "marker-one\r\n", 1, 1},
+		{"an empty line", "\r", "", 1, 0},
+		{"typeahead", "echo marker-two\recho marker-three\r", "marker-three\r\n", 2, 2},
+		{"a compound command", "for i in 1 2 3; do echo loop$i; done\r", "loop3\r\n", 1, 1},
+		{"a pipeline", "echo piped | cat\r", "piped\r\n", 1, 1},
+		{"a failing command", "false\r", "", 1, 1},
+	}
+	for _, step := range steps {
+		before := starts
+		run(step.input, step.prompts, step.text)
+		if starts-before != step.starts {
+			t.Fatalf("%s: %d command starts reported, want %d; output %q", step.name, starts-before, step.starts, output)
+		}
+	}
+	run("echo status=$?\r", 1, "status=1\r\n")
+	if !strings.Contains(output, "user-debug:echo marker-one\r\n") {
+		t.Fatalf("the user's DEBUG trap did not run with its BASH_COMMAND: %q", output)
+	}
+	if !strings.Contains(output, "user-hook\r\n") {
+		t.Fatalf("the user's PROMPT_COMMAND was lost: %q", output)
+	}
+	shell.Write([]byte("exit 5\r"))
+	select {
+	case <-shell.Done():
+	case <-time.After(8 * time.Second):
+		t.Fatal("the shell did not exit")
+	}
+	if shell.ExitStatus() != 5 {
+		t.Fatalf("exit status = %d, want 5", shell.ExitStatus())
+	}
+	if files, err := os.ReadDir(runtimeDir); err != nil || len(files) != 0 {
+		t.Fatalf("session files leaked: %v, %v", files, err)
 	}
 }

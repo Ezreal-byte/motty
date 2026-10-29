@@ -13,7 +13,7 @@ In **Settings > Files**, the two directions are independent:
 
 Reverse sync requires a fresh successful directory read and an untouched,
 ready shell prompt belonging to the same session, with command-start reporting
-(Bash 4.4+ PS0 or Zsh preexec). It skips partial command
+(Bash 4.4+ PS0, a DEBUG trap on older Bash, or Zsh preexec). It skips partial command
 lines, running programs, nested SSH prompts, alternate screens and assistant
 commands, with feedback in the file panel. A skipped request is never run later;
 navigate again once the original shell is ready. Paths are quoted as literal
@@ -47,10 +47,13 @@ another `cd` back. Both preferences use the existing shared-settings storage.
   to the normal SSH shell request. The existing manual OSC 7 setup remains
   available for forward following; automatic reverse sync fails closed when
   this session's integration cannot prove prompt readiness.
-- Bash versions older than 4.4 support automatic forward following only. Reverse
-  sync is disabled there instead of overriding a user's DEBUG trap. The
-  file panel says so when a navigation is skipped for that reason (CentOS 7 ships
-  Bash 4.2).
+- Bash before 4.4 has no `PS0`, so it reports command starts from a `DEBUG` trap
+  (ADR 0004): `PROMPT_COMMAND` arms it at the end, and the first command of the
+  next line reports once and disarms. An existing `DEBUG` trap of the user is
+  kept and runs first, so it sees the same `$?` and `BASH_COMMAND`. A `DEBUG`
+  trap that the user's startup files set *after* Motty's replaces it; reverse
+  sync then stays off for that shell and the file panel says why. An array
+  `PROMPT_COMMAND` (Bash 5.1+) always has `PS0` and never takes this path.
 - To keep ordinary shell startup entirely, disable both directions and
   reconnect. Re-enabling integration for an already open ordinary shell also
   requires reconnecting. There is no command injection into a live prompt to

@@ -129,8 +129,8 @@ func (state *State) syncTerminalDirectory(view *sftpView) {
 }
 
 // terminalFollowSkippedText says why the terminal was left where it was. A shell
-// that reports its prompt but never the start of a command (Bash before 4.4)
-// can never be proven idle, so asking the user to finish a command would send
+// that reports its prompt but never the start of a command (its DEBUG trap was
+// replaced, say) can never be proven idle, so asking the user to finish a command would send
 // them looking for something that is not there.
 func (state *State) terminalFollowSkippedText(view *sftpView) string {
 	if session, ok := state.sftpSession(view); ok && session.term != nil && session.term.folderIntegrationSeen && !session.term.commandReporting {

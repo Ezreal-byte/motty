@@ -52,6 +52,13 @@ func integrationCommand(shell string, tokens ...string) string {
 // integrationScript is the sh program that starts shell, taken as its first
 // argument, with reporting; empty when the shell or token is not accepted.
 func integrationScript(shell string, tokens ...string) string {
+	return integrationScriptWith(shell, false, tokens...)
+}
+
+// integrationScriptWith is integrationScript, optionally taking the DEBUG-trap
+// path for command-start reports that only Bash before 4.4 needs, so that it can
+// be tested on a current Bash.
+func integrationScriptWith(shell string, forceTrap bool, tokens ...string) string {
 	suffix := ""
 	if len(tokens) > 0 && tokens[0] != "" {
 		if !validIntegrationToken(tokens[0]) {
@@ -66,7 +73,7 @@ func integrationScript(shell string, tokens ...string) string {
 	if name != "bash" && name != "zsh" {
 		return ""
 	}
-	return startScript(name, directoryReportFunction, suffix)
+	return startScript(name, directoryReportFunction, suffix, forceTrap)
 }
 
 func validIntegrationToken(token string) bool {
@@ -77,7 +84,7 @@ func validIntegrationToken(token string) bool {
 
 // startScript starts the shell in $1 ("bash" or "zsh") with a private startup
 // that sources the user's own files and then reports through report.
-func startScript(name, report, suffix string) string {
+func startScript(name, report, suffix string, forceTrap bool) string {
 	script := `_motty_umask=$(umask)
 umask 077
 _motty_dir=$(mktemp -d "${TMPDIR:-/tmp}/motty-shell.XXXXXXXX") || { umask "$_motty_umask"; exec "$1" -l; }
@@ -86,7 +93,7 @@ trap 'exit 129' HUP
 trap 'exit 143' TERM
 `
 	if name == "bash" {
-		script += "cat > \"$_motty_dir/bashrc\" <<'MOTTY_BASH'\n" + bashIntegration(report) + "\nMOTTY_BASH\n" +
+		script += "cat > \"$_motty_dir/bashrc\" <<'MOTTY_BASH'\n" + bashIntegration(report, forceTrap) + "\nMOTTY_BASH\n" +
 			`umask "$_motty_umask"
 MOTTY_SHELL_DIR=$_motty_dir "$1" --rcfile "$_motty_dir/bashrc" -i
 `
@@ -156,9 +163,9 @@ _motty_shell=$(getent passwd "$(id -u)" 2>/dev/null | cut -d: -f7)
 set -- "$_motty_shell"
 case ${_motty_shell##*/} in
 bash)
-` + startScript("bash", wslReportFunction, suffix) + `;;
+` + startScript("bash", wslReportFunction, suffix, false) + `;;
 zsh)
-` + startScript("zsh", wslReportFunction, suffix) + `;;
+` + startScript("zsh", wslReportFunction, suffix, false) + `;;
 *)
     exec "$_motty_shell" -l
     ;;
@@ -222,8 +229,12 @@ const directoryReportFunction = `__motty_report() {
     return "$_motty_status"
 }`
 
-func bashIntegration(report string) string {
-	return bashIntegrationHead + report + bashIntegrationTail
+func bashIntegration(report string, forceTrap bool) string {
+	force := "0"
+	if forceTrap {
+		force = "1"
+	}
+	return bashIntegrationHead + report + strings.ReplaceAll(bashIntegrationTail, "__MOTTY_FORCE__", force)
 }
 
 const bashIntegrationHead = `_motty_runtime=$MOTTY_SHELL_DIR
@@ -245,9 +256,45 @@ case $(declare -p PROMPT_COMMAND 2>/dev/null) in
     'declare -a '*) PROMPT_COMMAND+=(__motty_report) ;;
     *) PROMPT_COMMAND=${PROMPT_COMMAND:+$PROMPT_COMMAND$'\n'}__motty_report ;;
 esac
-if (( BASH_VERSINFO[0] > 4 || (BASH_VERSINFO[0] == 4 && BASH_VERSINFO[1] >= 4) )); then
+if (( __MOTTY_FORCE__ == 0 && (BASH_VERSINFO[0] > 4 || (BASH_VERSINFO[0] == 4 && BASH_VERSINFO[1] >= 4)) )); then
     PS0=$'\e]133;C__MOTTY_SUFFIX__\a'${PS0-}
     printf '\033]133;C__MOTTY_SUFFIX__\007'
+else
+    # No PS0 before Bash 4.4: report the start of a command line from a DEBUG
+    # trap, which runs before every simple command. PROMPT_COMMAND ends by
+    # arming it, and the first command after that reports once and disarms.
+    # An empty Enter reruns PROMPT_COMMAND, whose first entry disarms again so
+    # that its own commands never count. An array PROMPT_COMMAND (Bash 5.1+) is
+    # not taken here; those versions have PS0.
+    case $(declare -p PROMPT_COMMAND 2>/dev/null) in
+        'declare -a '*) ;;
+        *)
+            __motty_disarm() { _motty_armed=0; }
+            __motty_arm() { _motty_armed=1; }
+            __motty_debug() {
+                [[ ${_motty_armed-} == 1 && $BASH_COMMAND != __motty_disarm && -z ${COMP_POINT-} ]] || return 0
+                _motty_armed=0
+                printf '\033]133;C__MOTTY_SUFFIX__\007'
+            }
+            _motty_armed=0
+            PROMPT_COMMAND=__motty_disarm$'\n'${PROMPT_COMMAND:+$PROMPT_COMMAND$'\n'}__motty_arm
+            # Keep the user's own DEBUG trap and run it first, so that it sees
+            # the same $?, $_ and BASH_COMMAND as without us. trap -p is read
+            # through a file because a command substitution is a subshell.
+            trap -p DEBUG > "$_motty_runtime/debug-trap"
+            _motty_trap=$(<"$_motty_runtime/debug-trap")
+            __motty_unquote() { eval "set -- ${1#trap -- }"; _motty_trap=$1; }
+            if [[ -n $_motty_trap ]]; then
+                __motty_unquote "$_motty_trap"
+                trap -- "$_motty_trap"$'\n''__motty_debug' DEBUG
+            else
+                trap -- '__motty_debug' DEBUG
+            fi
+            unset -f __motty_unquote
+            unset _motty_trap
+            printf '\033]133;C__MOTTY_SUFFIX__\007'
+            ;;
+    esac
 fi
 rm -rf -- "$_motty_runtime"
 unset _motty_runtime _motty_profile`
