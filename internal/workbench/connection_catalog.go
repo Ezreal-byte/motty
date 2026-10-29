@@ -281,6 +281,7 @@ func (catalog *hostCatalog) sshConfigFor(host, proxyHost Host, env connectEnv) (
 	}
 	chain, valid := catalog.proxyChainFor(host)
 	config.Algorithms = catalog.algorithmsFor(host, chain)
+	disableKeepAliveForTunnel(host, &config)
 	if !valid {
 		config.Host = ""
 	} else if len(chain) > 0 {

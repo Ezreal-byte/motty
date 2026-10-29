@@ -1255,6 +1255,7 @@ var chineseTools = ToolsMessages{
 	ImportWarningSkippedFmt:   "有 %d 个会话的类型不支持导入（远程桌面、文件传输、该软件的串口等），已跳过。",
 	ImportWarningPasswords:    "不会导入已保存的密码：各个软件都用自己的方式加密了它们。",
 	ImportWarningCleartextFmt: "有 %d 个会话在此文件里以明文保存了密码或私钥。这些内容没有被导入；导入完成后请删除该文件。",
+	ImportWarningLoopback:     "有会话指向本机（127.0.0.1 / localhost）。这通常是其他客户端打开的一次性隧道，隧道关闭后就无法再连。建议直接打开 .xsh 文件，或手动填写当前端口。",
 
 	BroadcastStart:            "同时输入到本标签页的所有窗格",
 	BroadcastStop:             "停止同时输入",
@@ -1415,6 +1416,8 @@ var chineseTools = ToolsMessages{
 	LaunchDescriptionFmt:            "通过 %[1]s 连接到 %[2]s?",
 	LaunchWarning:                   "其他程序请求了这次连接。仅在你预期它时才连接。",
 	LaunchConnect:                   "连接",
+	LaunchXshellFailedFmt:           "无法打开 %s：%v",
+	LaunchXshellEmptyFmt:            "%s 里没有可打开的 SSH 或 Telnet 会话。",
 	GeneralLogin:                    "开机自启",
 	GeneralLoginDescription:         "登录后在后台启动。",
 	GeneralClose:                    "关闭窗口时",

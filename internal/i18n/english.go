@@ -1255,6 +1255,7 @@ var englishTools = ToolsMessages{
 	ImportWarningSkippedFmt:   "%d sessions are of a kind that is not imported (remote desktop, file transfer, serial ports from this client…) and were skipped.",
 	ImportWarningPasswords:    "Saved passwords are not imported: each program encrypts them its own way.",
 	ImportWarningCleartextFmt: "%d sessions keep a password or private key in this file in clear text. None of it was imported; delete the file when you are done.",
+	ImportWarningLoopback:     "A session points at this computer (127.0.0.1 / localhost). That is usually a one-shot tunnel from another client; it stops working when the tunnel closes. Prefer opening the .xsh file directly, or type the current port by hand.",
 
 	BroadcastStart:            "Type into every pane of this tab",
 	BroadcastStop:             "Stop typing into every pane",
@@ -1415,6 +1416,8 @@ var englishTools = ToolsMessages{
 	LaunchDescriptionFmt:            "Connect to %[2]s over %[1]s?",
 	LaunchWarning:                   "Another program asked for this connection. Connect only if you expect it.",
 	LaunchConnect:                   "Connect",
+	LaunchXshellFailedFmt:           "Could not open %s: %v",
+	LaunchXshellEmptyFmt:            "%s has no SSH or Telnet session to open.",
 	GeneralLogin:                    "Start at login",
 	GeneralLoginDescription:         "Start Motty in the background after you sign in.",
 	GeneralClose:                    "Closing the window",

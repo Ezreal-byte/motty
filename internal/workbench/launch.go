@@ -117,6 +117,13 @@ func (state *State) launchReady() bool {
 }
 
 func (state *State) openLaunch(args []string) {
+	if path, ok := xshellLaunchPath(args); ok {
+		if state.options.Raise != nil {
+			state.options.Raise()
+		}
+		state.openXshellFile(path)
+		return
+	}
 	text, link := launchText(args)
 	// A second start of the program brings the window forward even with nothing
 	// to open; without it the user who double-clicks the icon of a program hidden

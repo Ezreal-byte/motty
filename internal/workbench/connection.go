@@ -399,7 +399,7 @@ func (state *State) startConnection(session *Session, host Host) {
 }
 
 func (state *State) startConnectionMode(session *Session, host Host, automatic bool) {
-	avoidShare := session.avoidShare
+	avoidShare := session.avoidShare || loopbackTunnel(host)
 	session.avoidShare = false
 	state.stopSessionForwards(session.ID, false)
 	state.closeSFTP(session)

@@ -42,6 +42,9 @@ type Host struct {
 	// NoHistory keeps what is typed in this host's terminals out of the command
 	// history, whatever the global switch says.
 	NoHistory bool
+	// tunnel marks the ephemeral host of a .xsh bastion tunnel opened on this
+	// computer. It is never saved, so only that launch gets the relaxed policy.
+	tunnel bool
 	// Transfer is the file protocol of the host's file panel.
 	Transfer transferMode
 	// Proxy overrides the global outbound proxy for this host. Nil inherits the

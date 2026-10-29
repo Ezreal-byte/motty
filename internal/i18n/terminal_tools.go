@@ -182,6 +182,7 @@ type ToolsMessages struct {
 	ImportWarningSkippedFmt   string
 	ImportWarningPasswords    string
 	ImportWarningCleartextFmt string // sessions whose file held readable passwords or keys
+	ImportWarningLoopback     string // a session aimed at 127.0.0.1 / localhost
 
 	// Broadcast input.
 	BroadcastStart            string
@@ -346,6 +347,8 @@ type ToolsMessages struct {
 	LaunchWarning                   string
 	LaunchDescriptionFmt            string
 	LaunchConnect                   string
+	LaunchXshellFailedFmt           string // base name, error
+	LaunchXshellEmptyFmt            string // base name
 	GeneralLogin                    string
 	GeneralLoginDescription         string
 	GeneralClose                    string
