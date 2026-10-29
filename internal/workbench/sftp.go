@@ -81,6 +81,7 @@ type sftpView struct {
 	detached                        *sftpWindow // optional native dual-pane owner; transport/navigation stay per view
 	worker                          *sftpclient.Worker
 	transferScan                    uint64
+	transferHost                    *transferHost
 	transferServer, transferAddress string
 	// sftpFolder is the server's folder; lfolder is this computer's, shown
 	// instead of it while local is set.
@@ -180,6 +181,7 @@ func (state *State) openSFTP(session *Session) {
 	view.startListingStatus(state.messages.SFTPLoading)
 	view.sftpFolder.showHidden = true
 	view.transferServer, view.transferAddress = session.Title, session.Address
+	view.transferHost = transferHostFor(session)
 	view.selected, view.lfolder.selected = -1, -1
 	view.worker = sftpclient.NewWorker(func() (sftpclient.Remote, error) { return openRemoteFiles(connection, transfer) }, state.notifyFor(session))
 	state.configureSFTPWorker(view)
@@ -847,6 +849,7 @@ func (state *State) queueSFTPDownload(view *sftpView, entry sftpclient.Entry, lo
 	view.status = fmt.Sprintf(state.messages.SFTPQueuedFmt, entry.Name)
 	view.errorText = ""
 	state.transfers.open, state.transfers.filter, state.transfers.scroll = true, 0, 0
+	state.transfers.host = nil
 	state.refreshSFTPTransfers(view)
 }
 
@@ -890,6 +893,7 @@ func (state *State) queueSFTPUploadTo(view *sftpView, localPath string, recursiv
 	view.status = fmt.Sprintf(state.messages.SFTPQueuedFmt, name)
 	view.errorText = ""
 	state.transfers.open, state.transfers.filter, state.transfers.scroll = true, 0, 0
+	state.transfers.host = nil
 	state.refreshSFTPTransfers(view)
 	return id
 }

@@ -29,6 +29,9 @@ var EnglishMessages = Messages{
 		Upload: "Upload", Download: "Download", To: "to", From: "from", Queued: "Queued", Running: "Transferring", Finalizing: "Finalizing", Paused: "Paused", Completed: "Completed", Failed: "Failed", Canceled: "Canceled",
 		SummaryFmt: "%d active · %s/s", Idle: "No transfers currently running", ProgressFmt: "%s / %s", FilesFmt: "%d / %d files", TimeFmt: "%s · Duration %s",
 		Retry: "Retry", Replace: "Replace", Resume: "Resume", Skip: "Skip", Conflict: "Destination exists. Choose an action:",
+		Hosts: "Host", AllHosts: "All hosts", ScopeFmt: "%s · %s · %d shown", CancelVisible: "Cancel visible", ClearVisible: "Clear visible",
+		RetryFailedFmt: "Retry %d failed", ConflictCountFmt: "Conflicts (%d)", ConfirmBatchFmt: "%s %d conflicting transfers?",
+		BatchScopeFmt: "Captured scope: %s. Only the captured eligible failures are included; later arrivals and hidden connections are excluded. This choice does not change transfer defaults.",
 	},
 
 	NavHosts:                  "Hosts",

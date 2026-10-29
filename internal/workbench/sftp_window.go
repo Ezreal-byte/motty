@@ -60,6 +60,7 @@ func (state *State) newSFTPWindow(source *Session) *sftpWindow {
 	// A server lists its dotfiles by default, as the docked panel does (openSFTP).
 	w.view.sftpFolder.showHidden = true
 	w.view.transferServer, w.view.transferAddress = source.Title, source.Address
+	w.view.transferHost = transferHostFor(source)
 	w.view.selected, w.view.lfolder.selected = -1, -1
 	w.session = Session{ID: source.ID, HostID: source.HostID, Title: source.Title, Address: source.Address, host: source.host, conn: source.conn, phase: source.phase, files: w.view}
 	w.ui.fraction = .5
