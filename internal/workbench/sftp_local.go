@@ -370,7 +370,7 @@ func (state *State) insertLocalPaths(session *Session, view *sftpView) {
 		paths = append(paths, filepath.Join(view.lfolder.path, row.entry.Name))
 	}
 	if len(paths) > 0 {
-		session.term.send([]byte(quotedPaths(paths) + " "))
+		session.term.send([]byte(quotedPaths(paths, session.wslDistro()) + " "))
 	}
 }
 

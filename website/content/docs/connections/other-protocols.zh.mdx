@@ -21,3 +21,8 @@ YMODEM 传文件，见 [ZMODEM、XMODEM 与 YMODEM](/zh/docs/files/zmodem-xmodem
 ## 本地 Shell
 
 在本机的伪终端上运行你的登录 shell：macOS 和 Linux 用 pty，Windows 用 ConPTY。
+
+在 Windows 上，**设置 → 终端 → 本地 Shell** 还会列出每个已安装的 WSL 发行版。选中
+其中一个后，新建的本地终端会直接在该发行版里打开，文件面板通过发行版的
+`\\wsl.localhost` 共享跟随终端所在目录。在 PowerShell 终端里手动输入 `wsl` 仍然
+可以用作终端，但文件面板无法跟随：只有 Motty 自己启动的 Shell 才会上报所在目录。

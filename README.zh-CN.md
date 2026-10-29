@@ -144,7 +144,10 @@ WebDAV 和 S3 默认要求远程地址使用 HTTPS。使用局域网 HTTP 服务
 
 Windows 下可在 **设置 → 终端 → 本地 Shell**（“行内建议”下方）的下拉框中选择
 本地终端使用的 Shell。Motty 会从 PATH 和常见安装目录中自动检测 PowerShell、
-CMD、Git Bash 等已安装的 Shell。此配置仅保存在本机，对新建或重连的本地终端生效。
+CMD、Git Bash 等已安装的 Shell，并把每个已安装的 WSL 发行版列为单独的选项。
+选择 WSL 发行版后，文件面板同样会跟随终端所在目录（经由发行版的
+`\\wsl.localhost` 共享访问）。请在这里选择发行版，而不是在 PowerShell 里输入
+`wsl`：只有 Motty 自己启动的 Shell 才能上报所在目录。此配置仅保存在本机，对新建或重连的本地终端生效。
 
 | 操作 | macOS | Windows / Linux |
 | --- | --- | --- |

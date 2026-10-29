@@ -24,3 +24,10 @@ needs: remote echo, suppress go-ahead, terminal type, window size and binary.
 
 Runs your login shell on a pseudo-terminal of this machine: a pty on macOS and
 Linux, ConPTY on Windows.
+
+On Windows, **Settings → Terminal → Local shell** also lists every installed
+WSL distribution. Pick one and new local terminals open inside it, with the file
+panel following the terminal's folder through the distribution's
+`\\wsl.localhost` share. Typing `wsl` into a PowerShell terminal still works as a
+terminal, but the file panel cannot follow it: only a shell Motty starts itself
+reports its folder.

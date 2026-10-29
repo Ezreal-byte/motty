@@ -93,3 +93,18 @@ func TestIntegrationSSHStartupAndFallback(t *testing.T) {
 		})
 	}
 }
+
+func TestWSLIntegrationScriptRefusesWhatCouldBeInjected(t *testing.T) {
+	for _, test := range []struct{ token, variable string }{
+		{"", "MOTTY_CD"}, {"bad token", "MOTTY_CD"}, {"tok';touch /tmp/no", "MOTTY_CD"}, {strings.Repeat("a", 129), "MOTTY_CD"},
+		{"token", ""}, {"token", "lower"}, {"token", "A;touch /tmp/no"}, {"token", "A B"}, {"token", "1A"},
+	} {
+		if script := WSLIntegrationScript(test.token, test.variable); script != "" {
+			t.Errorf("token %q and variable %q were accepted", test.token, test.variable)
+		}
+	}
+	script := WSLIntegrationScript("token-1", "MOTTY_CD")
+	if script == "" || strings.Contains(script, "__MOTTY_SUFFIX__") || !strings.Contains(script, ";motty=token-1") {
+		t.Fatalf("script = %q", script)
+	}
+}

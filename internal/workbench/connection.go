@@ -418,7 +418,7 @@ func (state *State) startConnectionMode(session *Session, host Host, automatic b
 	if host.ID == localHostID {
 		// A shell on this machine: nothing to dial, so it is connected at once.
 		conn := newLocalConn(state.localShell)
-		conn.dir = localStartupDirectory(session.localDirectory)
+		conn.dir = localStartupDirectory(session.localDirectory, conn.shell)
 		session.conn = conn
 		state.finishStartingConnection(session, automatic)
 		// There is no goroutine to report that it is connected, so say so now:

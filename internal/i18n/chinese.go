@@ -99,7 +99,7 @@ var ChineseMessages = Messages{
 	SettingsTerminalOptionText:             "文本",
 	SettingsTerminalOptionMeta:             "Meta (Esc)",
 	SettingsLocalShell:                     "本地 Shell",
-	SettingsLocalShellDescription:          "选择已安装的 Shell，用于新建或重连的本地终端。",
+	SettingsLocalShellDescription:          "选择已安装的 Shell 或 WSL 发行版，用于新建或重连的本地终端。",
 	SettingsLocalShellEmpty:                "未检测到可用 Shell",
 	SettingsTerminalFontSize:               "终端字号",
 	SettingsTerminalFontSizeDescription:    "所有标签页一起调整。",

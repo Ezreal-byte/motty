@@ -99,7 +99,7 @@ var EnglishMessages = Messages{
 	SettingsTerminalOptionText:             "Text",
 	SettingsTerminalOptionMeta:             "Meta (Esc)",
 	SettingsLocalShell:                     "Local shell",
-	SettingsLocalShellDescription:          "Choose an installed shell for new or reconnected local terminals.",
+	SettingsLocalShellDescription:          "Choose an installed shell or WSL distribution for new or reconnected local terminals.",
 	SettingsLocalShellEmpty:                "No shells found",
 	SettingsTerminalFontSize:               "Terminal font size",
 	SettingsTerminalFontSizeDescription:    "Changes every tab at once.",

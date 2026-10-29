@@ -52,11 +52,21 @@ func (conn *localConn) SkipIdentity()              {}
 func (conn *localConn) Cancel()                    {}
 
 func (conn *localConn) OpenShell(config sshconn.ShellConfig) (Shell, error) {
+	return localshell.Start(conn.shellConfig(config, runtime.GOOS))
+}
+
+// shellConfig is how the shell starts on goos, with the folder and prompt
+// reporting the shell supports there.
+func (conn *localConn) shellConfig(config sshconn.ShellConfig, goos string) localshell.Config {
 	shell := localshell.Config{Shell: conn.shell, Args: localshell.ArgsFor(conn.shell), Cols: config.Cols, Rows: config.Rows, Dir: conn.dir, Notify: config.Notify}
-	if config.IntegrateShell && runtime.GOOS == "windows" {
+	if config.IntegrateShell && goos == "windows" {
 		shell.DirectoryToken = config.IntegrationToken
+		if _, wsl := localshell.WSLDistro(conn.shell); wsl {
+			// A distribution's shell reports through a script it runs itself.
+			shell.WSLScript = sshconn.WSLIntegrationScript(config.IntegrationToken, localshell.WSLDirectoryVariable)
+		}
 	}
-	if config.IntegrateShell && runtime.GOOS != "windows" {
+	if config.IntegrateShell && goos != "windows" {
 		program := conn.shell
 		if program == "" {
 			program = os.Getenv("SHELL")
@@ -67,14 +77,23 @@ func (conn *localConn) OpenShell(config sshconn.ShellConfig) (Shell, error) {
 			shell.Shell, shell.Args = "/bin/sh", args
 		}
 	}
-	return localshell.Start(shell)
+	return shell
 }
 
 // A remembered path is process startup data, never text sent to the shell.
 // Deleted/unmounted folders fall back to the normal home-directory startup.
-func localStartupDirectory(directory string) string {
+func localStartupDirectory(directory, shell string) string {
 	if !validLocalDirectory(directory) {
 		return ""
+	}
+	if _, wsl := localshell.WSLDistro(shell); wsl {
+		// Looking at a distribution's files from Windows starts the distribution
+		// if it is stopped, which can take seconds; its own start script already
+		// stays where it is when the folder is gone.
+		return filepath.Clean(directory)
+	}
+	if localshell.IsWSLUNC(directory) {
+		return "" // a distribution's folder is no place for a Windows shell to start
 	}
 	if info, err := os.Stat(directory); err == nil && info.IsDir() {
 		return filepath.Clean(directory)
