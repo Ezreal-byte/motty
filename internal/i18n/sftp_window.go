@@ -3,6 +3,7 @@ package i18n
 type SFTPWindowMessages struct {
 	LocalPlaces, DirectoryFavorites, CommonFolders, LocalDrives, FavoriteAdd, FavoriteRemove, FavoriteLimit string
 	LocalHome, LocalDesktop, LocalDownloads, LocalDocuments, LocalPictures, LocalMusic, LocalVideos         string
+	LocalMovies, LocalApplications                                                                          string
 	ProfileScope, BrowseRootLabel                                                                           string
 	ProfileSite, ProfileShared, ProfileNew, ProfileDelete, ProfileOpen, ProfileEmpty, ProfileNameExists     string
 	BrowseSync, BrowseHint, BrowseRootsFmt, BrowseOutside, BrowseFailedFmt                                  string

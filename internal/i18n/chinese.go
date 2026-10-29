@@ -5,7 +5,7 @@ package i18n
 var ChineseMessages = Messages{
 	SFTPWindow: SFTPWindowMessages{
 		LocalPlaces: "收藏与快捷位置", DirectoryFavorites: "目录收藏", CommonFolders: "常用目录", LocalDrives: "磁盘", FavoriteAdd: "收藏当前目录", FavoriteRemove: "取消收藏当前目录", FavoriteLimit: "目录收藏已达上限，请先移除不再使用的收藏。",
-		LocalHome: "主目录", LocalDesktop: "桌面", LocalDownloads: "下载", LocalDocuments: "文档", LocalPictures: "图片", LocalMusic: "音乐", LocalVideos: "视频",
+		LocalHome: "主目录", LocalDesktop: "桌面", LocalDownloads: "下载", LocalDocuments: "文档", LocalPictures: "图片", LocalMusic: "音乐", LocalVideos: "视频", LocalMovies: "影片", LocalApplications: "应用程序",
 		ProfileScope: "适用连接", BrowseRootLabel: "同步目录：",
 		ProfileSite: "仅当前连接", ProfileShared: "所有连接", ProfileNew: "新建", ProfileDelete: "删除", ProfileOpen: "打开", ProfileEmpty: "还没有位置档案", ProfileNameExists: "已存在同名位置档案，请选中后修改。",
 		BrowseSync: "同步浏览", BrowseHint: "配置位置档案，或打开两侧对应目录后开启同步浏览", BrowseRootsFmt: "已配对：%s  ⇄  %s",

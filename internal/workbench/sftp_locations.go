@@ -31,6 +31,8 @@ const (
 	localPlacePictures
 	localPlaceMusic
 	localPlaceVideos
+	localPlaceMovies
+	localPlaceApplications
 	localPlaceDrive
 )
 
@@ -316,9 +318,25 @@ func (w sftpPlaceBrowser) paintDirectoryPlaces(canvas *ui.Canvas, viewport ui.Re
 				lastKind = kind
 			}
 			label, glyph := place.path, uint8(iconHardDrive)
-			if place.kind < localPlaceDrive {
-				label = [7]string{m.LocalHome, m.LocalDesktop, m.LocalDownloads, m.LocalDocuments, m.LocalPictures, m.LocalMusic, m.LocalVideos}[place.kind]
-				glyph = [7]uint8{iconFolderOpen, iconDesktop, iconDownload, iconFile, iconFolderOpen, iconFolderOpen, iconFilm}[place.kind]
+			switch place.kind {
+			case localPlaceHome:
+				label, glyph = m.LocalHome, uint8(iconFolderOpen)
+			case localPlaceDesktop:
+				label, glyph = m.LocalDesktop, uint8(iconDesktop)
+			case localPlaceDownloads:
+				label, glyph = m.LocalDownloads, uint8(iconDownload)
+			case localPlaceDocuments:
+				label, glyph = m.LocalDocuments, uint8(iconFile)
+			case localPlacePictures:
+				label, glyph = m.LocalPictures, uint8(iconFolderOpen)
+			case localPlaceMusic:
+				label, glyph = m.LocalMusic, uint8(iconFolderOpen)
+			case localPlaceVideos:
+				label, glyph = m.LocalVideos, uint8(iconFilm)
+			case localPlaceMovies:
+				label, glyph = m.LocalMovies, uint8(iconFilm)
+			case localPlaceApplications:
+				label, glyph = m.LocalApplications, uint8(iconHome)
 			}
 			menu.AddItem(components.ContextMenuItem{ID: sftpLocalPlaces.At(index), Label: label, Hint: place.path, Icon: lucideIcons[glyph], Disabled: w.navigationBusy()})
 		}

@@ -3,6 +3,7 @@ package workbench
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
@@ -22,8 +23,13 @@ func TestSFTPUnixPlacesHonorMacMoviesAndLocalizedXDGDirectories(t *testing.T) {
 		return ""
 	}
 	mac := unixSFTPLocalPlaces(home, "darwin", nil)
-	if find(mac, localPlaceVideos) != filepath.Join(home, "Movies") || find(mac, localPlaceDocuments) != filepath.Join(home, "Documents") || find(mac, localPlaceDrive) != "/" {
-		t.Fatal("macOS quick access is missing standard directories", mac)
+	if find(mac, localPlaceMovies) != filepath.Join(home, "Movies") || find(mac, localPlaceVideos) != "" || find(mac, localPlaceDocuments) != filepath.Join(home, "Documents") || find(mac, localPlaceDrive) != "/" {
+		t.Fatal("macOS quick access is missing standard directories or names Movies as Videos", mac)
+	}
+	if runtime.GOOS == "darwin" {
+		if info, err := os.Stat("/Applications"); err == nil && info.IsDir() && find(mac, localPlaceApplications) != "/Applications" {
+			t.Fatal("macOS quick access is missing Applications", mac)
+		}
 	}
 	linux := unixSFTPLocalPlaces(home, "linux", []byte("# paths only\nXDG_DOCUMENTS_DIR=\"$HOME/中文文档\"\nXDG_DOWNLOAD_DIR=\"${HOME}/自定义下载\"\nXDG_DESKTOP_DIR=\"$HOME\"\nXDG_VIDEOS_DIR=\"relative/path\"\n"))
 	if find(linux, localPlaceDocuments) != filepath.Join(home, "中文文档") || find(linux, localPlaceDownloads) != filepath.Join(home, "自定义下载") || find(linux, localPlaceDesktop) != "" || find(linux, localPlaceVideos) != filepath.Join(home, "Videos") {

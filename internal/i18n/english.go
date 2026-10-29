@@ -5,7 +5,7 @@ package i18n
 var EnglishMessages = Messages{
 	SFTPWindow: SFTPWindowMessages{
 		LocalPlaces: "Favorites and places", DirectoryFavorites: "Folder favorites", CommonFolders: "Quick access", LocalDrives: "Drives", FavoriteAdd: "Bookmark current folder", FavoriteRemove: "Remove current folder bookmark", FavoriteLimit: "The folder bookmark limit has been reached. Remove an unused bookmark first.",
-		LocalHome: "Home", LocalDesktop: "Desktop", LocalDownloads: "Downloads", LocalDocuments: "Documents", LocalPictures: "Pictures", LocalMusic: "Music", LocalVideos: "Videos",
+		LocalHome: "Home", LocalDesktop: "Desktop", LocalDownloads: "Downloads", LocalDocuments: "Documents", LocalPictures: "Pictures", LocalMusic: "Music", LocalVideos: "Videos", LocalMovies: "Movies", LocalApplications: "Applications",
 		ProfileScope: "Available to", BrowseRootLabel: "Sync roots:",
 		ProfileSite: "This connection", ProfileShared: "All connections", ProfileNew: "New", ProfileDelete: "Remove", ProfileOpen: "Open", ProfileEmpty: "No location profiles yet", ProfileNameExists: "A profile with this name already exists. Select it to make changes.",
 		BrowseSync: "Synchronized browsing", BrowseHint: "Configure location profiles or open matching directories, then enable synchronized browsing", BrowseRootsFmt: "Paired: %s  ⇄  %s",

@@ -14,8 +14,10 @@ func unixSFTPLocalPlaces(home, system string, userDirs []byte) []sftpLocalPlace 
 	if home != "" {
 		places = append(places, sftpLocalPlace{kind: localPlaceHome, path: home})
 		names := []string{"Desktop", "Downloads", "Documents", "Pictures", "Music", "Videos"}
+		kinds := []sftpLocalPlaceKind{localPlaceDesktop, localPlaceDownloads, localPlaceDocuments, localPlacePictures, localPlaceMusic, localPlaceVideos}
 		if system == "darwin" {
-			names[5] = "Movies"
+			// Finder calls this folder Movies (影片), not Videos.
+			names[5], kinds[5] = "Movies", localPlaceMovies
 		}
 		overrides := map[string]string{}
 		if system == "linux" {
@@ -54,8 +56,14 @@ func unixSFTPLocalPlaces(home, system string, userDirs []byte) []sftpLocalPlace 
 				continue
 			}
 			if info, err := os.Stat(directory); err == nil && info.IsDir() {
-				places = append(places, sftpLocalPlace{kind: sftpLocalPlaceKind(index + 1), path: directory})
+				places = append(places, sftpLocalPlace{kind: kinds[index], path: directory})
 			}
+		}
+	}
+	if system == "darwin" {
+		// Finder keeps Applications in its reach; it is not under the home folder.
+		if info, err := os.Stat("/Applications"); err == nil && info.IsDir() {
+			places = append(places, sftpLocalPlace{kind: localPlaceApplications, path: "/Applications"})
 		}
 	}
 	return append(places, sftpLocalPlace{kind: localPlaceDrive, path: "/"})
