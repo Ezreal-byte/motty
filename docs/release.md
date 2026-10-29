@@ -105,9 +105,12 @@ commit as the version bump; the annotated tag carries the same text verbatim, so
 the notes are what was reviewed, and the draft release is created from the file.
 The checksums job appends the `Built against vivaui/viva <sha>.` line, so the file
 itself never carries that line. Write it for the people who read the update
-dialog — what they can do now that they could not before — in Chinese, with the
-`## 新功能 / 改进 / 修复 / 安装` sections the earlier releases use. The notes in
-the update dialog are the `notes` field of `latest.json`, copied from this body.
+dialog — what they can do now that they could not before — in Chinese. Use the
+`## 新功能`, `## 改进` and `## 修复` headings with one short sentence per `- ` item
+and no bold lead-in, followed by a `## 安装` table of platforms and packages; keep
+the summary paragraph, signer and log boilerplate out (the download page and
+README carry that). The notes in the update dialog are the `notes` field of
+`latest.json`, copied from this body.
 
 ## The framework commit
 
