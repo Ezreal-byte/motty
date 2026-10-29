@@ -273,10 +273,6 @@ func (state *State) clickHostProtocol(id ui.ID) bool {
 	case state.clickTransferChoice(id):
 	case state.clickHostColor(id):
 	case id == hitDialogOTPRemove:
-		if !editor.otpChecked {
-			state.checkEditedHostOTP()
-			return true
-		}
 		editor.otpRemove = !editor.otpRemove
 	case id == hitDialogOTPScan:
 		state.scanOTPImage()
@@ -505,7 +501,7 @@ func (state *State) paintAlgorithmRows(canvas *ui.Canvas, x, y, width, rowHeight
 		state.paintDialogField(canvas, hitDialogAlgorithms, fieldAlgorithms, m.AlgoCustomField, m.AlgoCustomPlaceholder, custom.Rect())
 	}
 	var removeRect ui.Rect
-	if editor.otpSaved || !editor.otpChecked {
+	if editor.otpSaved {
 		removeRect = remove.Rect()
 	}
 	state.paintOTPRow(canvas, otp.Rect(), scan.Rect(), paste.Rect(), removeRect)
@@ -525,9 +521,7 @@ func (state *State) paintAlgorithmRows(canvas *ui.Canvas, x, y, width, rowHeight
 func (state *State) paintOTPRow(canvas *ui.Canvas, field, scan, paste, remove ui.Rect) {
 	m, editor := state.messages.Tools, &state.editor
 	placeholder := m.OTPPlaceholder
-	if !editor.otpChecked {
-		placeholder = m.OTPUncheckedPlaceholder
-	} else if editor.otpSaved {
+	if editor.otpSaved {
 		placeholder = m.OTPSavedPlaceholder
 		if editor.otpRemove {
 			placeholder = m.OTPRemovingPlaceholder
@@ -538,11 +532,8 @@ func (state *State) paintOTPRow(canvas *ui.Canvas, field, scan, paste, remove ui
 	state.rememberHostControl(hitDialogOTPScan, scan)
 	components.BeginButton(canvas, state.Theme(), hitDialogOTPPaste, paste).Small().Outline(m.OTPPaste)
 	state.rememberHostControl(hitDialogOTPPaste, paste)
-	if !editor.otpChecked || editor.otpSaved {
-		label := m.OTPCheck
-		if editor.otpChecked {
-			label = m.OTPRemove
-		}
+	if editor.otpSaved {
+		label := m.OTPRemove
 		if editor.otpRemove {
 			label = m.OTPKeep
 		}

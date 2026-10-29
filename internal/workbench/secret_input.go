@@ -30,13 +30,6 @@ type revealedButton struct {
 	seen   bool
 }
 
-// show makes a field show its text, as pressing its button would.
-func (reveal *secretReveal) show(button ui.ID) {
-	if reveal.index(button) < 0 {
-		reveal.shown = append(reveal.shown, revealedButton{button: button, seen: true})
-	}
-}
-
 func (reveal *secretReveal) reset() {
 	reveal.shown = reveal.shown[:0]
 	reveal.refocus = ui.ID{}
@@ -84,7 +77,6 @@ func (state *State) clickSecretReveal(id ui.ID) bool {
 		reveal.shown = slices.Delete(reveal.shown, index, index+1)
 	} else {
 		reveal.shown = append(reveal.shown, revealedButton{button: id, seen: true})
-		state.revealSavedHostSecret(field)
 	}
 	reveal.refocus = field
 	return true

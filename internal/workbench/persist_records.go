@@ -54,7 +54,9 @@ import (
 // Version 6 preserves the device-local shell executable choice.
 // Version 7 preserves local folder favorites and named paired SFTP profiles.
 // Version 8 preserves independent monitor visibility and panel width.
-const configFormat = 8
+// Version 9 keeps a host's password and one-time code secret under the host, not
+// under its login: an older build would look for them where they no longer are.
+const configFormat = 9
 
 const (
 	kindSetting             = "setting"

@@ -93,54 +93,18 @@ func TestHostFormSavesTheKeyPassphraseUnderTheKeyAndRefusesAWrongOne(t *testing.
 	}
 }
 
-func TestEditHostShowsItsSavedPasswordWhenTheVaultIsOpenAndOtherwiseOnRequest(t *testing.T) {
+func TestEditHostShowsItsSavedPasswordEvenAfterARestart(t *testing.T) {
 	state := newTestState(t, testOptions(t))
 	if err := state.secrets.vault.Set(prodPasswordName, "source secret"); err != nil {
 		t.Fatal(err)
 	}
+	state.secrets.vault.DropKeyForTests() // as after a restart: the key waits in the key store
 	clickHostAction(state, hitEditHost)
 	if got := state.editor.password.String(); got != "source secret" {
-		t.Fatalf("an open vault left the saved password out of the form: %q", got)
+		t.Fatalf("the saved password was left out of the form: %q", got)
 	}
-	state.Click(hitDialogCancel)
-
-	state.secrets.vault.Lock()
-	clickHostAction(state, hitEditHost)
-	if got := state.editor.password.String(); got != "" {
-		t.Fatalf("opening the dialog read a vault that was not open: %q", got)
-	}
-	state.Click(revealButton(hitDialogPassword))
-	if got := state.editor.password.String(); got != "source secret" {
-		t.Fatalf("the show button did not read the saved password: %q", got)
-	}
-}
-
-func TestShowingASavedPasswordBehindAMasterPasswordUnlocksFirstAndKeepsTheDialog(t *testing.T) {
-	state := newTestState(t, testOptions(t))
-	if err := state.secrets.vault.Set(prodPasswordName, "source secret"); err != nil {
-		t.Fatal(err)
-	}
-	if err := state.secrets.vault.SetMasterPassword("master password"); err != nil {
-		t.Fatal(err)
-	}
-	state.secrets.vault.Lock()
-	clickHostAction(state, hitEditHost)
-	typeInto(state, hitDialogLabel, " edited")
-	label := state.editor.label.String()
-
-	state.Click(revealButton(hitDialogPassword))
-	if state.modal != modalVaultUnlock {
-		t.Fatalf("a locked vault was not asked to unlock: modal %d", state.modal)
-	}
-	state.Click(hitVaultUnlockCancel)
-	if state.modal != modalNewHost || state.editor.label.String() != label {
-		t.Fatalf("dismissing the unlock lost the dialog: modal %d, label %q", state.modal, state.editor.label.String())
-	}
-
-	state.Click(revealButton(hitDialogPassword))
-	typeInto(state, hitVaultUnlockField, "master password")
-	state.Click(hitVaultUnlockSubmit)
-	if state.modal != modalNewHost || state.editor.password.String() != "source secret" {
-		t.Fatalf("unlocking did not bring back the dialog with the password: modal %d, %q", state.modal, state.editor.password.String())
+	state.Click(hitDialogSubmit)
+	if value, _, _ := state.secrets.vault.Get(prodPasswordName); value != "source secret" {
+		t.Fatalf("saving the form unchanged changed the password to %q", value)
 	}
 }

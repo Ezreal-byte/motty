@@ -246,8 +246,6 @@ func (state *State) Paint(canvas *ui.Canvas, size ui.Size) {
 		state.paintPasswordDialog(canvas, viewport)
 	case modalVaultUnlock:
 		state.paintVaultUnlockDialog(canvas, viewport)
-	case modalMasterPassword:
-		state.paintMasterPasswordDialog(canvas, viewport)
 	case modalVaultForget:
 		state.paintVaultForgetDialog(canvas, viewport)
 	case modalHighlightRule:
@@ -2116,8 +2114,6 @@ func (state *State) passwordHintText() string {
 	hint := state.messages.PasswordHint
 	switch {
 	case state.secrets.canSave:
-	case state.secrets.needsMaster:
-		hint = state.messages.PasswordHintNoStore
 	default:
 		hint = state.messages.PasswordHintUnsaved
 	}

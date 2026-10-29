@@ -186,7 +186,6 @@ func (state *State) eachSettingsEntry(add func(settingsEntry)) {
 	row(settingsFiles, tools.FilesFollowSetup, tools.FilesFollowSetupDescription)
 
 	row(settingsSecurity, m.SettingsVault, m.SettingsVaultEmpty)
-	row(settingsSecurity, m.SettingsMasterPassword, m.SettingsMasterPasswordDescription)
 
 	row(settingsBackup, tools.BackupExportRow, tools.BackupExportDescription)
 	row(settingsBackup, tools.SyncRow, tools.SyncRowNone)

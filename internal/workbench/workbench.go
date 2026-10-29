@@ -229,11 +229,7 @@ var (
 	hitSettingsRestoreAll       = tree.ID(settingsHits, "settings-restore-all")
 	hitSettingsShareToggle      = tree.ID(settingsHits, "settings-share")
 	hitSettingsVaultForget      = tree.ID(settingsHits, "settings-vault-forget")
-	hitSettingsMasterSet        = tree.ID(settingsHits, "settings-master-set")
-	hitSettingsMasterChange     = tree.ID(settingsHits, "settings-master-change")
-	hitSettingsMasterRemove     = tree.ID(settingsHits, "settings-master-remove")
-	hitSettingsMasterLock       = tree.ID(settingsHits, "settings-master-lock")
-	hitSettingsMasterUnlock     = tree.ID(settingsHits, "settings-master-unlock")
+	hitSettingsVaultConvert     = tree.ID(settingsHits, "settings-vault-convert")
 )
 
 // Jump-host routing: its page and dialog.
@@ -329,24 +325,18 @@ var (
 
 // The saved-passwords dialogs, and the boxes that offer to save.
 var (
-	hitVaultUnlockField      = tree.ID(vaultHits, "vault-unlock-field")
-	hitVaultUnlockSubmit     = tree.ID(vaultHits, "vault-unlock-submit")
-	hitVaultUnlockCancel     = tree.ID(vaultHits, "vault-unlock-cancel")
-	hitVaultUnlockClose      = tree.ID(vaultHits, "vault-unlock-close")
-	hitVaultUnlockDismiss    = tree.ID(vaultHits, "vault-unlock-dismiss")
-	hitMasterPasswordNew     = tree.ID(vaultHits, "master-password-new")
-	hitMasterPasswordConfirm = tree.ID(vaultHits, "master-password-confirm")
-	hitMasterPasswordSubmit  = tree.ID(vaultHits, "master-password-submit")
-	hitMasterPasswordCancel  = tree.ID(vaultHits, "master-password-cancel")
-	hitMasterPasswordClose   = tree.ID(vaultHits, "master-password-close")
-	hitMasterPasswordDismiss = tree.ID(vaultHits, "master-password-dismiss")
-	hitVaultForgetConfirm    = tree.ID(vaultHits, "vault-forget-confirm")
-	hitVaultForgetCancel     = tree.ID(vaultHits, "vault-forget-cancel")
-	hitVaultForgetClose      = tree.ID(vaultHits, "vault-forget-close")
-	hitVaultForgetDismiss    = tree.ID(vaultHits, "vault-forget-dismiss")
-	hitPasswordSave          = tree.ID(vaultHits, "password-save")
-	hitPasswordHint          = tree.ID(vaultHits, "password-hint")
-	hitKeyPassphraseSave     = tree.ID(vaultHits, "key-passphrase-save")
+	hitVaultUnlockField   = tree.ID(vaultHits, "vault-unlock-field")
+	hitVaultUnlockSubmit  = tree.ID(vaultHits, "vault-unlock-submit")
+	hitVaultUnlockCancel  = tree.ID(vaultHits, "vault-unlock-cancel")
+	hitVaultUnlockClose   = tree.ID(vaultHits, "vault-unlock-close")
+	hitVaultUnlockDismiss = tree.ID(vaultHits, "vault-unlock-dismiss")
+	hitVaultForgetConfirm = tree.ID(vaultHits, "vault-forget-confirm")
+	hitVaultForgetCancel  = tree.ID(vaultHits, "vault-forget-cancel")
+	hitVaultForgetClose   = tree.ID(vaultHits, "vault-forget-close")
+	hitVaultForgetDismiss = tree.ID(vaultHits, "vault-forget-dismiss")
+	hitPasswordSave       = tree.ID(vaultHits, "password-save")
+	hitPasswordHint       = tree.ID(vaultHits, "password-hint")
+	hitKeyPassphraseSave  = tree.ID(vaultHits, "key-passphrase-save")
 )
 
 var (
@@ -816,6 +806,7 @@ func New(options Options) *State {
 		saved.Sessions, saved.Deck, saved.ActiveSession, saved.Workspace = nil, nil, 0, ""
 	}
 	state.restore(saved)
+	state.migrateSecretsToHosts(false)
 	if report.outcome == loadOK && err == nil {
 		backupState(state.options.StatePath, saved)
 	}
@@ -1052,13 +1043,6 @@ func (state *State) EditorFor(hit ui.ID) *text.Editor {
 		case hitSnippetCommand:
 			return &state.snippets.command
 		}
-	case modalMasterPassword:
-		switch hit {
-		case hitMasterPasswordNew:
-			return &state.secrets.newPassword
-		case hitMasterPasswordConfirm:
-			return &state.secrets.confirmPassword
-		}
 	case modalCommandPalette:
 		if hit == hitCommandPaletteSearch {
 			return &state.commandPalette.search
@@ -1161,9 +1145,6 @@ func (state *State) Click(id ui.ID) {
 		return
 	case modalVaultUnlock:
 		state.clickVaultUnlock(id)
-		return
-	case modalMasterPassword:
-		state.clickMasterPassword(id)
 		return
 	case modalHighlightRule:
 		state.clickHighlightDialog(id)
@@ -2095,10 +2076,6 @@ func (state *State) key(event ui.KeyEvent) ui.EventResult {
 	}
 	if state.modal == modalSnippet && event.Key == ui.KeyEnter && (event.Target == hitSnippetName || event.Target == hitSnippetCommand) && !event.Repeat {
 		state.submitSnippet()
-		return ui.EventResult{Handled: true, Repaint: true}
-	}
-	if state.modal == modalMasterPassword && event.Key == ui.KeyEnter && (event.Target == hitMasterPasswordNew || event.Target == hitMasterPasswordConfirm) && !event.Repeat {
-		state.submitMasterPassword()
 		return ui.EventResult{Handled: true, Repaint: true}
 	}
 	if state.modal == modalKeyPassphrase && event.Key == ui.KeyEnter && event.Target == hitKeyPassphraseField && !event.Repeat {

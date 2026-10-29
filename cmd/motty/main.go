@@ -163,12 +163,12 @@ func (status *tray) hasStatusArea() bool { return status != nil && status.item !
 // keystore is where the saved-passwords vault of the data directory keeps its
 // key: the system's own store, which is nil here, except in a portable copy.
 // That one travels between computers and must leave nothing behind on them, so
-// its vault is kept by a master password alone.
+// its key is a file next to the vault, which goes where the data goes.
 func keystore() vault.Keystore { return keystoreFor(datadir.Current().Dir) }
 
 func keystoreFor(dir string) vault.Keystore {
 	if location := datadir.Current(); location.Portable && dir == location.Dir {
-		return vault.NoKeystore{}
+		return vault.FileKeystore{Path: filepath.Join(dir, "vault.key")}
 	}
 	return nil
 }
