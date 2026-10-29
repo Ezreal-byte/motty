@@ -84,6 +84,9 @@ func (state *State) filterRemoteRows() {
 	if view.tab == remoteProcesses && (view.processesTruncated || view.commandsTruncated) {
 		view.searchSummary += " · " + state.messages.Tools.RemoteSearchLimited
 	}
+	if view.snapshotStatus != "" {
+		view.searchSummary = view.snapshotStatus + " · " + view.searchSummary
+	}
 }
 
 func (state *State) clearRemoteSearch() {
@@ -140,4 +143,7 @@ func (state *State) paintRemoteSearch(canvas *ui.Canvas, bounds ui.Rect) {
 	summary := ui.Rect{X: bounds.X, Y: bounds.Y + 36, Width: bounds.Width, Height: 20}
 	canvas.Label(elide(canvas, state.remote.searchSummary, metrics.FontSizeS, ui.WeightRegular, summary.Width), summary, ui.TextStyle{Size: metrics.FontSizeS, Color: state.pal.muted})
 	canvas.HitWithOptions(hitRemoteSearchScope, summary, state.remote.searchSummary, ui.HitOptions{Role: ui.RoleStatus, SkipFocus: true, Hint: state.remote.searchSummary})
+	if state.remote.snapshotStatus != "" {
+		canvas.HitWithOptions(hitRemoteSnapshotStatus, summary, state.remote.snapshotStatus, ui.HitOptions{Role: ui.RoleStatus, SkipFocus: true, Hint: state.remote.searchSummary})
+	}
 }

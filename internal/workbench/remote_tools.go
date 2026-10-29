@@ -144,6 +144,9 @@ type remoteToolsView struct {
 	sourceTotal                           int
 	processesTruncated, commandsTruncated bool
 	searchSummary                         string
+	collectedAt                           time.Time
+	stale                                 bool
+	snapshotStatus                        string
 
 	loading  bool
 	noDocker bool
@@ -192,6 +195,10 @@ func (state *State) remoteSession() (*Session, bool) {
 func (state *State) clickRemoteTools(id ui.ID) {
 	view := &state.remote
 	m := state.messages.Tools
+	if remoteMutation(id) && (view.stale || view.loading || view.collectedAt.IsZero()) {
+		view.status, view.failed = m.RemoteRefreshRequired, true
+		return
+	}
 	switch {
 	case id == hitRemoteSearchClear:
 		state.clearRemoteSearch()
@@ -222,6 +229,10 @@ func (state *State) clickRemoteTools(id ui.ID) {
 		if tab != view.tab {
 			view.tab, view.selected, view.page = tab, "", 0
 			view.rows, view.pageText = nil, ""
+			view.procs, view.containers, view.compose, view.resources = nil, nil, nil, nil
+			view.collectedAt, view.stale, view.snapshotStatus = time.Time{}, false, ""
+			view.processesTruncated, view.commandsTruncated = false, false
+			state.rebuildRemoteRows()
 			if view.noDocker && tab != remoteProcesses {
 				// Docker availability belongs to the connection, not its tab.
 				// Keep the empty state until an explicit or timed refresh rechecks it.
@@ -260,23 +271,33 @@ func (state *State) clickRemoteTools(id ui.ID) {
 			view.status, view.failed = m.RemoteNeedSelection, true
 			return
 		}
+		if !state.remoteProcessReady(process, view.session) {
+			return
+		}
 		signal, title := remotetools.Terminate, m.RemoteConfirmTerminateTitle
 		if id == hitRemoteKill {
 			signal, title = remotetools.Kill, m.RemoteConfirmKillTitle
 		}
+		sourceID := view.session
 		state.confirmRemote(title, fmt.Sprintf(m.RemoteConfirmProcessFmt, process.PID, shortCommand(process.Command)), m.RemoteTerminate, func(state *State) {
+			if !state.remoteProcessReady(process, sourceID) {
+				return
+			}
 			label := "TERM"
 			if signal == remotetools.Kill {
 				label = "KILL"
 			}
 			state.runRemoteAction(fmt.Sprintf(m.RemoteSignalSentFmt, label, process.PID), func(ctx context.Context, runner remotetools.Runner) error {
-				return remotetools.SendSignal(ctx, runner, process.PID, signal)
+				return remotetools.SendSignalToProcess(ctx, runner, process, signal)
 			})
 		})
 	case id == hitRemoteNiceLower || id == hitRemoteNiceNormal || id == hitRemoteNiceHigher:
 		process, ok := state.selectedProcess()
 		if !ok {
 			view.status, view.failed = m.RemoteNeedSelection, true
+			return
+		}
+		if !state.remoteProcessReady(process, view.session) {
 			return
 		}
 		nice := 0
@@ -287,7 +308,7 @@ func (state *State) clickRemoteTools(id ui.ID) {
 			nice = -5
 		}
 		state.runRemoteAction(fmt.Sprintf(m.RemoteReniceDoneFmt, process.PID, nice), func(ctx context.Context, runner remotetools.Runner) error {
-			return remotetools.Renice(ctx, runner, process.PID, nice)
+			return remotetools.ReniceProcess(ctx, runner, process, nice)
 		})
 	case (id == hitRemoteStart || id == hitRemoteStop || id == hitRemoteRestart || id == hitRemoteDown) && view.tab == remoteCompose:
 		project, ok := state.selectedCompose()
@@ -393,8 +414,16 @@ func (state *State) confirmRemote(title, description, confirm string, yes func(*
 }
 
 func (state *State) selectedProcess() (remotetools.Process, bool) {
+	if state.remote.selected == "" {
+		return remotetools.Process{}, false
+	}
+	pidText, identity, _ := strings.Cut(state.remote.selected, ":")
+	pid, err := strconv.Atoi(pidText)
+	if err != nil {
+		return remotetools.Process{}, false
+	}
 	for _, process := range state.remote.procs {
-		if state.remote.selected == strconv.Itoa(process.PID) {
+		if process.PID == pid && process.StartIdentity == identity {
 			return process, true
 		}
 	}
@@ -410,6 +439,9 @@ func (state *State) askPullImage() {
 	state.openForm(formDialog{
 		title: m.RemotePullTitle, description: m.RemotePullDescription, submit: m.RemotePull,
 		run: func(state *State, form *formDialog) string {
+			if state.remote.stale || state.remote.loading || state.remote.collectedAt.IsZero() {
+				return m.RemoteRefreshRequired
+			}
 			command, ok := remotetools.PullCommand(strings.TrimSpace(form.value(0)))
 			if !ok {
 				return m.RemoteBadImage
@@ -535,11 +567,12 @@ func (state *State) refreshRemoteTools() {
 		} else if tab == remoteCompose {
 			compose, err = remotetools.Compose(ctx, runner)
 		} else if tab == remoteProcesses {
-			snapshot, err = remotetools.ReadProcessSnapshot(ctx, runner, key)
+			snapshot, err = remotetools.ReadSafeProcessSnapshot(ctx, runner, key)
 			procs = snapshot.Processes
 		} else {
 			containers, err = remotetools.Containers(ctx, runner)
 		}
+		collectedAt := time.Now()
 		state.postRemoteToolsUpdate(func(state *State) {
 			view := &state.remote
 			if view.serial != serial || view.session != sourceID || view.tab != tab || state.modal != modalRemoteTools {
@@ -551,12 +584,15 @@ func (state *State) refreshRemoteTools() {
 			}
 			if err != nil {
 				view.failed, view.status = true, state.remoteErrorText(err)
-				view.procs, view.containers, view.compose, view.resources = nil, nil, nil, nil
+				view.stale = !view.collectedAt.IsZero()
+				state.updateRemoteSnapshotStatus()
 				state.rebuildRemoteRows()
 				return
 			}
+			view.collectedAt, view.stale = collectedAt, false
 			view.procs, view.containers, view.compose, view.resources = procs, containers, compose, resources
 			view.processesTruncated, view.commandsTruncated = snapshot.Truncated, snapshot.CommandsTruncated
+			state.updateRemoteSnapshotStatus()
 			state.rebuildRemoteRows()
 			m := state.messages.Tools
 			empty := ""
@@ -588,6 +624,10 @@ func (state *State) refreshRemoteTools() {
 // runRemoteAction runs a change on the server and then reads the list again.
 func (state *State) runRemoteAction(done string, action func(context.Context, remotetools.Runner) error) {
 	view := &state.remote
+	if view.stale || view.loading || view.collectedAt.IsZero() {
+		view.status, view.failed = state.messages.Tools.RemoteRefreshRequired, true
+		return
+	}
 	session, ok := state.remoteSession()
 	if !ok {
 		return
@@ -607,6 +647,11 @@ func (state *State) runRemoteAction(done string, action func(context.Context, re
 			}
 			if err != nil {
 				view.loading, view.failed, view.status = false, true, state.remoteErrorText(err)
+				if tab == remoteProcesses {
+					view.stale, view.selected = true, ""
+					state.updateRemoteSnapshotStatus()
+					state.rebuildRemoteRows()
+				}
 				return
 			}
 			state.refreshRemoteTools()
@@ -619,6 +664,10 @@ func (state *State) remoteErrorText(err error) string {
 	m := state.messages.Tools
 	var failure *remotetools.Failure
 	switch {
+	case errors.Is(err, remotetools.ErrProcessChanged):
+		return m.RemoteProcessChanged
+	case errors.Is(err, remotetools.ErrProcessUnverifiable):
+		return m.RemoteProcessUnverifiable
 	case errors.Is(err, remotetools.ErrNoCompose):
 		return m.RemoteErrNoCompose
 	case errors.Is(err, remotetools.ErrComposeListUnsupported):
@@ -689,7 +738,7 @@ func (state *State) rebuildRemoteRows() {
 	view.rows = view.rows[:0]
 	if view.tab == remoteProcesses {
 		for _, process := range view.procs {
-			view.rows = append(view.rows, remoteRow{key: strconv.Itoa(process.PID), cells: [6]string{
+			view.rows = append(view.rows, remoteRow{key: remotetools.ProcessKey(process), cells: [6]string{
 				strconv.Itoa(process.PID), process.User, strconv.FormatFloat(process.CPU, 'f', 1, 64),
 				strconv.FormatFloat(process.Memory, 'f', 1, 64), process.Elapsed, process.Command,
 			}})
@@ -757,7 +806,7 @@ func (state *State) paintRemoteToolsBody(canvas *ui.Canvas, bounds ui.Rect) {
 	// Tabs and refresh controls share the toolbar; sorting belongs to the table.
 	pages := (len(view.rows) + pageSize - 1) / pageSize
 	status := view.status
-	missingDocker := view.noDocker && view.tab != remoteProcesses
+	missingDocker := view.noDocker && view.tab != remoteProcesses && view.collectedAt.IsZero()
 	if view.loading && len(view.rows) == 0 && !missingDocker {
 		status = ""
 	}
@@ -892,7 +941,10 @@ func (state *State) remoteToolActions() (actions [8]components.ButtonAction, cou
 		count++
 	}
 	add(components.ButtonAction{ID: hitRemoteClose, Label: m.RemoteClose, Variant: components.ButtonSecondary})
+	processBlocked := false
 	if view.tab == remoteProcesses {
+		process, selected := state.selectedProcess()
+		processBlocked = !selected || process.PID <= 1 || process.StartIdentity == ""
 		add(components.ButtonAction{ID: hitRemoteTerminate, Label: m.RemoteTerminate, Variant: components.ButtonOutline})
 		add(components.ButtonAction{ID: hitRemoteKill, Label: m.RemoteForceKill, Variant: components.ButtonDestructive})
 		add(components.ButtonAction{ID: hitRemoteNiceLower, Label: m.RemoteReniceLower, Variant: components.ButtonOutline})
@@ -920,7 +972,8 @@ func (state *State) remoteToolActions() (actions [8]components.ButtonAction, cou
 		add(components.ButtonAction{ID: hitRemoteRemove, Label: m.RemoteRemove, Variant: components.ButtonDestructive})
 	}
 	for i := 1; i < count; i++ {
-		actions[i].Disabled = actions[i].Disabled || view.loading || !connected || view.noDocker && view.tab != remoteProcesses
+		actions[i].Disabled = actions[i].Disabled || view.loading || view.stale || view.collectedAt.IsZero() || !connected || view.noDocker && view.tab != remoteProcesses
+		actions[i].Disabled = actions[i].Disabled || processBlocked
 	}
 	return actions, count
 }

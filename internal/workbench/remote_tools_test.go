@@ -3,6 +3,7 @@ package workbench
 import (
 	"context"
 	"errors"
+	"regexp"
 	"strings"
 	"sync"
 	"testing"
@@ -17,6 +18,11 @@ const processFixture = `    1 root      0.1  0.2    10-02:03:04 /sbin/init
  2211 www-data  42.5  1.3       01:02:03 nginx: worker process
  3000 alice      7.0 30.9          05:01 /usr/bin/python3 /srv/app.py
 `
+
+const processIdentityFixture = "boot 12345678-1234-1234-1234-123456789abc\n1 101\n2211 221101\n3000 300001\n"
+
+var processGuardMarker = regexp.MustCompile(`motty-guard-[0-9a-f]{32}:`)
+var processGuardAction = regexp.MustCompile(`\n(kill -(TERM|KILL|HUP) ([0-9]+)|renice (-?[0-9]+) -p ([0-9]+)) 2>&1\n`)
 
 const imageFixture = `d4c45f66efc5|debian:bookworm-slim|74.9MB|2 weeks ago
 cf001c2f8af7|registry.example.com/library/python:<none>|1GB|3 months ago
@@ -35,6 +41,7 @@ type remoteServer struct {
 	// containers replaces the default container fixture when non-empty, so a
 	// test can show a container appearing while a tool window stays open.
 	containers string
+	identities string
 }
 
 func (server *remoteServer) run(_ context.Context, command string, _ int) ([]byte, error) {
@@ -42,7 +49,46 @@ func (server *remoteServer) run(_ context.Context, command string, _ int) ([]byt
 	defer server.mu.Unlock()
 	server.commands = append(server.commands, command)
 	switch {
+	case strings.HasPrefix(command, "# motty-process-identities\n"):
+		if server.identities != "" {
+			return []byte(server.identities), nil
+		}
+		return []byte(processIdentityFixture), nil
+	case strings.HasPrefix(command, "# motty-process-guard\n"):
+		marker, action := processGuardMarker.FindString(command), processGuardAction.FindStringSubmatch(command)
+		if marker == "" || len(action) != 6 {
+			return nil, errors.New("malformed guard protocol")
+		}
+		pid := action[3]
+		if pid == "" {
+			pid = action[5]
+		}
+		identities := server.identities
+		if identities == "" {
+			identities = processIdentityFixture
+		}
+		ticks := ""
+		for _, line := range strings.Split(identities, "\n") {
+			fields := strings.Fields(line)
+			if len(fields) == 2 && fields[0] == pid {
+				ticks = fields[1]
+			}
+		}
+		if ticks == "" || !strings.Contains(command, "pid="+pid+"\npath=/proc/"+pid+"/stat\n") ||
+			!strings.Contains(command, `[ "$boot" = '12345678-1234-1234-1234-123456789abc' ]`) || !strings.Contains(command, `[ "$ticks" = '`+ticks+`' ]`) {
+			return []byte(marker + "changed\n"), errors.New("identity changed")
+		}
+		server.commands = append(server.commands, action[1])
+		for fragment, err := range server.failures {
+			if strings.Contains(action[1], fragment) {
+				return []byte("denied by the test\nsecond line"), err
+			}
+		}
+		return []byte(marker + "ok\n"), nil
 	case strings.Contains(command, "ps -e "):
+		if err := server.failures["processes"]; err != nil {
+			return nil, err
+		}
 		return []byte(processFixture), nil
 	case strings.HasPrefix(command, "docker ps"):
 		if err := server.failures["docker ps"]; err != nil {
@@ -134,7 +180,7 @@ func TestRemoteToolsListProcessesOnceAndNeverPoll(t *testing.T) {
 		t.Fatalf("after sorting by memory: %q, first %q", server.commands, state.remote.rows[0].cells[0])
 	}
 	state.Click(hitRemoteSortMemory)
-	if state.remote.rows[0].key != "3000" || server.ran("LC_ALL=C ps") != 1 {
+	if state.remote.rows[0].cells[0] != "3000" || server.ran("LC_ALL=C ps") != 1 {
 		t.Fatal("descending should reorder the loaded snapshot without another command")
 	}
 }
@@ -405,7 +451,10 @@ func TestRemoteToolsReadFromOldHostCannotReplaceNewHostRows(t *testing.T) {
 	state.Wake()
 	b.term.live = true
 	startA, releaseA := make(chan struct{}), make(chan struct{})
-	world.conns[0].runCommand = func(_ context.Context, _ string, _ int) ([]byte, error) {
+	world.conns[0].runCommand = func(_ context.Context, command string, _ int) ([]byte, error) {
+		if strings.HasPrefix(command, "# motty-process-identities\n") {
+			return nil, errors.New("identity unavailable")
+		}
 		close(startA)
 		<-releaseA
 		return []byte(processFixture), nil

@@ -65,6 +65,9 @@ type Process struct {
 	Memory  float64 // percent of memory
 	Elapsed string  // running time as ps prints it
 	Command string
+	// StartIdentity is empty when this reading cannot safely identify an
+	// instance. Legacy listings deliberately remain read-only for guarded APIs.
+	StartIdentity string
 }
 
 // Signal is a signal that may be sent to a process.

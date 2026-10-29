@@ -22,6 +22,11 @@ type remoteAutoRefresh struct {
 	next     time.Duration
 	anchor   ui.Rect
 	scroll   components.MenuScroll
+
+	// The clock animates even when its interval and accessible text are unchanged.
+	label, accessibleLabel   string
+	labelFormat, labelAction string
+	labelSeconds             int
 }
 
 func (auto *remoteAutoRefresh) period() time.Duration {
@@ -57,10 +62,19 @@ func (state *State) paintRemoteRefresh(canvas *ui.Canvas, bounds ui.Rect) {
 	manual := ui.Rect{X: bounds.X, Y: bounds.Y, Width: bounds.Height, Height: bounds.Height}
 	state.paintIconButton(canvas, hitRemoteRefresh, iconRefresh, manual, m.RemoteRefresh, state.remote.loading, iconButtonQuiet, theme.Background)
 	auto.anchor = ui.Rect{X: bounds.X + 40, Y: bounds.Y, Width: bounds.Width - 40, Height: bounds.Height}
-	label, foreground := m.RemoteAutoRefresh, theme.MutedForeground
+	format, seconds := m.RemoteAutoRefresh, 0
 	if auto.enabled {
-		label = fmt.Sprintf(m.RemoteRefreshIntervalFmt, int(auto.period()/time.Second))
+		format, seconds = m.RemoteRefreshIntervalFmt, int(auto.period()/time.Second)
 	}
+	if auto.label == "" || auto.labelFormat != format || auto.labelSeconds != seconds || auto.labelAction != m.RemoteAutoRefresh {
+		auto.labelFormat, auto.labelSeconds, auto.labelAction = format, seconds, m.RemoteAutoRefresh
+		auto.label = format
+		if auto.enabled {
+			auto.label = fmt.Sprintf(format, seconds)
+		}
+		auto.accessibleLabel = m.RemoteAutoRefresh + ": " + auto.label
+	}
+	label, foreground := auto.label, theme.MutedForeground
 	buttonTheme := theme
 	buttonTheme.Metrics.ControlHeight = auto.anchor.Height
 	button := components.BeginButton(canvas, buttonTheme, ui.ID{}, auto.anchor).WithState(components.ButtonState{
@@ -72,7 +86,7 @@ func (state *State) paintRemoteRefresh(canvas *ui.Canvas, bounds ui.Rect) {
 	} else {
 		button.Outline("")
 	}
-	canvas.HitWithOptions(hitRemoteAutoRefresh, auto.anchor, m.RemoteAutoRefresh+": "+label, ui.HitOptions{Role: ui.RoleButton, Hint: m.RemoteAutoRefresh, Expanded: auto.open, Expandable: true, Checked: auto.enabled})
+	canvas.HitWithOptions(hitRemoteAutoRefresh, auto.anchor, auto.accessibleLabel, ui.HitOptions{Role: ui.RoleButton, Hint: m.RemoteAutoRefresh, Expanded: auto.open, Expandable: true, Checked: auto.enabled})
 	clock := ui.Rect{X: auto.anchor.X + 9, Y: auto.anchor.Y + (auto.anchor.Height-18)/2, Width: 18, Height: 18}
 	phase := 0
 	if auto.enabled && !canvas.ReduceMotion() {

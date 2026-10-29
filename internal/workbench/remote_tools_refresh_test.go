@@ -187,6 +187,7 @@ func TestRemoteDockerPlaceholderRecoversAndDoesNotHideOtherErrors(t *testing.T) 
 	}
 	state.Click(hitRemoteTabProcesses)
 	waitFor(t, state, func() bool { return !state.remote.loading })
+	state.Click(hitRemoteRowList.At(0))
 	canvas.Reset()
 	state.Paint(&canvas, ui.Size{Width: 1400, Height: 900})
 	if !state.remote.noDocker || remoteCanvasHasText(&canvas, state.messages.Tools.RemoteDockerMissing) {
@@ -301,19 +302,19 @@ func TestRemoteToolbarAndTableHeadersAcrossScales(t *testing.T) {
 			selected := w.ui.remote.selected
 			click(hitRemoteSortMemory)
 			settle()
-			if w.ui.remote.sort != 1 || w.ui.remote.selected != selected || w.ui.remote.rows[0].key != "1" {
+			if w.ui.remote.sort != 1 || w.ui.remote.selected != selected || w.ui.remote.rows[0].cells[0] != "1" {
 				t.Fatal("table header sorting lost its selected PID or sorted incorrectly")
 			}
 			if err := view.Keys("Enter"); err != nil {
 				t.Fatal(err)
 			}
-			if w.ui.remote.rows[0].key != "3000" {
+			if w.ui.remote.rows[0].cells[0] != "3000" {
 				t.Fatal("keyboard activation did not switch the header to descending")
 			}
 			if err := view.Keys("Space"); err != nil {
 				t.Fatal(err)
 			}
-			if w.ui.remote.rows[0].key != "1" {
+			if w.ui.remote.rows[0].cells[0] != "1" {
 				t.Fatal("Space did not switch the sortable header to ascending")
 			}
 			if err := view.Keys("Enter"); err != nil {

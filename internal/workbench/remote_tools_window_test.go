@@ -115,6 +115,7 @@ func TestRemoteNativeWindowDoesNotBlockTheWorkbenchAndKeepsItsServer(t *testing.
 		}
 		// Destructive confirmation belongs to the utility, while the main
 		// window can still accept ordinary terminal input in its other tab.
+		host.until(t, func() bool { return !w.ui.remote.loading })
 		w.click(hitRemoteRowList.At(0))
 		w.click(hitRemoteKill)
 		if w.ui.modal != modalForm || state.modal != modalNone {
@@ -268,6 +269,7 @@ func TestRemoteNativeWindowFollowsItsSessionBetweenWorkbenchWindows(t *testing.T
 		if w.owner != pair.second || len(host.windows) != 1 || host.windows[0].shows != 1 {
 			t.Fatal("moving a session detached or duplicated its utility window")
 		}
+		host.until(t, func() bool { return !w.ui.remote.loading })
 		w.click(hitRemoteRowList.At(0))
 		w.click(hitRemoteNiceLower)
 		host.until(t, func() bool { return !w.ui.remote.loading })

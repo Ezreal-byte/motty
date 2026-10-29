@@ -64,7 +64,9 @@ func TestRemoteSortPrecedesPaginationAndKeepsConfirmationTarget(t *testing.T) {
 		state.remote.procs = append(state.remote.procs, remotetools.Process{PID: 1000 - i, User: "same", CPU: float64(i), Elapsed: "00:01", Command: "worker"})
 	}
 	state.rebuildRemoteRows()
-	state.remote.selected, state.remote.page = "1000", 2
+	state.remote.procs[0].StartIdentity = "linux:12345678-1234-1234-1234-123456789abc:100001"
+	state.rebuildRemoteRows()
+	state.remote.selected, state.remote.page = remotetools.ProcessKey(state.remote.procs[0]), 2
 	state.Click(remoteTableHeaderID(remoteProcesses, 0))
 	if state.remote.rows[0].key != "971" || state.remote.page != 0 {
 		t.Fatal("PID sorted lexically, sorted only a page, or did not return to the first page")
@@ -84,7 +86,7 @@ func TestRemoteSortSurvivesRefreshAndIsRememberedForEachTab(t *testing.T) {
 	state.Click(hitRemoteIntervals.At(0))
 	state.tickRemoteRefresh(5 * time.Second)
 	waitFor(t, state, func() bool { return !state.remote.loading })
-	if state.remote.tableSort() != selectedOrder || state.remote.rows[0].key != "2211" {
+	if state.remote.tableSort() != selectedOrder || state.remote.rows[0].cells[0] != "2211" {
 		t.Fatal("auto refresh reset the selected column or direction")
 	}
 	state.Click(hitRemoteTabContainers)

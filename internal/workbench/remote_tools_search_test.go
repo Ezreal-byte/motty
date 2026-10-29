@@ -65,7 +65,7 @@ func TestRemoteSearchQueriesStayIndependentAcrossTabsAndRefresh(t *testing.T) {
 	}
 	state.Click(hitRemoteTabProcesses)
 	waitFor(t, state, func() bool { return !state.remote.loading })
-	if len(state.remote.rows) != 1 || state.remote.rows[0].key != "2211" {
+	if len(state.remote.rows) != 1 || state.remote.rows[0].cells[0] != "2211" {
 		t.Fatal("returning to process tab lost its independent query")
 	}
 }
@@ -88,7 +88,7 @@ func TestRemoteSearchNativeFocusTypingAndEscape(t *testing.T) {
 	if err := driver.Type("PyThOn"); err != nil {
 		t.Fatal(err)
 	}
-	if len(state.remote.rows) != 1 || state.remote.rows[0].key != "3000" {
+	if len(state.remote.rows) != 1 || state.remote.rows[0].cells[0] != "3000" {
 		t.Fatal("native text input did not filter process rows")
 	}
 	if err := driver.Key(ui.KeyEscape, 0); err != nil {
@@ -151,7 +151,7 @@ func TestRemoteSearchNativeUtilityWindowUsesItsOwnInput(t *testing.T) {
 		if err := driver.Type("ALICE"); err != nil {
 			t.Fatal(err)
 		}
-		if len(w.ui.remote.rows) != 1 || w.ui.remote.rows[0].key != "3000" || state.modal != modalNone {
+		if len(w.ui.remote.rows) != 1 || w.ui.remote.rows[0].cells[0] != "3000" || state.modal != modalNone {
 			t.Fatal("native utility search was routed to the workbench or lost its source")
 		}
 		row := hitOf(t, driver, hitRemoteRowList.At(0))

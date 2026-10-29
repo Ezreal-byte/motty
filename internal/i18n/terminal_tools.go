@@ -554,6 +554,11 @@ type ToolsMessages struct {
 	RemoteErrUnsupportedFmt         string
 	RemoteErrNoDocker               string
 	RemoteErrFailedFmt              string
+	RemoteSnapshotCollectedFmt      string
+	RemoteSnapshotStaleFmt          string
+	RemoteRefreshRequired           string
+	RemoteProcessChanged            string
+	RemoteProcessUnverifiable       string
 	RemoteNeedSelection             string
 	RemoteSignalSentFmt             string
 	RemoteActionDoneFmt             string
