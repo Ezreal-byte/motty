@@ -417,7 +417,9 @@ func (state *State) startConnectionMode(session *Session, host Host, automatic b
 	session.jumpPath = ""
 	if host.ID == localHostID {
 		// A shell on this machine: nothing to dial, so it is connected at once.
-		session.conn = newLocalConn(state.localShell)
+		conn := newLocalConn(state.localShell)
+		conn.dir = localStartupDirectory(session.localDirectory)
+		session.conn = conn
 		state.finishStartingConnection(session, automatic)
 		// There is no goroutine to report that it is connected, so say so now:
 		// the shell starts here instead of on a wake nobody would send.
@@ -549,6 +551,7 @@ func (state *State) finishStartingConnection(session *Session, automatic bool) {
 // connection goroutine asked for, so Paint only ever reads state. It does
 // nothing for sessions whose status is unchanged and whose shell is quiet.
 func (state *State) Wake() {
+	defer state.flushLocalDirectories()
 	state.pumpFileWindows()
 	if state.syncPending {
 		state.syncPending = false

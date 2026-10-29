@@ -18,6 +18,7 @@ var (
 	hitTabMenuDuplicate   = tree.ID(tabMenuHits, "tab-menu-duplicate")
 	hitTabMenuReconnect   = tree.ID(tabMenuHits, "tab-menu-reconnect")
 	hitTabMenuRename      = tree.ID(tabMenuHits, "tab-menu-rename")
+	hitTabMenuLock        = tree.ID(tabMenuHits, "tab-menu-lock")
 )
 
 // The rename dialog's identities, after the menu's.
@@ -113,6 +114,11 @@ func (state *State) paintTabMenu(canvas *ui.Canvas, viewport ui.Rect) {
 	icon := func(kind uint8) ui.Icon { return lucideIcons[kind] }
 	var rows menuRows
 	rows.add(components.ContextMenuItem{ID: hitTabMenuRename, Label: messages.MenuRenameTab, Icon: icon(iconPencil)})
+	lockLabel := messages.MenuLockTab
+	if state.deck.Locked(state.tabMenu.workspace) {
+		lockLabel = messages.MenuUnlockTab
+	}
+	rows.add(components.ContextMenuItem{ID: hitTabMenuLock, Label: lockLabel, Icon: icon(iconLock)})
 	rows.add(components.ContextMenuItem{ID: hitTabMenuDuplicate, Label: messages.MenuDuplicateTab, Icon: icon(iconCopy), Disabled: !hasSession})
 	rows.separate()
 	rows.add(components.ContextMenuItem{ID: hitTabMenuClose, Label: messages.LabelCloseTab, Icon: icon(iconClose), Keys: closeKeys})
@@ -147,6 +153,10 @@ func (state *State) clickTabMenu(id ui.ID) bool {
 	switch id {
 	case hitTabMenuRename:
 		state.openTabRename(workspace)
+	case hitTabMenuLock:
+		_ = state.deck.SetLocked(workspace, !state.deck.Locked(workspace))
+		state.rebuildTabOptions()
+		state.save()
 	case hitTabMenuDuplicate:
 		if session, ok := state.tabMenuSessionFor(workspace); ok {
 			state.pendingWorkspace, state.pendingPane = 0, 0
@@ -173,27 +183,20 @@ func (state *State) tabMenuSessionFor(workspace layoutcore.WorkspaceID) (*Sessio
 	return state.tabMenuSession()
 }
 
-// closeTabs closes the tabs, by position, that pick selects, and keeps the tab
-// the menu was opened on showing: closing its neighbours must not leave the user
-// looking at a different one.
-func (state *State) closeTabs(keep layoutcore.WorkspaceID, pick func(position int) bool) {
-	var doomed [maxRestoredSessions]layoutcore.WorkspaceID
-	count := 0
-	for position, tab := range state.workspaceTabs {
-		if pick(position) && count < len(doomed) {
-			doomed[count] = tab.ID
-			count++
-		}
-	}
-	if count == 0 {
+// closeTabs closes an already confirmed snapshot. Stable IDs keep a reorder or
+// a newly opened tab from changing which tabs the confirmation applies to.
+func (state *State) closeTabs(pending tabsClose) {
+	if pending.count == 0 {
 		return
 	}
-	state.activateWorkspace(keep)
-	for _, id := range doomed[:count] {
-		state.closeWorkspace(id)
+	if pending.keep != 0 {
+		state.activateWorkspace(pending.keep)
 	}
-	if state.deck.ActiveWorkspace() != keep {
-		state.activateWorkspace(keep)
+	for _, id := range pending.ids[:pending.count] {
+		state.closeWorkspaceNow(id)
+	}
+	if pending.keep != 0 && state.deck.ActiveWorkspace() != pending.keep {
+		state.activateWorkspace(pending.keep)
 	}
 	state.save()
 }

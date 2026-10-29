@@ -4,7 +4,24 @@ import (
 	"testing"
 
 	"github.com/vivaui/viva/ui"
+	layoutcore "motty/internal/workspace"
 )
+
+func TestTabStripKeepsVisibleActiveTabInViewWhenLockChangesWidth(t *testing.T) {
+	var strip tabStrip
+	tabs := []layoutcore.WorkspaceInfo{{ID: 1}, {ID: 2}, {ID: 3}}
+	area := ui.Rect{Width: 300}
+	strip.layout(area, 300, tabs, 100, 96, 3)
+	offset := strip.layout(area, 354, tabs, 118, 114, 3)
+	if float32(2*118+114)-offset > area.Width {
+		t.Fatal("adding a lock pushed the active tab's close button offscreen")
+	}
+	// User scrolling must still be respected on a resize or another lock change.
+	strip.offset = 0
+	if got := strip.layout(ui.Rect{Width: 280}, 354, tabs, 118, 114, 3); got != 0 {
+		t.Fatal("geometry change undid a deliberate scroll")
+	}
+}
 
 func manyTabs(t *testing.T, count int) (*State, *ui.Canvas) {
 	t.Helper()

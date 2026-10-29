@@ -81,6 +81,9 @@ type Session struct {
 	Title    string
 	Address  string // dialed address; changes to a saved host take effect on reconnect
 	paneSlot uint8
+	// localDirectory is this shell's last reported directory, independent of
+	// the files panel and of other sessions on the same machine.
+	localDirectory string
 
 	host     Host // what was dialed, to dial again
 	jumpPath string

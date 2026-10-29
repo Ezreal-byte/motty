@@ -25,6 +25,12 @@ type Cwd struct {
 // must not block.
 func (t *Terminal) SetCwdChange(fn func(Cwd)) { t.cwdFn = fn }
 
+// SetCwdReport receives every valid report, including repeats. Owners that
+// validate a report against shell prompt markers must observe the trusted
+// repeat after an identical report from a running program was ignored. Like
+// SetCwdChange, this runs during Write and must not block.
+func (t *Terminal) SetCwdReport(fn func(Cwd)) { t.cwdReportFn = fn }
+
 // SetPromptReady receives OSC 133 B, the end of a shell prompt. Like CwdChange,
 // it runs during Write on the owner's thread and must not block.
 func (t *Terminal) SetPromptReady(fn func()) { t.promptReadyFn = fn }
@@ -52,11 +58,34 @@ func (t *Terminal) WorkingDirectory() (Cwd, bool) { return t.cwd, t.cwd.Path != 
 // osc7 reads a working-directory report.
 func (t *Terminal) osc7(text []byte) {
 	cwd, ok := parseCwd(string(text))
-	if !ok || cwd == t.cwd {
+	if !ok {
 		return
 	}
+	t.reportCwd(cwd)
+}
+
+// OSC 9;9 is the native-path directory report used by Windows Terminal and
+// ConEmu. Keep it as data; validating an actual local directory is the owner's
+// responsibility. It is not a desktop notification.
+func (t *Terminal) oscWindowsDirectory(value string) {
+	if len(value) >= 2 && value[0] == '"' && value[len(value)-1] == '"' {
+		value = value[1 : len(value)-1]
+	}
+	drive := len(value) >= 3 && ((value[0] >= 'A' && value[0] <= 'Z') || (value[0] >= 'a' && value[0] <= 'z')) && value[1] == ':' && (value[2] == '\\' || value[2] == '/')
+	unc := strings.HasPrefix(value, `\\`) && len(value) > 2
+	if (!drive && !unc) || len(value) > maxCwd || strings.IndexFunc(value, func(r rune) bool { return r < 0x20 || r == 0x7f }) >= 0 {
+		return
+	}
+	t.reportCwd(Cwd{Path: value})
+}
+
+func (t *Terminal) reportCwd(cwd Cwd) {
+	changed := cwd != t.cwd
 	t.cwd = cwd
-	if t.cwdFn != nil {
+	if t.cwdReportFn != nil {
+		t.cwdReportFn(cwd)
+	}
+	if changed && t.cwdFn != nil {
 		t.cwdFn(cwd)
 	}
 }

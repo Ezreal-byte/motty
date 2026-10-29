@@ -70,6 +70,7 @@ type Pane struct {
 type WorkspaceInfo struct {
 	ID         WorkspaceID
 	Title      string
+	Locked     bool
 	ActivePane PaneID
 	PaneCount  int
 }
@@ -77,6 +78,7 @@ type WorkspaceInfo struct {
 type workspaceRecord struct {
 	id         WorkspaceID
 	title      string
+	locked     bool
 	layout     Layout
 	panes      []Pane
 	activePane PaneID
@@ -118,7 +120,7 @@ func (deck *Deck) Workspaces(dst []WorkspaceInfo) []WorkspaceInfo {
 	for index := range deck.workspaces {
 		workspace := &deck.workspaces[index]
 		dst = append(dst, WorkspaceInfo{
-			ID: workspace.id, Title: workspace.title,
+			ID: workspace.id, Title: workspace.title, Locked: workspace.locked,
 			ActivePane: workspace.activePane, PaneCount: len(workspace.panes),
 		})
 	}
@@ -127,6 +129,22 @@ func (deck *Deck) Workspaces(dst []WorkspaceInfo) []WorkspaceInfo {
 
 // ActiveWorkspace returns the selected workspace tab, or zero when empty.
 func (deck *Deck) ActiveWorkspace() WorkspaceID { return deck.activeWorkspace }
+
+// Locked reports whether closing this tab requires confirmation from its owner.
+func (deck *Deck) Locked(id WorkspaceID) bool {
+	workspace, ok := deck.workspace(id)
+	return ok && workspace.locked
+}
+
+// SetLocked changes tab protection without changing its layout or sessions.
+func (deck *Deck) SetLocked(id WorkspaceID, locked bool) error {
+	workspace, ok := deck.workspace(id)
+	if !ok {
+		return ErrWorkspaceNotFound
+	}
+	workspace.locked = locked
+	return nil
+}
 
 // ActivateWorkspace selects an existing workspace without changing its panes.
 func (deck *Deck) ActivateWorkspace(id WorkspaceID) bool {

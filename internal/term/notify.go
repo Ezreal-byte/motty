@@ -70,6 +70,10 @@ func cleanNotifyText(value string, limit int) string {
 // start with a number and a semicolon (9;4 sets a progress bar, 9;9 the working
 // directory): those are not messages.
 func (t *Terminal) osc9(text []byte) {
+	if bytes.HasPrefix(text, []byte("9;")) {
+		t.oscWindowsDirectory(string(text[2:]))
+		return
+	}
 	if i := bytes.IndexByte(text, ';'); i > 0 && allDigits(text[:i]) {
 		return
 	}

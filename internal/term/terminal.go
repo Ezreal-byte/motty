@@ -181,6 +181,7 @@ type Terminal struct {
 	clipboardFn    func(ClipboardWrite)
 	notifyFn       func(Notification)
 	cwdFn          func(Cwd)
+	cwdReportFn    func(Cwd)
 	promptReadyFn  func()
 	promptStartFn  func()
 	promptToken    string
