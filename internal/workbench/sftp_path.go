@@ -140,6 +140,20 @@ func (state *State) submitSFTPPath(view *sftpView) {
 		return
 	}
 	view.bookmarksOpen = false
+	if view.detached != nil {
+		if view.local {
+			if !filepath.IsAbs(destination) {
+				destination = filepath.Join(folder.path, destination)
+			}
+		} else if !path.IsAbs(destination) {
+			destination = path.Join(folder.path, destination)
+		}
+		if !view.local && !view.detached.navigationBusy() {
+			view.pathRequest = path.Clean(destination)
+		}
+		view.detached.navigate(view.local, destination)
+		return
+	}
 	if view.local {
 		if !filepath.IsAbs(destination) {
 			destination = filepath.Join(folder.path, destination)

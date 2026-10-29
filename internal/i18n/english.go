@@ -4,6 +4,17 @@ package i18n
 
 var EnglishMessages = Messages{
 	SFTPWindow: SFTPWindowMessages{
+		LocalPlaces: "Favorites and places", DirectoryFavorites: "Folder favorites", CommonFolders: "Quick access", LocalDrives: "Drives", FavoriteAdd: "Bookmark current folder", FavoriteRemove: "Remove current folder bookmark", FavoriteLimit: "The folder bookmark limit has been reached. Remove an unused bookmark first.",
+		LocalHome: "Home", LocalDesktop: "Desktop", LocalDownloads: "Downloads", LocalDocuments: "Documents", LocalPictures: "Pictures", LocalMusic: "Music", LocalVideos: "Videos", LocalMovies: "Movies", LocalApplications: "Applications",
+		ProfileScope: "Available to", BrowseRootLabel: "Sync roots:",
+		ProfileSite: "This connection", ProfileShared: "All connections", ProfileNew: "New", ProfileDelete: "Remove", ProfileOpen: "Open", ProfileEmpty: "No location profiles yet", ProfileNameExists: "A profile with this name already exists. Select it to make changes.",
+		BrowseSync: "Synchronized browsing", BrowseHint: "Configure location profiles or open matching directories, then enable synchronized browsing", BrowseRootsFmt: "Paired: %s  ⇄  %s",
+		BrowseOutside:   "The path is outside the paired directories or cannot be mapped locally. Synchronized browsing is paused. Open matching directories and enable it again.",
+		BrowseFailedFmt: "Cannot open the corresponding directory %s: %s. Synchronized browsing is paused; check both directories before enabling it again.",
+		BookmarkTitle:   "Location profiles", BookmarkDescription: "Save paired directories and open both panels together. Choose All connections to reuse the paths on other servers.",
+		BookmarkName: "Profile name", BookmarkLocal: "Local directory (optional)", BookmarkRemote: "Server directory",
+		BookmarkSave: "Save", BookmarkAdd: "Add location profile…", BookmarkEdit: "Edit location profile", BookmarkChooseLocal: "Choose local directory",
+		BookmarkInvalid: "Enter valid absolute directory paths and a name when saving. The local directory can be empty.", BookmarkLimit: "The location profile limit has been reached. Remove an unused profile first.",
 		ConnectingFmt: "Connecting to %s…",
 		Authenticate:  "Authenticate in main window", AuthenticationHint: "Confirm the host key or complete authentication in the main window.",
 		DropUploadHint: "Drop here to upload", DropDownloadHint: "Drop here to download",

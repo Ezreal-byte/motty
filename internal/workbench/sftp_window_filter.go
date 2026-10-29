@@ -20,6 +20,8 @@ func (w *sftpWindow) closeHeaderMenu() {
 
 func (w *sftpWindow) targetSide(id ui.ID) (bool, bool) {
 	switch id {
+	case hitSFTPLocationProfiles, hitSFTPBrowseSync, hitSFTPLocalPlaces, hitSFTPLocalStar:
+		return true, true
 	case hitSFTPBookmarkList, hitSFTPBookmarkToggle, hitSFTPNewLink, hitSFTPWindowUpload, hitSFTPWindowDownload:
 		return false, true
 	}

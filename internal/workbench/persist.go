@@ -68,6 +68,7 @@ type savedState struct {
 	UpdateCheck                string              `json:"update_check,omitempty"`
 	UpdateSkipped              string              `json:"update_skipped,omitempty"`
 	SFTPBookmarks              []savedBookmark     `json:"sftp_bookmarks,omitempty"`
+	SFTPLocalBookmarks         []string            `json:"sftp_local_bookmarks,omitempty"`
 	OutboundProxy              *savedOutboundProxy `json:"outbound_proxy,omitempty"`
 	HighlightBuiltin           string              `json:"highlight_builtin,omitempty"`
 	Highlights                 []savedHighlight    `json:"highlights,omitempty"`
@@ -439,8 +440,9 @@ func (state *State) snapshot() savedState {
 		}
 	}
 	for _, bookmark := range state.sftpBookmarks {
-		saved.SFTPBookmarks = append(saved.SFTPBookmarks, savedBookmark{Host: bookmark.host, Path: bookmark.path})
+		saved.SFTPBookmarks = append(saved.SFTPBookmarks, savedBookmark{Host: bookmark.host, Path: bookmark.path, Name: bookmark.name, Local: bookmark.local, Shared: bookmark.shared})
 	}
+	saved.SFTPLocalBookmarks = slices.Clone(state.sftpLocalBookmarks)
 	for _, group := range state.hostGroups {
 		saved.HostGroups = append(saved.HostGroups, savedHostGroup{Name: group.Name, Collapsed: !group.Expanded})
 	}
@@ -568,6 +570,7 @@ func (state *State) restoreSettings(saved savedState) {
 // restoreLocal applies what belongs to this computer: the language and look, the
 // fonts, what it does at start, the keys it has, the cloud account, the picture.
 func (state *State) restoreLocal(saved savedState) {
+	state.restoreSFTPLocalFavorites(saved.SFTPLocalBookmarks)
 	state.toolbars.restore(saved.Toolbars)
 	state.localShell = saved.LocalShell
 	state.sshAgent = agentChoiceFromSaved(saved.SSHAgent, saved.SSHAgentPath)

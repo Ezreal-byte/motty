@@ -91,7 +91,7 @@ func TestBookmarksAreKeptPerHostSurviveARestartAndOpenTheirFolder(t *testing.T) 
 	state.Click(hitSFTPOpenEntry)
 	waitSFTP(t, state, session, func(view *sftpView) bool { return !view.busy && view.path == "/home/test/docs" })
 	state.Click(hitSFTPBookmarkToggle)
-	if marks := state.bookmarksFor(session); len(marks) != 1 || marks[0] != "/home/test/docs" {
+	if marks := (sftpPlaceBrowser{owner: state, session: session, view: view}).directoryFavorites(); len(marks) != 1 || marks[0].path != "/home/test/docs" {
 		t.Fatalf("bookmarks = %v", marks)
 	}
 	// The star shows it.
@@ -141,7 +141,7 @@ func TestBookmarksAreKeptPerHostSurviveARestartAndOpenTheirFolder(t *testing.T) 
 
 	// The star again removes it.
 	state.Click(hitSFTPBookmarkToggle)
-	if marks := state.bookmarksFor(session); len(marks) != 0 {
+	if marks := (sftpPlaceBrowser{owner: state, session: session, view: view}).directoryFavorites(); len(marks) != 0 {
 		t.Fatalf("bookmarks after removing = %v", marks)
 	}
 }

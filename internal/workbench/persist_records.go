@@ -52,7 +52,8 @@ import (
 // Version 5 preserves device-local toolbar layouts: an older full snapshot
 // writer would otherwise discard the visibility and ordering preferences.
 // Version 6 preserves the device-local shell executable choice.
-const configFormat = 6
+// Version 7 preserves local folder favorites and named paired SFTP profiles.
+const configFormat = 7
 
 const (
 	kindSetting             = "setting"
@@ -147,6 +148,9 @@ var entityFields = []entityField{
 	}},
 	{field: "autofill_rules", kind: "autofill", key: func(fields map[string]json.RawMessage) string { return fieldText(fields, "id") }},
 	{field: "sftp_bookmarks", kind: "bookmark", key: func(fields map[string]json.RawMessage) string {
+		if name := fieldText(fields, "name"); name != "" {
+			return joinKey("profile", fieldText(fields, "host"), fieldText(fields, "shared"), name)
+		}
 		return joinKey(fieldText(fields, "host"), fieldText(fields, "path"))
 	}},
 	{field: "ai_providers", kind: kindAIProvider, keepWhenAbsent: true, key: func(fields map[string]json.RawMessage) string { return fieldText(fields, "id") }},

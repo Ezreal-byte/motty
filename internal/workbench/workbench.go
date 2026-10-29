@@ -549,6 +549,7 @@ type State struct {
 	sftpPanelAutoOpen  bool
 	sftpPanelSide      layoutcore.ContextSide
 	sftpBookmarks      []sftpBookmark
+	sftpLocalBookmarks []string
 	transferLeftover   []byte
 	secrets            secretsUI
 	shareConnections   shareConnectionsPolicy
@@ -1713,6 +1714,9 @@ func (state *State) Pointer(event ui.PointerEvent) (outcome ui.EventResult) {
 		return result
 	}
 	if result, handled := state.sftpMenuDismissPointer(event); handled {
+		return result
+	}
+	if result, handled := state.sftpPlacesPointer(event); handled {
 		return result
 	}
 	if result, handled := state.aiPointer(event); handled {

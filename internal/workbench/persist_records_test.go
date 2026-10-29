@@ -20,8 +20,9 @@ func TestEverySavedStateFieldIsSharedOrKeptOnThisDevice(t *testing.T) {
 		"restore_connect": true, "share_connections": true, "update_check": true, "update_skipped": true, "ai_panel_width": true,
 		"workspace": true, "active_session": true, "shortcuts": true, "identity_files": true, "agent_hosts": true, "sessions": true, "deck": true, "sync": true,
 		"host_view": true, "background": true, "snippet_shortcuts": true,
-		"toolbars":    true,
-		"local_shell": true, "ssh_agent": true, "ssh_agent_path": true,
+		"sftp_local_bookmarks": true,
+		"toolbars":             true,
+		"local_shell":          true, "ssh_agent": true, "ssh_agent_path": true,
 		"window_x": true, "window_y": true, "window_width": true, "window_height": true,
 	}
 	entity := map[string]bool{}

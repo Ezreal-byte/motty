@@ -37,6 +37,8 @@ type sftpWindow struct {
 	externalConflict            uint32
 	ownsConnection              bool
 	initialLocal, initialRemote string
+	browse                      sftpBrowseSync
+	bookmark                    sftpBookmarkEditor
 }
 
 func (state *State) openSFTPWindow(source *Session) {
@@ -127,6 +129,9 @@ func (w *sftpWindow) wake() {
 		return
 	}
 	w.owner.pumpSFTP(&w.session)
+	if !w.connected() {
+		w.browse.enabled, w.browse.pending = false, nil
+	}
 	if w.externalConflict != 0 && w.owner.editByID(w.externalConflict) == nil {
 		w.externalConflict = 0
 	}
@@ -197,6 +202,7 @@ func (w *sftpWindow) onClosed() {
 		return
 	}
 	w.closed = true
+	w.browse.pending, w.browse.enabled = nil, false
 	if w.ownsConnection && w.owner.modalSession == w.session.ID {
 		w.owner.closeModal()
 	}
@@ -262,20 +268,17 @@ func (w *sftpWindow) folder(local bool) *sftpFolder {
 }
 
 func (w *sftpWindow) navigate(local bool, location string) {
-	if w.view.dialog != sftpDialogNone || w.closeConfirm || (!local && (!w.connected() || w.view.busy)) {
+	if w.view.dialog != sftpDialogNone || w.bookmark.open || w.closeConfirm || w.browse.pending != nil || (!local && (!w.connected() || w.view.busy)) {
 		return
 	}
 	w.activeLocal, w.view.local = local, local
 	w.cancelDrag()
 	if local {
-		w.pendingLocal = filepath.Clean(location)
-		w.owner.listLocal(w.view, location)
-		if w.view.errorText != "" {
-			w.pendingLocal = ""
-		}
+		location = filepath.Clean(location)
 	} else {
-		w.owner.openSFTPDirectory(w.view, location)
+		location = path.Clean(location)
 	}
+	w.startBrowseNavigation(local, location)
 }
 
 func (w *sftpWindow) openEntry(local bool, index int) {

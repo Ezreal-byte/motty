@@ -7,6 +7,8 @@
 // (https://devicon.dev), MIT. The Linux distribution and FreeBSD glyphs come from Simple Icons (https://simpleicons.org), CC0-1.0. The mit-* file-type glyphs come from Material Icon Theme (https://github.com/material-extensions/vscode-material-icon-theme), MIT, through Iconify. The QQ, WeChat, Discord and GitHub marks come from Simple Icons (https://simpleicons.org), CC0-1.0. The ai-* provider marks come from LobeHub Icons (https://github.com/lobehub/lobe-icons), MIT (Claude, Gemini, DeepSeek, Kimi, Qwen, MiniMax, Z.ai), Iconify (OpenAI) and Simple Icons (https://simpleicons.org), CC0-1.0 (Ollama); the plug glyph is Lucide's. The magpie mark comes from magpie (https://github.com/yetone/magpie), MIT, and the cc-switch mark from cc-switch (https://github.com/farion1231/cc-switch), MIT. Brand names and logos remain subject to their
 // respective trademark policies. SVG sources are compiled at build time with
 // `viva icons`; no SVG parser links into the app.
+// The sftp-* action glyphs were supplied with the SFTP interface design and
+// normalized to use the application's theme tint.
 
 package icons
 
@@ -7443,6 +7445,104 @@ var Settings = ui.Icon{
 		ui.CubicTo(9.0, 10.3431, 10.3431, 9.0, 12.0, 9.0),
 		ui.CubicTo(13.6569, 9.0, 15.0, 10.3431, 15.0, 12.0),
 		ui.ClosePath(),
+	},
+}
+
+// sftp-profiles is a compiled vector icon.
+var SftpProfiles = ui.Icon{
+	ViewBox: 24.0,
+	Stroke:  1.75,
+	Cap:     ui.CapRound,
+	Join:    ui.JoinRound,
+	Commands: []ui.PathCommand{
+		ui.MoveTo(6.25, 2.0),
+		ui.CubicTo(6.66421, 2.0, 7.0, 2.33579, 7.0, 2.75),
+		ui.LineTo(7.0, 21.25),
+		ui.CubicTo(7.0, 21.6642, 6.66421, 22.0, 6.25, 22.0),
+		ui.LineTo(2.75, 22.0),
+		ui.CubicTo(2.33579, 22.0, 2.0, 21.6642, 2.0, 21.25),
+		ui.LineTo(2.0, 2.75),
+		ui.CubicTo(2.0, 2.33579, 2.33579, 2.0, 2.75, 2.0),
+		ui.ClosePath(),
+		ui.MoveTo(13.75, 2.0),
+		ui.CubicTo(14.1642, 2.0, 14.5, 2.33579, 14.5, 2.75),
+		ui.LineTo(14.5, 21.25),
+		ui.CubicTo(14.5, 21.6642, 14.1642, 22.0, 13.75, 22.0),
+		ui.LineTo(10.25, 22.0),
+		ui.CubicTo(9.83579, 22.0, 9.5, 21.6642, 9.5, 21.25),
+		ui.LineTo(9.5, 2.75),
+		ui.CubicTo(9.5, 2.33579, 9.83579, 2.0, 10.25, 2.0),
+		ui.ClosePath(),
+		ui.MoveTo(21.25, 2.0),
+		ui.CubicTo(21.6642, 2.0, 22.0, 2.33579, 22.0, 2.75),
+		ui.LineTo(22.0, 21.25),
+		ui.CubicTo(22.0, 21.6642, 21.6642, 22.0, 21.25, 22.0),
+		ui.LineTo(17.75, 22.0),
+		ui.CubicTo(17.3358, 22.0, 17.0, 21.6642, 17.0, 21.25),
+		ui.LineTo(17.0, 2.75),
+		ui.CubicTo(17.0, 2.33579, 17.3358, 2.0, 17.75, 2.0),
+		ui.ClosePath(),
+		ui.MoveTo(4.5, 5.0),
+		ui.LineTo(4.5, 14.0),
+		ui.MoveTo(12.0, 5.0),
+		ui.LineTo(12.0, 14.0),
+		ui.MoveTo(19.5, 5.0),
+		ui.LineTo(19.5, 14.0),
+		ui.MoveTo(4.5, 18.0),
+		ui.LineTo(4.51, 18.0),
+		ui.MoveTo(12.0, 18.0),
+		ui.LineTo(12.01, 18.0),
+		ui.MoveTo(19.5, 18.0),
+		ui.LineTo(19.51, 18.0),
+	},
+}
+
+// sftp-sync is a compiled vector icon.
+var SftpSync = ui.Icon{
+	ViewBox: 24.0,
+	Stroke:  2.0,
+	Cap:     ui.CapRound,
+	Join:    ui.JoinRound,
+	Commands: []ui.PathCommand{
+		ui.MoveTo(21.75, 12.0),
+		ui.CubicTo(21.75, 17.3848, 17.3848, 21.75, 12.0, 21.75),
+		ui.CubicTo(6.61522, 21.75, 2.25, 17.3848, 2.25, 12.0),
+		ui.CubicTo(2.25, 6.61522, 6.61522, 2.25, 12.0, 2.25),
+		ui.CubicTo(17.3848, 2.25, 21.75, 6.61522, 21.75, 12.0),
+		ui.ClosePath(),
+		ui.MoveTo(16.25, 9.125),
+		ui.LineTo(7.75, 9.125),
+		ui.LineTo(10.65, 6.225),
+		ui.MoveTo(7.75, 9.125),
+		ui.LineTo(10.65, 12.025),
+		ui.MoveTo(7.75, 15.0),
+		ui.LineTo(16.25, 15.0),
+		ui.LineTo(13.35, 12.1),
+		ui.MoveTo(16.25, 15.0),
+		ui.LineTo(13.35, 17.9),
+	},
+}
+
+// sftp-transfer is a compiled vector icon.
+var SftpTransfer = ui.Icon{
+	ViewBox: 24.0,
+	Stroke:  2.0,
+	Cap:     ui.CapRound,
+	Join:    ui.JoinRound,
+	Commands: []ui.PathCommand{
+		ui.MoveTo(2.25, 4.25),
+		ui.LineTo(8.15, 4.25),
+		ui.LineTo(11.0, 6.75),
+		ui.LineTo(21.75, 6.75),
+		ui.LineTo(21.75, 19.75),
+		ui.LineTo(2.25, 19.75),
+		ui.ClosePath(),
+		ui.MoveTo(15.25, 12.0),
+		ui.LineTo(9.25, 12.0),
+		ui.LineTo(10.1, 9.7),
+		ui.MoveTo(9.25, 15.0),
+		ui.LineTo(15.25, 15.0),
+		ui.LineTo(14.4, 17.3),
 	},
 }
 

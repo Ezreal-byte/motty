@@ -4,6 +4,17 @@ package i18n
 
 var ChineseMessages = Messages{
 	SFTPWindow: SFTPWindowMessages{
+		LocalPlaces: "收藏与快捷位置", DirectoryFavorites: "目录收藏", CommonFolders: "常用目录", LocalDrives: "磁盘", FavoriteAdd: "收藏当前目录", FavoriteRemove: "取消收藏当前目录", FavoriteLimit: "目录收藏已达上限，请先移除不再使用的收藏。",
+		LocalHome: "主目录", LocalDesktop: "桌面", LocalDownloads: "下载", LocalDocuments: "文档", LocalPictures: "图片", LocalMusic: "音乐", LocalVideos: "视频", LocalMovies: "影片", LocalApplications: "应用程序",
+		ProfileScope: "适用连接", BrowseRootLabel: "同步目录：",
+		ProfileSite: "仅当前连接", ProfileShared: "所有连接", ProfileNew: "新建", ProfileDelete: "删除", ProfileOpen: "打开", ProfileEmpty: "还没有位置档案", ProfileNameExists: "已存在同名位置档案，请选中后修改。",
+		BrowseSync: "同步浏览", BrowseHint: "配置位置档案，或打开两侧对应目录后开启同步浏览", BrowseRootsFmt: "已配对：%s  ⇄  %s",
+		BrowseOutside:   "已离开配对目录，或目录名称无法映射到本机，同步浏览已暂停。可在两侧打开对应目录后重新开启。",
+		BrowseFailedFmt: "无法打开对应目录 %s：%s。同步浏览已暂停；请确认两侧目录后重新开启。",
+		BookmarkTitle:   "位置档案", BookmarkDescription: "保存成对目录，打开时同时切换两侧路径。“所有连接”可在其他服务器连接中复用这组路径。",
+		BookmarkName: "档案名称", BookmarkLocal: "本地目录（可选）", BookmarkRemote: "服务器目录",
+		BookmarkSave: "保存", BookmarkAdd: "添加位置档案…", BookmarkEdit: "编辑位置档案", BookmarkChooseLocal: "选择本地目录",
+		BookmarkInvalid: "请填写有效的绝对目录路径；保存档案时还需填写名称。本地目录可以留空。", BookmarkLimit: "位置档案数量已达上限，请先删除不再使用的档案。",
 		ConnectingFmt: "正在连接 %s…",
 		Authenticate:  "前往主窗口认证", AuthenticationHint: "请在主窗口确认主机密钥或完成身份验证。",
 		DropUploadHint: "拖动到此处上传", DropDownloadHint: "拖动到此处下载",
