@@ -165,3 +165,22 @@ func TestSFTPLocalPlacesLayoutAtDifferentScales(t *testing.T) {
 		}
 	}
 }
+
+// The startup path must put the saved favorites back on the state, not only in
+// the decoded snapshot; losing that call would silently empty the list.
+func TestSFTPLocalFavoritesReturnAfterRestart(t *testing.T) {
+	options := testOptions(t)
+	folder := t.TempDir()
+	if err := saveState(options.StatePath, savedState{SFTPLocalBookmarks: []string{folder}}); err != nil {
+		t.Fatal(err)
+	}
+	saved, _, err := loadState(options.StatePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	restarted := newTestState(t, options)
+	restarted.restore(saved)
+	if !slices.Equal(restarted.sftpLocalBookmarks, []string{folder}) {
+		t.Fatalf("local favorites after restart = %v", restarted.sftpLocalBookmarks)
+	}
+}
