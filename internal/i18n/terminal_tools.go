@@ -337,6 +337,10 @@ type ToolsMessages struct {
 	LaunchConnect                   string
 	GeneralLogin                    string
 	GeneralLoginDescription         string
+	GeneralClose                    string
+	GeneralCloseDescription         string
+	GeneralCloseTray                string
+	GeneralCloseQuit                string
 	GeneralUpdate                   string
 	GeneralUpdateDescription        string
 	GeneralUpdateCheck              string

@@ -474,6 +474,7 @@ func (state *State) restoreSFTPSettings(saved savedState) {
 		state.sftpPanelSide = layoutcore.ContextRight
 	}
 	state.updateAtStart = saved.UpdateCheck != "off"
+	state.closeAction = closeActionFromString(saved.CloseAction)
 	state.update.skipped = saved.UpdateSkipped
 	clear(state.sftpBookmarks)
 	state.sftpBookmarks = state.sftpBookmarks[:0]

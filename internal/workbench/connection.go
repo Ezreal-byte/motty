@@ -173,6 +173,10 @@ type Options struct {
 	// StartAtLogin reads and changes starting the program at login. Nil hides
 	// the setting.
 	StartAtLogin *LoginStart
+	// StatusArea reports whether the application has an icon in the status
+	// area, which is what makes "stay there on close" a choice. Nil, or false,
+	// hides the setting.
+	StatusArea func() bool
 	// CheckUpdate asks the release feed for the newest version. Nil asks GitHub.
 	CheckUpdate func() (update.Release, error)
 	// Updater installs a newer release over the running program. Nil, or a nil

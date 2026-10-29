@@ -130,6 +130,9 @@ func (state *State) eachSettingsEntry(add func(settingsEntry)) {
 	if state.options.StartAtLogin != nil {
 		row(settingsGeneral, tools.GeneralLogin, tools.GeneralLoginDescription)
 	}
+	if state.closeActionVisible() {
+		row(settingsGeneral, tools.GeneralClose, tools.GeneralCloseDescription)
+	}
 	for _, label := range []string{m.Toolbars.Window, m.Toolbars.Terminal, m.Toolbars.SFTP} {
 		row(settingsGeneral, label, m.Toolbars.Description)
 	}

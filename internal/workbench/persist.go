@@ -66,6 +66,7 @@ type savedState struct {
 	SFTPPanelSide              string              `json:"sftp_panel_side,omitempty"`
 	Toolbars                   *savedToolbars      `json:"toolbars,omitempty"`
 	UpdateCheck                string              `json:"update_check,omitempty"`
+	CloseAction                string              `json:"close_action,omitempty"`
 	UpdateSkipped              string              `json:"update_skipped,omitempty"`
 	SFTPBookmarks              []savedBookmark     `json:"sftp_bookmarks,omitempty"`
 	SFTPLocalBookmarks         []string            `json:"sftp_local_bookmarks,omitempty"`
@@ -374,6 +375,7 @@ func (state *State) snapshot() savedState {
 		SFTPPanelSide:              sftpPanelSideString(state.sftpPanelSide),
 		Toolbars:                   state.toolbars.snapshot(),
 		UpdateCheck:                updateCheckString(state.updateAtStart),
+		CloseAction:                state.closeAction.String(),
 		UpdateSkipped:              state.update.skipped,
 		ShortcutVersion:            shortcutSchemaVersion,
 		Shortcuts:                  make([]savedShortcut, 0, shortcutActionCount-1),

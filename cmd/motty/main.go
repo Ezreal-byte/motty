@@ -234,9 +234,10 @@ func openWorkbenchWindow(application *app.Application, status *tray, hub *workbe
 	// has sessions hides (the connections go on, and the icon brings the window
 	// back), and so does the last window, so that closing it leaves the
 	// application in the status area instead of quitting it. Any other window
-	// with nothing in it just closes.
+	// with nothing in it just closes, and so does every window when the user
+	// chose in Settings that closing quits.
 	requestClose := func(allow func()) {
-		if status.hasStatusArea() && (state.WantsToStay() || status.list.WindowCount() <= 1) {
+		if status.hasStatusArea() && state.StaysInTray() && (state.WantsToStay() || status.list.WindowCount() <= 1) {
 			mainWindow.Hide()
 			return
 		}
@@ -261,6 +262,7 @@ func openWorkbenchWindow(application *app.Application, status *tray, hub *workbe
 		PreferredLanguages: preferredLanguages,
 		Raise:              func() { mainWindow.Show() },
 		StartAtLogin:       loginStart(),
+		StatusArea:         status.hasStatusArea,
 		Updater:            updater(),
 		Quit:               func() { windows.quitWithDocuments(application.Quit) },
 		AISettingsChanged: func() {

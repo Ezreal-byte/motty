@@ -241,6 +241,14 @@ func (state *State) paintGeneralSettings(page *settingsPage) {
 			if state.options.StartAtLogin != nil {
 				state.paintLoginSetting(page)
 			}
+			if state.closeActionVisible() {
+				options := state.settingsCloseOptions()
+				selected := hitSettingsCloseTray
+				if state.closeAction == closeQuits {
+					selected = hitSettingsCloseQuit
+				}
+				page.row(messages.Tools.GeneralClose, messages.Tools.GeneralCloseDescription, options[:], selected)
+			}
 			state.paintToolbarSettingsRows(page)
 		})
 		state.paintUpdateSettings(page)

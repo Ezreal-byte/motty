@@ -187,6 +187,8 @@ var (
 	hitSettingsAppearanceSystem = tree.ID(settingsHits, "settings-appearance-system")
 	hitSettingsAppearanceDark   = tree.ID(settingsHits, "settings-appearance-dark")
 	hitSettingsAppearanceLight  = tree.ID(settingsHits, "settings-appearance-light")
+	hitSettingsCloseTray        = tree.ID(settingsHits, "settings-close-tray")
+	hitSettingsCloseQuit        = tree.ID(settingsHits, "settings-close-quit")
 	hitSettingsOptionText       = tree.ID(settingsHits, "settings-option-text")
 	hitSettingsOptionMeta       = tree.ID(settingsHits, "settings-option-meta")
 	hitSettingsFontSizeDown     = tree.ID(settingsHits, "settings-font-size-down")
@@ -540,6 +542,7 @@ type State struct {
 	updateAtStart bool
 	updateStarted bool
 	loginOn       bool
+	closeAction   closeAction
 	// The file panel's settings and the folders kept for each host.
 	sftpParallel       int
 	sftpKeepTimesOff   bool
