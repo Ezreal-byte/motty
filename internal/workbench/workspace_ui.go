@@ -102,6 +102,7 @@ func (state *State) paintWorkspacePanes(canvas *ui.Canvas, size ui.Size) {
 		} else {
 			state.paintEmptyPane(canvas, frame, pane)
 		}
+		state.paintTerminalDrop(canvas)
 		state.paintContextPanel(canvas, size, frame)
 		return
 	}
@@ -128,6 +129,7 @@ func (state *State) paintWorkspacePanes(canvas *ui.Canvas, size ui.Size) {
 	}
 	state.paintPaneDividers(canvas, frame)
 	state.paintActivePaneGlow(canvas, frame, size)
+	state.paintTerminalDrop(canvas)
 	state.paintContextPanel(canvas, size, frame)
 }
 

@@ -316,6 +316,7 @@ type ToolsMessages struct {
 	XYSaveTitle                     string
 	DropUploadingFmt                string
 	DropUploadHint                  string
+	DropTerminalUploadFmt           string
 	LaunchTitle                     string
 	LaunchWarning                   string
 	LaunchDescriptionFmt            string

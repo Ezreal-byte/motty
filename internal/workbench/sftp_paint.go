@@ -321,7 +321,7 @@ func (state *State) paintSFTPList(canvas *ui.Canvas, size ui.Size, list ui.Rect,
 		if row := view.dropRow; row >= first && row < end {
 			target = boxes[row-first].Rect()
 		}
-		state.paintSFTPDropOverlay(canvas, target)
+		state.paintSFTPDropOverlay(canvas, target, state.messages.Tools.DropUploadHint)
 	}
 	if scrolls {
 		track := track.Rect()

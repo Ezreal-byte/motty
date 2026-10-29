@@ -71,9 +71,13 @@ func TestSFTPPanelDockingThroughNativeInputAtDisplayScales(t *testing.T) {
 			if math.Abs(float64(context.Width-400)) > 1 {
 				t.Fatalf("right divider reversed or resized against AI: %+v", context)
 			}
-			if accepted, err := preview.Drop(ui.FileDropEvent{Phase: ui.FileDropDrop, X: oldPanel.X + 10, Y: oldPanel.Y + 70, Paths: paths[:1]}); err != nil || accepted {
-				t.Fatal("the old left-panel location accepted an upload", err)
+			// Where the panel was is the terminal now: it may take an upload of its
+			// own, but the panel's drop target must not show there.
+			state.FileDrop(ui.FileDropEvent{Phase: ui.FileDropOver, X: oldPanel.X + 10, Y: oldPanel.Y + 70, Paths: paths[:1]})
+			if files.dropping {
+				t.Fatal("the old left-panel location still shows the panel's drop target")
 			}
+			state.FileDrop(ui.FileDropEvent{Phase: ui.FileDropLeave})
 			row := -1
 			for i, candidate := range files.rows {
 				if candidate.entry.Name == "docs" {

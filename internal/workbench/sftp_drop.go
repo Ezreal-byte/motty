@@ -9,11 +9,13 @@ import (
 	"strings"
 
 	"github.com/vivaui/viva/ui"
+	"motty/internal/sshconn"
 )
 
 // paintSFTPDropOverlay is presentation only: it declares no hits, so the file
-// row under the pointer remains the target of the eventual system drop.
-func (state *State) paintSFTPDropOverlay(canvas *ui.Canvas, bounds ui.Rect) {
+// row under the pointer remains the target of the eventual system drop. label
+// says what the drop will do.
+func (state *State) paintSFTPDropOverlay(canvas *ui.Canvas, bounds ui.Rect, label string) {
 	if bounds.Width <= 0 || bounds.Height <= 0 {
 		return
 	}
@@ -49,7 +51,6 @@ func (state *State) paintSFTPDropOverlay(canvas *ui.Canvas, bounds ui.Rect) {
 		canvas.Fill(ui.Rect{X: bounds.X + bounds.Width - stroke, Y: bounds.Y + offset, Width: stroke, Height: length}, gray)
 	})
 
-	label := state.messages.Tools.DropUploadHint
 	textStyle := ui.TextStyle{Size: 15, Weight: ui.WeightMedium, Color: state.pal.text}
 	icon := ui.Rect{Width: 36, Height: 36}
 	text := ui.Rect{X: bounds.X + 12, Width: max(bounds.Width-24, 0), Height: 22}
@@ -66,6 +67,7 @@ func (state *State) paintSFTPDropOverlay(canvas *ui.Canvas, bounds ui.Rect) {
 		icon.X = bounds.X + (bounds.Width-icon.Width)/2
 		icon.Y = bounds.Y + (bounds.Height-groupHeight)/2
 		text.Y = icon.Y + icon.Height + 14
+		label = elide(canvas, label, textStyle.Size, textStyle.Weight, text.Width)
 	}
 	paintIcon(canvas, iconUpload, icon, state.pal.muted)
 	canvas.LabelCenter(label, text, textStyle)
@@ -73,8 +75,9 @@ func (state *State) paintSFTPDropOverlay(canvas *ui.Canvas, bounds ui.Rect) {
 
 // Files dragged in from the system. Over the file panel they are uploaded: onto a
 // folder row into that folder, anywhere else on the panel into the folder on
-// show. Over the terminal of a shell on this computer they are typed as paths,
-// quoted, as other terminals do. Nowhere else takes them.
+// show. Over the terminal of a server they are uploaded into the folder the
+// shell is in. Over the terminal of a shell on this computer they are typed as
+// paths, quoted, as other terminals do. Nowhere else takes them.
 
 // pointInContext reports whether a window point is on the side panel.
 func (state *State) pointInContext(x, y float32) bool {
@@ -112,6 +115,14 @@ func (state *State) dropFolderRow(view *sftpView, target ui.ID) int {
 	return index
 }
 
+// terminalDrop is a terminal that files dragged over it would be uploaded
+// from: the pane it fills and the folder on the server they would go into.
+type terminalDrop struct {
+	session   uint32
+	bounds    ui.Rect
+	directory string
+}
+
 // FileDrop receives files dragged from the system over the window.
 func (state *State) FileDrop(event ui.FileDropEvent) ui.EventResult {
 	switch event.Phase {
@@ -122,9 +133,19 @@ func (state *State) FileDrop(event ui.FileDropEvent) ui.EventResult {
 			row := state.dropFolderRow(view, event.Target)
 			changed := !view.dropping || view.dropRow != row
 			view.dropping, view.dropRow = true, row
-			return ui.EventResult{Handled: true, Repaint: changed || state.clearDropExcept(view)}
+			others := state.clearDropExcept(view)
+			terminal := state.clearTerminalDrop()
+			return ui.EventResult{Handled: true, Repaint: changed || others || terminal}
 		}
-		repaint := state.clearDrop()
+		repaint := state.clearDropPanels()
+		if upload, ok := state.terminalUploadAt(event.X, event.Y); ok {
+			changed := state.terminalDrop != upload
+			state.terminalDrop = upload
+			return ui.EventResult{Handled: true, Repaint: repaint || changed}
+		}
+		if state.clearTerminalDrop() {
+			repaint = true
+		}
 		return ui.EventResult{Handled: state.terminalTakesPaths(event.X, event.Y), Repaint: repaint}
 	}
 	repaint := state.clearDrop()
@@ -148,12 +169,102 @@ func (state *State) FileDrop(event ui.FileDropEvent) ui.EventResult {
 		_ = session
 		return ui.EventResult{Handled: queued > 0, Repaint: true}
 	}
+	if upload, ok := state.terminalUploadAt(event.X, event.Y); ok {
+		return ui.EventResult{Handled: state.uploadToTerminalFolder(upload, event.Paths), Repaint: true}
+	}
 	if state.terminalTakesPaths(event.X, event.Y) {
 		session, _ := state.sessionByIDPointer(state.activeSessionID)
 		session.term.send([]byte(quotedPaths(event.Paths) + " "))
 		return ui.EventResult{Handled: true, Repaint: true}
 	}
 	return ui.EventResult{Repaint: repaint}
+}
+
+// paintTerminalDrop marks the terminal that files being dragged over it would
+// be uploaded from, and where.
+func (state *State) paintTerminalDrop(canvas *ui.Canvas) {
+	if drop := state.terminalDrop; drop.session != 0 {
+		state.paintSFTPDropOverlay(canvas, drop.bounds, fmt.Sprintf(state.messages.Tools.DropTerminalUploadFmt, drop.directory))
+	}
+}
+
+// terminalPaneAt is the terminal under a window point, with the pane it fills.
+func (state *State) terminalPaneAt(x, y float32) (*Session, ui.Rect, bool) {
+	if state.activeSection != sectionTerminal || state.modal != modalNone || state.pointInContext(x, y) {
+		return nil, ui.Rect{}, false
+	}
+	state.refreshWorkspaceViews()
+	frame := state.workspacePixelBounds(state.viewport)
+	for index := range state.panes {
+		bounds := pixelBounds(frame, state.panes[index].Bounds)
+		if !pointInRect(x, y, bounds) {
+			continue
+		}
+		session, ok := state.sessionByIDPointer(state.panes[index].SessionID)
+		if !ok || session.term == nil || session.term.shell == nil {
+			return nil, ui.Rect{}, false
+		}
+		return session, bounds, true
+	}
+	return nil, ui.Rect{}, false
+}
+
+// terminalUploadAt reports the upload that files dropped at the point would
+// make: the point is on the terminal of a connected server, and the folder its
+// shell is in is known, from the shell's own report or else the one the file
+// panel shows. A container's shell sees another file system than the one the
+// upload reaches, so it is left out.
+func (state *State) terminalUploadAt(x, y float32) (terminalDrop, bool) {
+	session, bounds, ok := state.terminalPaneAt(x, y)
+	if !ok || !session.hasServer() || session.conn == nil || session.phase != sshconn.PhaseConnected || session.containerCommand != "" {
+		return terminalDrop{}, false
+	}
+	directory := ""
+	if cwd, ok := session.term.screen.WorkingDirectory(); ok {
+		directory = cwd.Path
+	} else if session.files != nil {
+		directory = session.files.path
+	}
+	if directory == "" {
+		return terminalDrop{}, false
+	}
+	return terminalDrop{session: session.ID, bounds: bounds, directory: directory}, true
+}
+
+// uploadToTerminalFolder queues the dropped files into the folder the terminal's
+// shell is in and reports whether any was queued. The transfers run on the
+// session's file worker, made again if the panel was closed, and are followed in
+// the transfer center like any other.
+func (state *State) uploadToTerminalFolder(upload terminalDrop, paths []string) bool {
+	session, ok := state.sessionByIDPointer(upload.session)
+	if !ok {
+		return false
+	}
+	if session.files == nil {
+		state.openSFTP(session)
+	}
+	view := session.files
+	if view == nil || view.worker == nil {
+		state.status = state.messages.SFTPUnavailable
+		return false
+	}
+	// The person is at the terminal and will type next, so the transfer center
+	// stays as it was rather than opening over the shell and taking the keyboard.
+	transfersOpen := state.transfers.open
+	queued := 0
+	for _, local := range paths {
+		info, err := os.Stat(local)
+		if err != nil {
+			continue
+		}
+		state.queueSFTPUploadTo(view, local, info.IsDir(), upload.directory)
+		queued++
+	}
+	state.transfers.open = transfersOpen
+	if queued > 0 {
+		state.status = fmt.Sprintf(state.messages.Tools.DropUploadingFmt, queued, upload.directory)
+	}
+	return queued > 0
 }
 
 // terminalTakesPaths reports whether the point is on the terminal of a live
@@ -166,8 +277,17 @@ func (state *State) terminalTakesPaths(x, y float32) bool {
 	return ok && session.isLocal() && session.term != nil && session.term.shell != nil
 }
 
-// clearDrop ends a hover over the panel and reports whether anything showed it.
+// clearDrop ends a hover over the panel or a terminal and reports whether
+// anything showed it.
 func (state *State) clearDrop() bool {
+	panels := state.clearDropPanels()
+	terminal := state.clearTerminalDrop()
+	return panels || terminal
+}
+
+// clearDropPanels ends a hover over the panel and reports whether anything
+// showed it.
+func (state *State) clearDropPanels() bool {
 	changed := false
 	for index := range state.sessions {
 		if view := state.sessions[index].files; view != nil && view.dropping {
@@ -175,6 +295,14 @@ func (state *State) clearDrop() bool {
 			changed = true
 		}
 	}
+	return changed
+}
+
+// clearTerminalDrop ends a hover over a terminal and reports whether anything
+// showed it.
+func (state *State) clearTerminalDrop() bool {
+	changed := state.terminalDrop != terminalDrop{}
+	state.terminalDrop = terminalDrop{}
 	return changed
 }
 

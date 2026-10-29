@@ -655,6 +655,7 @@ type State struct {
 	contextCanvas         ui.Canvas
 	panes                 []Pane
 	paneSplits            []PaneSplit
+	terminalDrop          terminalDrop // the terminal that files being dragged over would be uploaded from
 	draggedPaneSplit      uint32
 	draggedContextDivider bool
 	deck                  layoutcore.Deck

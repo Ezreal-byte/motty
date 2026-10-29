@@ -98,10 +98,10 @@ func TestDroppedFilesOnAFolderRowGoIntoThatFolder(t *testing.T) {
 
 func TestDropIsRefusedOutsideThePanelAndLeaveClearsTheHighlight(t *testing.T) {
 	state, session, _, panel, paths := dropFixture(t)
-	outside := ui.FileDropEvent{X: panel.X - 50, Y: panel.Y + 60, Paths: paths}
+	outside := ui.FileDropEvent{X: panel.X - 50, Y: 4, Paths: paths}
 	outside.Phase = ui.FileDropOver
 	if result := state.FileDrop(outside); result.Handled {
-		t.Fatalf("a remote session's terminal accepted the hover: %+v", result)
+		t.Fatalf("the window bar accepted the hover: %+v", result)
 	}
 	outside.Phase = ui.FileDropDrop
 	if result := state.FileDrop(outside); result.Handled || len(session.files.transfers) != 0 {
@@ -127,5 +127,70 @@ func TestDropOnTheLocalPaneIsRefused(t *testing.T) {
 	event.Phase = ui.FileDropDrop
 	if result := state.FileDrop(event); result.Handled || len(session.files.transfers) != 0 {
 		t.Fatalf("the local pane took a drop: %+v", result)
+	}
+}
+
+func terminalPoint(panel ui.Rect) (float32, float32) {
+	if panel.X > 100 {
+		return panel.X - 50, panel.Y + 60
+	}
+	return panel.X + panel.Width + 200, panel.Y + 60
+}
+
+func TestDroppedFilesOnTheTerminalUploadIntoTheShellsFolder(t *testing.T) {
+	state, session, remote, panel, paths := dropFixture(t)
+	session.term.screen.Write([]byte("\x1b]7;file:///home/test/docs\x07"))
+	x, y := terminalPoint(panel)
+	event := ui.FileDropEvent{X: x, Y: y, Paths: paths[:1]}
+	event.Phase = ui.FileDropOver
+	if result := state.FileDrop(event); !result.Handled || state.terminalDrop.directory != "/home/test/docs" {
+		t.Fatalf("hover result %+v, target %+v", result, state.terminalDrop)
+	}
+	var canvas ui.Canvas
+	state.Paint(&canvas, ui.Size{Width: 1400, Height: 900})
+	event.Phase = ui.FileDropDrop
+	if result := state.FileDrop(event); !result.Handled {
+		t.Fatalf("drop result %+v", result)
+	}
+	if state.terminalDrop.session != 0 {
+		t.Fatal("the terminal's drop target stayed after the drop")
+	}
+	if state.transfers.open {
+		t.Fatal("the transfer center opened over the terminal")
+	}
+	waitTransfersDone(t, state, session, 1)
+	remote.mu.Lock()
+	got := string(remote.files["/home/test/docs/dropped.txt"])
+	remote.mu.Unlock()
+	if got != "dropped" {
+		t.Fatalf("the shell's folder holds %q", got)
+	}
+}
+
+func TestDroppedFilesOnATerminalWithoutAReportGoToThePanelsFolder(t *testing.T) {
+	state, session, remote, panel, paths := dropFixture(t)
+	x, y := terminalPoint(panel)
+	event := ui.FileDropEvent{X: x, Y: y, Paths: paths[:1]}
+	event.Phase = ui.FileDropDrop
+	if result := state.FileDrop(event); !result.Handled {
+		t.Fatalf("drop result %+v", result)
+	}
+	waitTransfersDone(t, state, session, 1)
+	remote.mu.Lock()
+	_, there := remote.files["/home/test/dropped.txt"]
+	remote.mu.Unlock()
+	if !there {
+		t.Fatal("the file did not arrive in the folder the panel shows")
+	}
+}
+
+func TestDropOnATerminalWhoseFolderIsUnknownIsRefused(t *testing.T) {
+	state, session, _, panel, paths := dropFixture(t)
+	state.closeSFTP(session)
+	x, y := terminalPoint(panel)
+	event := ui.FileDropEvent{X: x, Y: y, Paths: paths[:1]}
+	event.Phase = ui.FileDropOver
+	if result := state.FileDrop(event); result.Handled {
+		t.Fatalf("a terminal with no known folder accepted the hover: %+v", result)
 	}
 }

@@ -1363,6 +1363,7 @@ var englishTools = ToolsMessages{
 	XYSaveTitle:                     "Save the received file as",
 	DropUploadingFmt:                "Uploading %d dropped items to %s",
 	DropUploadHint:                  "Drop here to upload",
+	DropTerminalUploadFmt:           "Drop here to upload to %s",
 	LaunchTitle:                     "Open connection",
 	LaunchDescriptionFmt:            "Connect to %[2]s over %[1]s?",
 	LaunchWarning:                   "Another program asked for this connection. Connect only if you expect it.",
