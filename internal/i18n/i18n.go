@@ -39,6 +39,8 @@ type Messages struct {
 	// Tools holds the terminal tools' texts; see terminal_tools.go.
 	Tools    ToolsMessages
 	Toolbars ToolbarMessages
+	// TerminalInput holds the terminal command and character-handling notices.
+	TerminalInput TerminalInputMessages
 	// Autofill holds the autofill rules' texts; see autofill.go.
 	Autofill AutofillMessages
 	// History holds the command history's texts; see history.go.

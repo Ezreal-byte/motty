@@ -131,6 +131,7 @@ MOTTY_USER_ZDOTDIR=${ZDOTDIR-$HOME} MOTTY_USER_ZDOTDIR_SET=${ZDOTDIR+x} ZDOTDIR=
 `
 	}
 	script += "_motty_status=$?\nexit \"$_motty_status\"\n"
+	script = strings.ReplaceAll(script, "__MOTTY_INPUT_TOKEN__", strings.TrimPrefix(suffix, ";motty="))
 	return strings.ReplaceAll(script, "__MOTTY_SUFFIX__", suffix)
 }
 
@@ -192,6 +193,7 @@ func validVariableName(name string) bool {
 // rest read as terminal output.
 const wslReportFunction = `__motty_report() {
     local _motty_status=$?
+    __motty_input_report
     if [[ $PWD != "${_motty_wsl_pwd-}" ]]; then
         _motty_wsl_pwd=$PWD
         _motty_wsl_dir=$(wslpath -w "$PWD" 2>/dev/null)
@@ -213,7 +215,9 @@ const wslReportFunction = `__motty_report() {
 // Encode bytes, not characters: file URI reserved characters and non-ASCII
 // paths must round-trip through the terminal parser without shell evaluation.
 const directoryReportFunction = `__motty_report() {
-    local _motty_status=$? LC_ALL=C _motty_path= _motty_char _motty_hex _motty_i
+    local _motty_status=$?
+    __motty_input_report
+    local LC_ALL=C _motty_path= _motty_char _motty_hex _motty_i
     for ((_motty_i=0; _motty_i<${#PWD}; _motty_i++)); do
         _motty_char=${PWD:_motty_i:1}
         case $_motty_char in
@@ -234,7 +238,7 @@ func bashIntegration(report string, forceTrap bool) string {
 	if forceTrap {
 		force = "1"
 	}
-	return bashIntegrationHead + report + strings.ReplaceAll(bashIntegrationTail, "__MOTTY_FORCE__", force)
+	return bashIntegrationHead + inputEnvironmentFunction + report + strings.ReplaceAll(bashIntegrationTail, "__MOTTY_FORCE__", force)
 }
 
 const bashIntegrationHead = `_motty_runtime=$MOTTY_SHELL_DIR
@@ -299,7 +303,9 @@ fi
 rm -rf -- "$_motty_runtime"
 unset _motty_runtime _motty_profile`
 
-func zshIntegration(report string) string { return report + zshIntegrationTail }
+func zshIntegration(report string) string {
+	return inputEnvironmentFunction + report + zshIntegrationTail
+}
 
 const zshIntegrationTail = `
 _motty_prompt_marker=$'%{\e]133;B__MOTTY_SUFFIX__\a%}'

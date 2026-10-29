@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/vivaui/viva/app"
 	"github.com/vivaui/viva/ui"
 	"motty/internal/term"
 )
@@ -423,6 +424,9 @@ func (state *State) pasteIntoTerminal(session *Session) {
 	}
 	value, err := state.options.ClipboardText()
 	if err == nil && value != "" {
+		if state.modal == modalTerminalInput || state.guardTerminalText(session, app.TextEvent{Kind: app.TextPaste, Text: value}) {
+			return
+		}
 		state.typed(session, encodeTerminalPaste(value, session.term))
 		return
 	}

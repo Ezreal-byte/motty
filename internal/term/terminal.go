@@ -177,20 +177,21 @@ type Terminal struct {
 	imageBytes int
 	imageWake  func()
 
-	replyFn        func([]byte)
-	clipboardFn    func(ClipboardWrite)
-	notifyFn       func(Notification)
-	cwdFn          func(Cwd)
-	cwdReportFn    func(Cwd)
-	promptReadyFn  func()
-	promptStartFn  func()
-	promptToken    string
-	commandStartFn func()
-	syncFn         func(bool)
-	cwd            Cwd
-	kittyNotes     []kittyPending // OSC 99 notifications still waiting for chunks
-	defFG, defBG   [3]uint8
-	haveDefaults   bool
+	replyFn            func([]byte)
+	clipboardFn        func(ClipboardWrite)
+	notifyFn           func(Notification)
+	cwdFn              func(Cwd)
+	cwdReportFn        func(Cwd)
+	promptReadyFn      func()
+	promptStartFn      func()
+	promptToken        string
+	inputEnvironmentFn func(InputEnvironment)
+	commandStartFn     func()
+	syncFn             func(bool)
+	cwd                Cwd
+	kittyNotes         []kittyPending // OSC 99 notifications still waiting for chunks
+	defFG, defBG       [3]uint8
+	haveDefaults       bool
 
 	lastRune rune // for REP
 	nextID   uint64

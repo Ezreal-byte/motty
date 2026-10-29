@@ -34,6 +34,16 @@ var EnglishMessages = Messages{
 		Local: "Local", Remote: "Server", ReadOnly: "Image preview · read only", EncodingChanged: "Encoding changes reinterpret the original bytes; save or discard edits first.",
 	},
 
+	TerminalInput: TerminalInputMessages{
+		Title: "Check command character", Description: "This character resembles shell syntax. The pending text has not been sent. Choose explicitly; no choice executes the command.",
+		Replace: "Use ASCII", Keep: "Keep original", Cancel: "Cancel input", Canceled: "The pending input was canceled; previously typed text is unchanged.", Stale: "The terminal context changed. Pending input was not sent.",
+		LocaleWarning: "This shell is not using UTF-8. Editing Chinese text may leave broken bytes.", LocaleUnavailable: "This shell is not using UTF-8; no verified UTF-8 locale is available.",
+		LocaleFix: "Enable UTF-8", LocaleBusy: "Available at an empty idle shell prompt; existing input is never erased.", LocaleTitle: "Repair this session's character handling?",
+		LocaleBodyFmt: "Use the verified locale %s in this shell only. Locale-sensitive formatting may change. No system settings or startup files are modified. The command line must still be empty when you confirm.", LocaleConfirm: "Repair this session",
+		LocaleRepairing: "Waiting for the shell to confirm UTF-8…", LocaleSuccess: "The current shell confirmed UTF-8. Chinese editing can now use complete characters.", LocaleFailed: "The shell did not confirm UTF-8. No further repair was attempted.",
+		SendFailed: "The terminal could not queue this input. Nothing was sent; you can retry your choice or cancel.", LocaleDismiss: "Hide this warning for this session", LocaleCanceled: "Session repair canceled; the shell environment is unchanged.",
+	},
+
 	Transfers: TransferCenterMessages{
 		Title: "Transfers", Description: "Uploads, downloads and history across all connections", Close: "Close transfers",
 		Empty: "No transfers yet", EmptyFiltered: "No transfers in this view",

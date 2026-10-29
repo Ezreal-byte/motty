@@ -434,6 +434,7 @@ func (t *Terminal) endOSC() {
 			t.commandStartFn()
 		}
 	case 777:
+		t.inputEnvironmentReport(text)
 		t.osc777(text)
 	case 10, 11:
 		if len(text) == 1 && text[0] == '?' && t.haveDefaults {

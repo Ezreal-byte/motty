@@ -104,12 +104,13 @@ func (state *State) paintTerminalPage(canvas *ui.Canvas, size ui.Size, session *
 	showProgress := !session.isLocal() && !session.term.live && !(inSplit && session.quietOK())
 	var light, spinner, statsSlot, progressSlot flex.Box
 	var find findBarSlots
+	var inputNotice flex.Box
 
 	// The bar is a step darker than the window bar above it and a step lighter
 	// than the terminal below, so the three read as separate strips.
 	f := state.terminalPageLayout.Begin(canvas, state.Theme(), ui.Rect{Width: size.Width, Height: size.Height})
 	f.Column().Fill().PadSides(windowBarHeight, 0, 0, 0).Children(func() {
-		f.Stack().Height(barHeight).Shrink(0).Background(barBackground).Children(func() {
+		f.Stack().Height(infoBarHeight).Shrink(0).Background(barBackground).Children(func() {
 			switch {
 			case inactive:
 				spinner = state.declareInactiveBar(f, size.Width, title, status, session)
@@ -152,6 +153,9 @@ func (state *State) paintTerminalPage(canvas *ui.Canvas, size ui.Size, session *
 			}
 			f.Row().FillWidth().Height(1).Self(flex.End).Background(barBorder)
 		})
+		if barHeight > infoBarHeight {
+			inputNotice = f.Slot().Height(inputNoticeHeight).FillWidth().Shrink(0)
+		}
 		f.Row().Grow(1).Background(state.ground(state.termPal.terminal))
 	})
 	f.End()
@@ -198,6 +202,9 @@ func (state *State) paintTerminalPage(canvas *ui.Canvas, size ui.Size, session *
 	}
 
 	state.paintGrid(canvas, session, geometry)
+	if barHeight > infoBarHeight {
+		state.paintTerminalInputNotice(canvas, session, inputNotice.Rect())
+	}
 }
 
 // paintAIMarking draws the strip that says this line's command was started by

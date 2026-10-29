@@ -34,6 +34,16 @@ var ChineseMessages = Messages{
 		Local: "本机", Remote: "服务器", ReadOnly: "图片预览 · 只读", EncodingChanged: "切换编码会重新解释原文件，请先保存或放弃当前更改。",
 	},
 
+	TerminalInput: TerminalInputMessages{
+		Title: "检查命令字符", Description: "这个字符与命令符号相似。本次文字尚未发送，请明确选择；选择本身不会执行命令。",
+		Replace: "改用半角", Keep: "保留原文", Cancel: "取消本次输入", Canceled: "已取消本次待发送文字，之前输入的内容未修改。", Stale: "终端上下文已变化，待发送文字未发送。",
+		LocaleWarning: "当前 shell 不是 UTF-8，中文退格可能留下残缺字节。", LocaleUnavailable: "当前 shell 不是 UTF-8，且未找到已验证可用的 UTF-8 locale。",
+		LocaleFix: "启用 UTF-8", LocaleBusy: "仅在空闲且没有已输入命令的提示符可用，不会清空现有输入。", LocaleTitle: "修复当前会话的字符处理？",
+		LocaleBodyFmt: "仅在当前 shell 使用已验证的 %s。与 locale 有关的格式可能改变，不修改系统设置或启动文件。确认时命令行仍须为空。", LocaleConfirm: "修复当前会话",
+		LocaleRepairing: "正在等待 shell 确认 UTF-8…", LocaleSuccess: "当前 shell 已确认 UTF-8，中文编辑可按完整字符处理。", LocaleFailed: "shell 未确认 UTF-8，未继续尝试修改。",
+		SendFailed: "终端暂时无法接收本次输入，内容尚未发送。可以重试选择或取消。", LocaleDismiss: "本会话不再显示此提示", LocaleCanceled: "已取消会话修复，shell 环境未修改。",
+	},
+
 	Transfers: TransferCenterMessages{
 		Title: "传输中心", Description: "所有连接的上传、下载与传输记录", Close: "关闭传输中心",
 		Empty: "还没有传输任务", EmptyFiltered: "暂无此类传输任务",

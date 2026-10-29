@@ -88,9 +88,10 @@ type terminal struct {
 	label, labelFormat, labelAddress string
 
 	// preedit is the input-method composition, shown at the cursor.
-	preedit app.TextState
-	input   app.TextInput // reused, so resolving the text input allocates nothing
-	cache   rowCache
+	preedit    app.TextState
+	inputGuard terminalInputGuard
+	input      app.TextInput // reused, so resolving the text input allocates nothing
+	cache      rowCache
 	// rowIDs are the visible rows' line identities, kept between paints so an
 	// image can find its row without scanning the whole scrollback.
 	rowIDs    []uint64
@@ -271,6 +272,7 @@ func (state *State) configureTerminal(session *Session) {
 	})
 	session.term.screen.SetPromptStart(func() {
 		if current, ok := state.sessionByIDPointer(sessionID); ok && current.term != nil {
+			current.term.inputGuard.start()
 			current.term.promptVersion++
 			current.term.folderIntegrationSeen = true
 			current.term.promptStarted = true
@@ -281,12 +283,14 @@ func (state *State) configureTerminal(session *Session) {
 		if current, ok := state.sessionByIDPointer(sessionID); ok && current.term != nil {
 			t := current.term
 			t.promptReady = t.promptStarted && !t.promptDirty && t.commandReporting && t.submittedLines == 0
+			t.inputGuard.active = t.promptReady
 		}
 	})
 	session.term.screen.SetCommandStart(func() {
 		if current, ok := state.sessionByIDPointer(sessionID); ok && current.term != nil {
 			t := current.term
 			t.commandReporting = true
+			t.inputGuard.start()
 			t.promptReady, t.promptStarted = false, false
 			t.promptVersion++
 			if t.submittedLines > 0 {
@@ -294,9 +298,13 @@ func (state *State) configureTerminal(session *Session) {
 			}
 		}
 	})
+	session.term.screen.SetInputEnvironment(func(environment term.InputEnvironment) {
+		state.receiveInputEnvironment(sessionID, environment)
+	})
 }
 
 func (t *terminal) resetFolderSync() {
+	t.inputGuard = terminalInputGuard{}
 	t.folderToken = rand.Text()
 	t.screen.SetPromptToken(t.folderToken)
 	t.promptReady, t.promptStarted, t.promptDirty = false, false, false
@@ -334,14 +342,23 @@ func (t *terminal) writeRemote(p []byte, now time.Duration) {
 	t.selection.clear()
 	t.prediction.observe(p, now)
 	t.screen.Write(p)
+	if t.inputGuard.active && cmdhistory.PasswordPrompt(t.screen.RowText(t.screen.Cursor().Y)) {
+		t.inputGuard.start()
+	}
 }
 
 // send writes input to the shell. Typing returns the view to the live screen.
 func (t *terminal) send(p []byte) bool {
+	return t.sendInput(p, true)
+}
+
+// A confirmed input snapshot has already drained and validated its owner.
+// Consuming another transition after that check would invalidate the decision.
+func (t *terminal) sendInput(p []byte, drain bool) bool {
 	if t.shell == nil || len(p) == 0 {
 		return false
 	}
-	if t.takeOutput != nil {
+	if drain && t.takeOutput != nil {
 		t.takeOutput()
 		if t.shell == nil {
 			return false
@@ -354,7 +371,7 @@ func (t *terminal) send(p []byte) bool {
 	t.screen.ScrollToBottom()
 	t.autofill.Typed(p)
 	if t.historyOn != nil && t.historyOn() {
-		if t.takeOutput != nil && bytes.ContainsAny(p, "\r\n") {
+		if drain && t.takeOutput != nil && bytes.ContainsAny(p, "\r\n") {
 			t.takeOutput()
 		}
 		if command, ok := t.recorder.Typed(p, cmdhistory.TermScreen{Term: t.screen}, t.recordingNow()); ok && t.onCommand != nil {
@@ -404,6 +421,7 @@ func (t *terminal) sendSecret(p []byte) bool {
 }
 
 func (t *terminal) noteShellInput(p []byte) {
+	t.inputGuard.observe(p)
 	atPrompt := t.promptReady
 	t.promptReady, t.promptStarted = false, false
 	t.promptVersion++
@@ -763,7 +781,12 @@ const (
 // terminalInfoBarHeight is the height of a pane's bar. Active or not it is the
 // same: the bar that changed height when focus moved made the terminals under
 // it jump.
-func (state *State) terminalInfoBarHeight(sessionID uint32) float32 { return infoBarHeight }
+func (state *State) terminalInfoBarHeight(sessionID uint32) float32 {
+	if session, ok := state.sessionByIDPointer(sessionID); ok && state.terminalInputNoticeVisible(session) {
+		return infoBarHeight + inputNoticeHeight
+	}
+	return infoBarHeight
+}
 
 // paneIsInactive reports a pane that shares its workspace without being the
 // active one, which keeps only a compact identity in its bar.
@@ -930,6 +953,9 @@ func (state *State) terminalText(sessionID uint32, event app.TextEvent) app.Text
 	switch event.Kind {
 	case app.TextInsert:
 		t.preedit = app.TextState{}
+		if state.modal == modalTerminalInput || state.guardTerminalText(session, event) {
+			return app.TextState{Redraw: true}
+		}
 		// Typed text is short; a stack buffer keeps this off the heap per key.
 		var scratch [16]byte
 		input := append(scratch[:0], event.Text...)
@@ -940,6 +966,9 @@ func (state *State) terminalText(sessionID uint32, event app.TextEvent) app.Text
 			redraw = t.prediction.input(t.screen, input, state.now())
 		}
 	case app.TextPaste:
+		if state.modal == modalTerminalInput || state.guardTerminalText(session, event) {
+			return app.TextState{Redraw: true}
+		}
 		redraw = t.prediction.reset()
 		state.typed(session, term.EncodePaste(event.Text, t.screen.Modes().BracketedPaste))
 	case app.TextSetMarked:
@@ -972,6 +1001,9 @@ func displayCells(value string) int {
 func (state *State) terminalKey(session *Session, event ui.KeyEvent) ui.EventResult {
 	t := session.term
 	handled := ui.EventResult{Handled: true}
+	if t.preedit.Composing && event.Key == ui.KeyEnter && event.Modifiers == 0 && !t.screen.Modes().AltScreen {
+		return handled
+	}
 	if event.Modifiers&ui.ModifierMeta != 0 && !event.Key.IsModifier() {
 		return state.commandChord(session, event)
 	}
