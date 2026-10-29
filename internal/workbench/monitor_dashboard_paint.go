@@ -540,11 +540,11 @@ func (s *State) paintDashboardDialog(c *ui.Canvas, viewport ui.Rect) {
 	b := layout.Body
 	y := b.Y + 4
 	for _, field := range []struct {
-		id           ui.ID
-		label, value string
-	}{{hitDashboardName, m.Name, e.name.String()}, {hitDashboardNote, m.Note, e.note.String()}} {
+		id                        ui.ID
+		label, value, placeholder string
+	}{{hitDashboardName, m.Name, e.name.String(), m.NamePlaceholder}, {hitDashboardNote, m.Note, e.note.String(), m.NotePlaceholder}} {
 		box := components.BeginField(c, theme, ui.Rect{X: b.X + 4, Y: y, Width: b.Width - 8, Height: 62}).For(field.id).Paint(field.label, "", "")
-		components.PaintInput(c, theme, box, components.InputSnapshot{ID: field.id, Label: field.label, Value: field.value, Focused: c.Focused() == field.id, PlatformEditing: c.Focused() == field.id && field.value != ""})
+		components.PaintInput(c, theme, box, components.InputSnapshot{ID: field.id, Label: field.label, Value: field.value, Placeholder: field.placeholder, Focused: c.Focused() == field.id, PlatformEditing: c.Focused() == field.id && field.value != ""})
 		y += 64
 	}
 	options := s.dashboardEditorTabs()
