@@ -48,6 +48,9 @@ type Config struct {
 	Args []string
 	// Dir is the working directory. Empty means the user's home directory.
 	Dir string
+	// DirectoryToken enables prompt directory reports for supported local shells.
+	// Empty leaves the shell's startup and prompt untouched.
+	DirectoryToken string
 	// Env is added to the environment the shell inherits.
 	Env []string
 	// Notify is called after output arrives and when the shell ends, from any

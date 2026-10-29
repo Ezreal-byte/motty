@@ -555,6 +555,8 @@ type State struct {
 	selectTypeahead    selectTypeahead
 	restorePending     bool // restored tabs have not yet been connected (see connectRestoredSessions)
 	terminalClipboard  terminalClipboardPolicy
+
+	localDirectoryDirty bool
 	// terminalCursorSteady keeps the terminal cursor from blinking.
 	terminalCursorSteady bool
 
@@ -689,6 +691,7 @@ func (state *State) Close() {
 		return
 	}
 	state.closed = true
+	state.flushLocalDirectories()
 	state.closeRemoteToolsWindows()
 	state.closeFileWindows()
 	state.closeSFTPWindows()
@@ -1372,6 +1375,11 @@ func (state *State) openNewWindow() {
 // closeSession ends a tab: its connection and shell are released and the
 // neighbouring tab, or the host list when it was the last, takes over.
 func (state *State) closeSession(id uint32) {
+	if workspace, _, ok := state.deck.PaneForSession(layoutcore.SessionID(id)); ok &&
+		state.deck.Locked(workspace) && len(state.deck.Panes(workspace, nil)) == 1 {
+		state.askCloseLockedTab(workspace)
+		return
+	}
 	defer state.syncRemoteToolsWindows()
 	index := -1
 	for at := range state.sessions {
@@ -1430,6 +1438,10 @@ func (state *State) closeSession(id uint32) {
 
 func (state *State) closeActivePane() {
 	workspaceID := state.deck.ActiveWorkspace()
+	if state.deck.Locked(workspaceID) && len(state.deck.Panes(workspaceID, nil)) == 1 {
+		state.closeWorkspace(workspaceID)
+		return
+	}
 	paneID := state.deck.ActivePane(workspaceID)
 	pane, ok := state.deck.Pane(workspaceID, paneID)
 	if !ok {
@@ -1465,6 +1477,15 @@ func (state *State) closeActivePaneOrTab() {
 }
 
 func (state *State) closeWorkspace(id layoutcore.WorkspaceID) {
+	if state.deck.Locked(id) {
+		state.askCloseLockedTab(id)
+		return
+	}
+	state.closeWorkspaceNow(id)
+}
+
+// closeWorkspaceNow releases a tab after the caller has handled confirmation.
+func (state *State) closeWorkspaceNow(id layoutcore.WorkspaceID) {
 	sessions, err := state.deck.RemoveWorkspace(id, nil)
 	if err != nil {
 		return

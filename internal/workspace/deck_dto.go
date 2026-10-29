@@ -16,6 +16,7 @@ type DeckDTO struct {
 type WorkspaceDTO struct {
 	ID         WorkspaceID     `json:"id"`
 	Title      string          `json:"title"`
+	Locked     bool            `json:"locked,omitempty"`
 	ActivePane PaneID          `json:"active_pane,omitempty"`
 	Layout     DTO             `json:"layout"`
 	Panes      []PaneDTO       `json:"panes,omitempty"`
@@ -47,7 +48,7 @@ func (deck *Deck) DTO() DeckDTO {
 	for index := range deck.workspaces {
 		workspace := &deck.workspaces[index]
 		entry := WorkspaceDTO{
-			ID: workspace.id, Title: workspace.title, ActivePane: workspace.activePane,
+			ID: workspace.id, Title: workspace.title, Locked: workspace.locked, ActivePane: workspace.activePane,
 			Layout:  workspace.layout.DTO(),
 			Context: ContextStateDTO{Kind: workspace.context.Kind, Open: workspace.context.Open, Width: normalizeContext(workspace.context).Width, Side: workspace.context.Side},
 		}
@@ -77,7 +78,7 @@ func RestoreDeck(dto DeckDTO) (Deck, error) {
 			return Deck{}, err
 		}
 		workspace := workspaceRecord{
-			id: entry.ID, title: entry.Title, activePane: entry.ActivePane, layout: layout,
+			id: entry.ID, title: entry.Title, locked: entry.Locked, activePane: entry.ActivePane, layout: layout,
 			panes:    make([]Pane, len(entry.Panes)),
 			context:  normalizeContext(ContextState{Kind: entry.Context.Kind, Open: entry.Context.Open, Width: entry.Context.Width, Side: entry.Context.Side}),
 			revision: 1,

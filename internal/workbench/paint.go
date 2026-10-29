@@ -344,6 +344,7 @@ type barGeometry struct {
 	width             float32
 	tabCount          int
 	barButtons        int
+	locked            bool
 	leading, trailing float32
 	valid             bool
 	area, row         ui.Rect
@@ -357,20 +358,26 @@ func (state *State) windowBarGeometry(canvas *ui.Canvas, width float32) barGeome
 	chrome := &state.chrome
 	leading, trailing := app.TitlebarInsets()
 	buttons := state.windowBarButtons()
+	locked := false
+	for _, tab := range state.workspaceTabs {
+		locked = locked || tab.Locked
+	}
 	geometry := &chrome.geometry
 	if geometry.valid && geometry.width == width && geometry.tabCount == len(state.workspaceTabs) &&
 		geometry.barButtons == buttons &&
+		geometry.locked == locked &&
 		geometry.leading == leading && geometry.trailing == trailing {
 		return *geometry
 	}
 	f := chrome.probe.Begin(canvas, state.Theme(), ui.Rect{Width: width, Height: windowBarHeight})
 	f.Column().Fill().Children(func() {
-		state.declareWindowBar(f, &chrome.probeBar, true, false, barGeometry{}, 0)
+		state.declareWindowBar(f, &chrome.probeBar, true, false, barGeometry{locked: locked}, 0)
 	})
 	f.End()
 	*geometry = barGeometry{
 		width: width, tabCount: len(state.workspaceTabs), barButtons: buttons, leading: leading, trailing: trailing, valid: true,
-		area: chrome.probeArea.Rect(), row: chrome.probeRow.Rect(), tabWidth: barTabMax,
+		locked: locked,
+		area:   chrome.probeArea.Rect(), row: chrome.probeRow.Rect(), tabWidth: barTabMax,
 	}
 	if len(chrome.probeBar.tabs) > 0 {
 		geometry.tabWidth = chrome.probeTabs[0].Rect().Width
@@ -425,7 +432,13 @@ func (state *State) declareWindowBar(f *flex.Frame, bar *windowBar, probe, pictu
 						id, closeID := hitTabList.At(int(workspace.ID)), hitTabCloseList.At(int(workspace.ID))
 						var tab flex.Box
 						if probe {
-							tab = f.Slot().Width(barTabMax).MinWidth(barTabMin).Height(barTabHeight).Shrink(1).MarginSides(0, barGap, 0, 0)
+							minimum := barTabMin
+							if geometry.locked {
+								// Leave the title its normal minimum room even with a
+								// lock beside it. The strip uses a uniform tab pitch.
+								minimum += 18
+							}
+							tab = f.Slot().Width(barTabMax).MinWidth(minimum).Height(barTabHeight).Shrink(1).MarginSides(0, barGap, 0, 0)
 							chrome.probeTabs = append(chrome.probeTabs, tab)
 							bar.tabs = append(bar.tabs, barTab{})
 							continue
@@ -463,6 +476,9 @@ func (state *State) declareWindowBar(f *flex.Frame, bar *windowBar, probe, pictu
 							HitWith(id, workspace.Title, ui.HitOptions{Role: ui.RoleTab, Selected: active}).Children(func() {
 							entry.badge = f.Slot().Size(20, 20).MarginSides(0, 7, 0, 0)
 							f.Text(workspace.Title).FontSize(metrics.FontSizeS).Weight(ui.WeightMedium).Color(foreground).LineHeight(20).Ellipsis()
+							if workspace.Locked {
+								f.Icon(lucideIcons[iconLock]).Size(13, 13).Shrink(0).MarginSides(0, 0, 0, 5).Color(foreground)
+							}
 							entry.light = f.Slot().Size(9, 20).MarginSides(0, 0, 0, 7)
 							f.Spacer()
 							if !active && !hovered {

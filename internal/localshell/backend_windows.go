@@ -22,6 +22,7 @@ func startBackend(config Config) (backend, error) {
 	if program == "" {
 		program = defaultShell()
 	}
+	config = integrateWindowsShell(config, program)
 
 	var inRead, inWrite, outRead, outWrite windows.Handle
 	if err := windows.CreatePipe(&inRead, &inWrite, nil, 0); err != nil {
@@ -84,7 +85,19 @@ func startBackend(config Config) (backend, error) {
 		}
 	}
 	environment := append(os.Environ(), "TERM=xterm-256color", "COLORTERM=truecolor")
-	environment = append(environment, config.Env...)
+	for _, entry := range config.Env {
+		key, _, _ := strings.Cut(entry, "=")
+		// Windows environment names are case-insensitive. An overridden PROMPT
+		// must replace the inherited entry, rather than create ambiguous twins.
+		filtered := environment[:0]
+		for _, inherited := range environment {
+			name, _, _ := strings.Cut(inherited, "=")
+			if !strings.EqualFold(name, key) {
+				filtered = append(filtered, inherited)
+			}
+		}
+		environment = append(filtered, entry)
+	}
 	block, err := environmentBlock(environment)
 	if err != nil {
 		return fail(err)

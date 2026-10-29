@@ -183,7 +183,8 @@ type savedSession struct {
 	System    string `json:"system,omitempty"`
 	SavedHost bool   `json:"saved_host,omitempty"`
 	// Local marks a shell on this computer: it has no address to dial.
-	Local bool `json:"local,omitempty"`
+	Local          bool   `json:"local,omitempty"`
+	LocalDirectory string `json:"local_directory,omitempty"`
 	savedTransport
 }
 
@@ -470,7 +471,7 @@ func (state *State) snapshot() savedState {
 			continue
 		}
 		if session.isLocal() {
-			saved.Sessions = append(saved.Sessions, savedSession{Label: session.Title, Local: true})
+			saved.Sessions = append(saved.Sessions, savedSession{Label: session.Title, Local: true, LocalDirectory: session.localDirectory})
 			if session.ID == state.activeSessionID {
 				saved.ActiveSession = len(saved.Sessions)
 			}
@@ -768,6 +769,9 @@ func (state *State) restoreSessions(entries []savedSession, active int) []uint32
 			host:    host, phase: sshconn.PhaseClosed, restored: true, paneSlot: state.claimPaneSlot(),
 		})
 		session := &state.sessions[len(state.sessions)-1]
+		if entry.Local && validLocalDirectory(entry.LocalDirectory) {
+			session.localDirectory = filepath.Clean(entry.LocalDirectory)
+		}
 		sourceSessions[sourceIndex] = session.ID
 		state.nextSessionID++
 		if sourceIndex+1 == active {

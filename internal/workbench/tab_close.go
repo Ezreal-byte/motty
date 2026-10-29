@@ -8,29 +8,43 @@ import (
 	layoutcore "motty/internal/workspace"
 )
 
-// tabsClose is a bulk close waiting for the user's answer: the tab that stays,
-// and which of the others go, as the tab menu chose them.
+// tabsClose holds exactly the tabs covered by one close confirmation.
 type tabsClose struct {
-	keep  layoutcore.WorkspaceID
-	pick  func(position int) bool
-	count int
+	keep   layoutcore.WorkspaceID
+	ids    [maxRestoredSessions]layoutcore.WorkspaceID
+	count  int
+	locked int
+	title  string
 }
 
-// askCloseTabs closes the tabs pick selects. Closing one tab is as small as
-// pressing its own close button, so it just happens; two or more ask first,
-// because it ends several sessions at once.
+// askCloseTabs confirms a batch or a protected tab; one unlocked tab closes
+// immediately, just like its own close button.
 func (state *State) askCloseTabs(keep layoutcore.WorkspaceID, pick func(position int) bool) {
-	count := 0
-	for position := range state.workspaceTabs {
+	pending := tabsClose{keep: keep}
+	for position, tab := range state.workspaceTabs {
 		if pick(position) {
-			count++
+			pending.ids[pending.count] = tab.ID
+			pending.count++
+			if tab.Locked {
+				pending.locked++
+				pending.title = tab.Title
+			}
 		}
 	}
-	if count < 2 {
-		state.closeTabs(keep, pick)
+	if pending.count < 2 && pending.locked == 0 {
+		state.closeTabs(pending)
 		return
 	}
-	state.tabsClose = tabsClose{keep: keep, pick: pick, count: count}
+	state.tabsClose = pending
+	state.modal = modalCloseTabs
+}
+
+func (state *State) askCloseLockedTab(id layoutcore.WorkspaceID) {
+	index, ok := state.workspaceTab(id)
+	if !ok {
+		return
+	}
+	state.tabsClose = tabsClose{ids: [maxRestoredSessions]layoutcore.WorkspaceID{id}, count: 1, locked: 1, title: state.workspaceTabs[index].Title}
 	state.modal = modalCloseTabs
 }
 
@@ -43,7 +57,7 @@ func (state *State) clickCloseTabsDialog(id ui.ID) {
 		pending := state.tabsClose
 		state.modal = modalNone
 		state.tabsClose = tabsClose{}
-		state.closeTabs(pending.keep, pending.pick)
+		state.closeTabs(pending)
 	}
 }
 
@@ -63,7 +77,16 @@ func (state *State) paintCloseTabsDialog(canvas *ui.Canvas, viewport ui.Rect) {
 		DismissID: hitTabsCloseDismiss, CloseID: hitTabsCloseClose, InitialFocusID: hitTabsCloseCancel,
 		ContentSize: ui.Size{Width: 520}, FitBody: true,
 	})
-	layout := dialog.Begin(fmt.Sprintf(messages.CloseTabsTitleFmt, state.tabsClose.count), messages.CloseTabsDescription)
+	title := fmt.Sprintf(messages.CloseTabsTitleFmt, state.tabsClose.count)
+	description := messages.CloseTabsDescription
+	if state.tabsClose.locked > 0 {
+		description = fmt.Sprintf(messages.CloseLockedTabsDescriptionFmt, state.tabsClose.locked)
+		if state.tabsClose.count == 1 {
+			title = messages.CloseLockedTabTitle
+			description = fmt.Sprintf(messages.CloseLockedTabDescriptionFmt, state.tabsClose.title)
+		}
+	}
+	layout := dialog.Begin(title, description)
 	dialog.Actions(layout,
 		components.ButtonAction{ID: hitTabsCloseCancel, Label: messages.Cancel, Variant: components.ButtonSecondary},
 		components.ButtonAction{ID: hitTabsCloseConfirm, Label: messages.CloseTabsConfirm, Variant: components.ButtonDestructive},

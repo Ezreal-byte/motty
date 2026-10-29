@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"path/filepath"
 	"runtime"
+	"strings"
 	"sync"
 
 	"motty/internal/localshell"
@@ -51,6 +53,9 @@ func (conn *localConn) Cancel()                    {}
 
 func (conn *localConn) OpenShell(config sshconn.ShellConfig) (Shell, error) {
 	shell := localshell.Config{Shell: conn.shell, Args: localshell.ArgsFor(conn.shell), Cols: config.Cols, Rows: config.Rows, Dir: conn.dir, Notify: config.Notify}
+	if config.IntegrateShell && runtime.GOOS == "windows" {
+		shell.DirectoryToken = config.IntegrationToken
+	}
 	if config.IntegrateShell && runtime.GOOS != "windows" {
 		program := conn.shell
 		if program == "" {
@@ -63,6 +68,36 @@ func (conn *localConn) OpenShell(config sshconn.ShellConfig) (Shell, error) {
 		}
 	}
 	return localshell.Start(shell)
+}
+
+// A remembered path is process startup data, never text sent to the shell.
+// Deleted/unmounted folders fall back to the normal home-directory startup.
+func localStartupDirectory(directory string) string {
+	if !validLocalDirectory(directory) {
+		return ""
+	}
+	if info, err := os.Stat(directory); err == nil && info.IsDir() {
+		return filepath.Clean(directory)
+	}
+	return ""
+}
+
+func validLocalDirectory(directory string) bool {
+	return filepath.IsAbs(directory) && len(directory) <= 2048 && strings.IndexFunc(directory, func(r rune) bool { return r < 0x20 || r == 0x7f }) < 0
+}
+
+func localDirectoryHost(host string) bool {
+	name, _ := os.Hostname()
+	return host == "" || strings.EqualFold(host, name) || strings.EqualFold(host, "localhost")
+}
+
+// Coalesce reports from one output drain. Terminal callbacks themselves only
+// update memory, without reentering persistence while the parser is running.
+func (state *State) flushLocalDirectories() {
+	if state.localDirectoryDirty {
+		state.localDirectoryDirty = false
+		state.save()
+	}
 }
 
 func (conn *localConn) OpenSFTP() (sftpclient.Remote, error) { return nil, errLocalOnly }

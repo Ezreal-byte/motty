@@ -458,8 +458,10 @@ func (state *State) openShell(session *Session) {
 	}
 	cols, rows := t.screen.Size()
 	config := sshconn.ShellConfig{Cols: cols, Rows: rows, Notify: state.notifyFor(session), Command: session.containerCommand}
-	config.IntegrateShell = (session.host.isSSH() || session.isLocal()) && session.host.System != sshconn.SystemWindows &&
-		session.containerCommand == "" && (!state.sftpFollowOff || state.sftpTerminalFollow)
+	// Local directory restoration needs reports even with file-panel following
+	// off. Remote shell integration keeps its existing opt-in conditions.
+	config.IntegrateShell = session.isLocal() || (session.host.isSSH() && session.host.System != sshconn.SystemWindows &&
+		session.containerCommand == "" && (!state.sftpFollowOff || state.sftpTerminalFollow))
 	config.IntegrationToken = t.folderToken
 	if session.host.ForwardX11 && session.host.isSSH() {
 		environ := x11fwd.CurrentEnviron()

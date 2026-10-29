@@ -61,6 +61,27 @@ func (t *Terminal) osc7(text []byte) {
 	}
 }
 
+// OSC 9;9 is the native-path directory report used by Windows Terminal and
+// ConEmu. Keep it as data; validating an actual local directory is the owner's
+// responsibility. It is not a desktop notification.
+func (t *Terminal) oscWindowsDirectory(value string) {
+	if len(value) >= 2 && value[0] == '"' && value[len(value)-1] == '"' {
+		value = value[1 : len(value)-1]
+	}
+	drive := len(value) >= 3 && ((value[0] >= 'A' && value[0] <= 'Z') || (value[0] >= 'a' && value[0] <= 'z')) && value[1] == ':' && (value[2] == '\\' || value[2] == '/')
+	unc := strings.HasPrefix(value, `\\`) && len(value) > 2
+	if (!drive && !unc) || len(value) > maxCwd || strings.IndexFunc(value, func(r rune) bool { return r < 0x20 || r == 0x7f }) >= 0 {
+		return
+	}
+	cwd := Cwd{Path: value}
+	if cwd != t.cwd {
+		t.cwd = cwd
+		if t.cwdFn != nil {
+			t.cwdFn(cwd)
+		}
+	}
+}
+
 // parseCwd reads "file://host/percent-encoded/path". Anything else, a relative
 // path or a path with control characters, is refused.
 func parseCwd(value string) (Cwd, bool) {

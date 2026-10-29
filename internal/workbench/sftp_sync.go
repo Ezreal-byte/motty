@@ -14,11 +14,28 @@ import (
 // every frame after the user has deliberately browsed somewhere else.
 func (state *State) terminalDirectory(sessionID uint32, cwd term.Cwd) {
 	session, ok := state.sessionByIDPointer(sessionID)
-	if !ok || session.term == nil || !session.canBrowseFiles() || session.containerCommand != "" || state.sftpFollowOff {
+	if !ok || session.term == nil || session.containerCommand != "" {
 		return
 	}
 	if session.term.folderIntegrationSeen && !session.term.promptStarted {
 		return // a running program or nested login is not this shell's prompt
+	}
+	if session.isLocal() {
+		// A nested SSH login's OSC 7 must not replace the local startup path.
+		if !localDirectoryHost(cwd.Host) || !validLocalDirectory(cwd.Path) {
+			return
+		}
+		if directory := filepath.Clean(cwd.Path); session.term.folderIntegrationSeen && session.term.promptStarted && directory != session.localDirectory {
+			session.localDirectory = directory
+			state.localDirectoryDirty = true
+		}
+	} else if !validSyncDirectory(cwd.Path) {
+		// Native Windows OSC 9;9 reports are useful locally, but are not
+		// POSIX SFTP paths. Keep remote following's existing path contract.
+		return
+	}
+	if !session.canBrowseFiles() || state.sftpFollowOff {
+		return
 	}
 	session.term.followPath = cwd.Path
 }

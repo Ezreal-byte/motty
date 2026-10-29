@@ -18,15 +18,20 @@ type tabStrip struct {
 }
 
 // layout fits the offset to this paint's room and returns it. The active tab is
-// scrolled into view once, when it becomes active, so a wheel gesture that moves
-// it out again is not undone on the next paint.
+// scrolled into view when it becomes active, and kept visible across geometry
+// changes. A wheel gesture that moves it out again is not undone on a repaint.
 func (strip *tabStrip) layout(area ui.Rect, content float32, tabs []layoutcore.WorkspaceInfo, pitch, width float32, active layoutcore.WorkspaceID) float32 {
-	strip.area, strip.origin, strip.pitch, strip.tabWidth = area, area.X, pitch, width
 	strip.max = max(content-barGap-area.Width, 0)
-	if active != 0 && active != strip.revealed {
+	geometryChanged := area.Width != strip.area.Width || pitch != strip.pitch || width != strip.tabWidth
+	if active != 0 && (active != strip.revealed || geometryChanged) {
 		for index, tab := range tabs {
 			if tab.ID != active {
 				continue
+			}
+			previousStart := float32(index) * strip.pitch
+			previouslyVisible := previousStart >= strip.offset && previousStart+strip.tabWidth <= strip.offset+strip.area.Width
+			if active == strip.revealed && !previouslyVisible {
+				break // preserve a deliberate scroll away from the active tab
 			}
 			start := float32(index) * pitch
 			if start < strip.offset {
@@ -36,6 +41,7 @@ func (strip *tabStrip) layout(area ui.Rect, content float32, tabs []layoutcore.W
 			}
 		}
 	}
+	strip.area, strip.origin, strip.pitch, strip.tabWidth = area, area.X, pitch, width
 	strip.revealed = active
 	strip.offset = min(max(strip.offset, 0), strip.max)
 	return strip.offset

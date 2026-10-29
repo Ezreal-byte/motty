@@ -384,28 +384,33 @@ type Messages struct {
 
 	// Accessible names of the window-bar buttons and tabs. LabelTerminalFmt
 	// names a terminal and takes its address.
-	LabelGitHub             string
-	LabelThemeToLight       string
-	LabelThemeToDark        string
-	LabelNewTab             string
-	NewTabConnectTo         string
-	MenuCloseOtherTabs      string
-	MenuCloseTabsToRight    string
-	MenuDuplicateTab        string
-	MenuRenameTab           string
-	CloseTabsTitleFmt       string
-	CloseTabsDescription    string
-	CloseTabsConfirm        string
-	RenameTabTitle          string
-	RenameTabField          string
-	RenameTabPlaceholder    string
-	RenameTabSubmit         string
-	ErrTabNameRequired      string
-	NewTabAllHosts          string
-	NewTabPickerPlaceholder string
-	NewTabPickerEmpty       string
-	LabelCloseTab           string
-	LabelTerminalFmt        string
+	LabelGitHub                   string
+	LabelThemeToLight             string
+	LabelThemeToDark              string
+	LabelNewTab                   string
+	NewTabConnectTo               string
+	MenuCloseOtherTabs            string
+	MenuCloseTabsToRight          string
+	MenuDuplicateTab              string
+	MenuRenameTab                 string
+	MenuLockTab                   string
+	MenuUnlockTab                 string
+	CloseLockedTabTitle           string
+	CloseLockedTabDescriptionFmt  string
+	CloseLockedTabsDescriptionFmt string
+	CloseTabsTitleFmt             string
+	CloseTabsDescription          string
+	CloseTabsConfirm              string
+	RenameTabTitle                string
+	RenameTabField                string
+	RenameTabPlaceholder          string
+	RenameTabSubmit               string
+	ErrTabNameRequired            string
+	NewTabAllHosts                string
+	NewTabPickerPlaceholder       string
+	NewTabPickerEmpty             string
+	LabelCloseTab                 string
+	LabelTerminalFmt              string
 	// Names of the window's own minimize, maximize, restore and close buttons,
 	// which Viva draws on Windows and Linux.
 	LabelWindowMinimize string
