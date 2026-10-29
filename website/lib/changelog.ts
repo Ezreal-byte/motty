@@ -21,6 +21,95 @@ export type ChangelogEntry = {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '0.1.8',
+    date: '2026-10-29',
+    sections: [
+      {
+        title: { en: 'New', zh: '新功能' },
+        items: [
+          {
+            en: 'The file panel can browse both panes in sync and store paired folders as location profiles; a new Places sidebar keeps favorites and jumps to home, desktop, downloads, documents, pictures, drives and the rest.',
+            zh: '文件面板可以同步浏览两侧目录，并把成对目录存成位置档案；侧边栏新增「收藏与快捷位置」，可以收藏目录，也能一键跳到主目录、桌面、下载、文档、图片、磁盘等位置。',
+          },
+          {
+            en: 'Dropping files from the system onto a connected server’s terminal uploads them to the folder the shell reports, with a notice when the upload starts and one when it ends.',
+            zh: '把系统文件拖到已连接服务器的终端上，会直接上传到 shell 报告的目录；开始和结束时各有一条提示，传输中心不抢键盘。',
+          },
+          {
+            en: 'Tabs can be locked, so closing one asks first; local tabs remember the folder they were in.',
+            zh: '标签页可以锁定，关闭时会先确认；本地标签页会记住并恢复上次的目录。',
+          },
+          {
+            en: 'A Windows portable zip keeps hosts, settings, the vault and AI data in a motty-data folder next to the program; it asks for a master password and the in-app updater sends it to the download page.',
+            zh: 'Windows 便携版 zip 把主机、设置、保险库和 AI 数据放在程序旁的 motty-data 里，靠主密码保存口令；应用内更新不会替换便携版，会引导到下载页。',
+          },
+          {
+            en: 'Settings > Terminal > Local shell lists installed WSL distributions, and the file panel follows their folders through \\\\wsl.localhost.',
+            zh: '设置 > 终端 > 本地 Shell 会列出已安装的 WSL 发行版，文件面板通过 \\\\wsl.localhost 跟随它们的目录。',
+          },
+          {
+            en: 'The data folder keeps motty.log and a crash report after an abnormal exit; a failed start explains itself in a dialog, and starting again brings the running window forward.',
+            zh: '数据目录会保存 motty.log 和异常退出后的崩溃报告；启动失败会弹窗说明原因，再次启动会把已运行的窗口带到前面。',
+          },
+          {
+            en: 'A snippet can be sent straight from the Snippets page, and you choose the target terminal when several are open.',
+            zh: '快捷命令可以直接从「快捷命令」页面发送，多个终端时先选目标。',
+          },
+          {
+            en: 'The assistant’s approval scope can be switched inside a conversation, with each level saying what runs without asking.',
+            zh: 'AI 助手可以在对话里切换审批范围，每一档都写明哪些操作免确认。',
+          },
+          {
+            en: 'Remote process and resource views can search the loaded snapshot by PID, user, command or name.',
+            zh: '远程进程和资源窗口可以按 PID、用户、命令或资源名称搜索已加载的快照。',
+          },
+        ],
+      },
+      {
+        title: { en: 'Improvements', zh: '改进' },
+        items: [
+          {
+            en: 'Assistant requests now mark cache breakpoints on the unchanged prompt prefix, and the usage line shows how many tokens came from the cache.',
+            zh: 'AI 请求会为不变的前缀标记缓存断点，用量行显示缓存命中的 token 数。',
+          },
+          {
+            en: 'A large or partially unreadable folder says how much was loaded, what was skipped and why, instead of passing off a partial listing as complete.',
+            zh: '目录很大或部分无法读取时，文件面板会说明加载了多少、跳过了什么和原因，不再把不完整列表当作完整目录。',
+          },
+          {
+            en: 'Both panes filter, hide and sort independently, and the header menu can sort by name, size or modified time.',
+            zh: '双窗格各自筛选、显示隐藏文件和排序，表头菜单可以按名称、大小或修改时间排序。',
+          },
+          {
+            en: 'The transfer center retries failed items and resolves conflicts in bulk, limited to the failures it captured for that host.',
+            zh: '传输中心可以批量重试失败项并处理冲突，范围限定在该连接捕获到的那批失败任务。',
+          },
+          {
+            en: 'Terminal-follows-file-navigation now works on Bash 4.2 and 4.3 through a private DEBUG trap.',
+            zh: 'Bash 4.2 / 4.3 上「终端跟随文件栏目录」也能用了。',
+          },
+        ],
+      },
+      {
+        title: { en: 'Fixes', zh: '修复' },
+        items: [
+          {
+            en: 'Importing a PuTTY .ppk no longer accepts a Private-MAC of the wrong length, and the Argon2 parameters are bounded so a damaged key cannot ask for impossible memory or time.',
+            zh: '导入 PuTTY .ppk 时不再接受长度不对的 Private-MAC；Argon2 参数被限制在合理范围，损坏的密钥不会再要求离谱的内存或时间。',
+          },
+          {
+            en: 'Closing a terminal split restores the full output and width instead of leaving rows clipped to the narrower size.',
+            zh: '关闭分屏后，终端恢复完整输出和宽度，不再留下窄化时截断的行。',
+          },
+          {
+            en: 'Text input after a tab closes is routed to the right session, and remote views refuse changes on a stale or changed process snapshot until it is refreshed.',
+            zh: '关闭标签页后的文本输入会发给正确的会话；远程视图在快照过期或进程已变化时拒绝变更，要求先刷新。',
+          },
+        ],
+      },
+    ],
+  },
+  {
     version: '0.1.7',
     date: '2026-10-28',
     sections: [
