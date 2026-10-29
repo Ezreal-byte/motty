@@ -40,6 +40,7 @@ const (
 // whose cells paintGrid draws.
 func (state *State) paintTerminalPage(canvas *ui.Canvas, size ui.Size, session *Session) {
 	pal := state.pal
+	showStats := session.stats != nil && (session.ID != state.activeSessionID || !state.monitorShown(state.deck.ActiveWorkspace()))
 	barHeight := state.terminalInfoBarHeight(session.ID)
 	geometry := terminalLayoutWithInfoBar(size, state.cellWidth, state.cellHeight, barHeight, state.padding())
 	inactive := state.paneIsInactive(session.ID)
@@ -128,7 +129,7 @@ func (state *State) paintTerminalPage(canvas *ui.Canvas, size ui.Size, session *
 							f.Text(status).FontSize(metrics.FontSizeS).Weight(ui.WeightMedium).Color(pal.muted).LineHeight(22).
 								Width(canvas.TextWidthWeight(status, metrics.FontSizeS, ui.WeightMedium)+2).MarginSides(0, 4, 0, 0)
 						}
-						if session.stats != nil {
+						if showStats {
 							// The readout drops the metrics that do not fit (see
 							// paintRemoteStatsReadout): it gets the room, and keeps clear of the tools.
 							statsSlot = f.Slot().Grow(1).Height(infoBarHeight).MinWidth(72).MarginSides(0, 12, 0, 0)
@@ -182,7 +183,7 @@ func (state *State) paintTerminalPage(canvas *ui.Canvas, size ui.Size, session *
 			kind, _ := state.sessionLight(session)
 			paintLight(canvas, spot.X+spot.Width/2, spot.Y+spot.Height/2, kind, dot, barBackground)
 		}
-		if session.stats != nil {
+		if showStats {
 			slot := statsSlot.Rect()
 			if len(tools) > 0 && slot.X+slot.Width > tools[len(tools)-1].slot.Rect().X {
 				// A pane too narrow for its tools: the readout is what gives way.

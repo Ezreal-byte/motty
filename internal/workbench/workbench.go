@@ -547,6 +547,11 @@ type State struct {
 	sftpTerminalFollow bool
 	sftpPathInput      bool
 	sftpPanelAutoOpen  bool
+	monitorRect        ui.Rect
+	monitorMenu        bool
+	monitorMenuRect    ui.Rect
+	monitorResizing bool
+	monitorResizeGrab float32
 	sftpPanelSide      layoutcore.ContextSide
 	sftpBookmarks      []sftpBookmark
 	sftpLocalBookmarks []string
@@ -1211,6 +1216,9 @@ func (state *State) Click(id ui.ID) {
 	if state.clickRemoteStats(id) {
 		return
 	}
+	if state.clickMonitor(id) {
+		return
+	}
 	if state.clickDesktop(id) {
 		return
 	}
@@ -1725,6 +1733,9 @@ func (state *State) Pointer(event ui.PointerEvent) (outcome ui.EventResult) {
 	if result, handled := state.contextDividerPointer(event); handled {
 		return result
 	}
+	if result, handled := state.monitorPointer(event); handled {
+		return result
+	}
 	if result, handled := state.paneDividerPointer(event); handled {
 		return result
 	}
@@ -1894,6 +1905,9 @@ func (state *State) Key(event ui.KeyEvent) (outcome ui.EventResult) {
 
 func (state *State) key(event ui.KeyEvent) ui.EventResult {
 	if result := state.remoteSearchKey(event); result.Handled {
+		return result
+	}
+	if result, handled := state.monitorKey(event); handled {
 		return result
 	}
 	if result, handled := state.hostGroupPickerKey(event); handled {

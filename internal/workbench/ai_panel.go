@@ -298,8 +298,9 @@ func (state *State) aiSharedWidth(workspaceID layoutcore.WorkspaceID, size ui.Si
 		return base.Width - navigationWidth
 	}
 	available := base.Width
+	available -= state.independentMonitorReserve(workspaceID, size)
 	if context, ok := state.deck.Context(workspaceID); ok && context.Open {
-		available -= state.contextPanelExtent(base, context.Width) + 1
+		available -= state.contextPanelWidth(base, context) + 1
 	}
 	return available
 }
