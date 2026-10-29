@@ -18,6 +18,7 @@ var (
 	sftpWindowRows               = [2]ui.Scope{tree.Sub(sftpWindowLocal, tree.Name("rows")), tree.Sub(sftpWindowRemote, tree.Name("rows"))}
 	sftpWindowFilter             = [2]ui.ID{tree.ID(sftpWindowLocal, "filter"), tree.ID(sftpWindowRemote, "filter")}
 	sftpWindowFilterClear        = [2]ui.ID{tree.ID(sftpWindowLocal, "filter-clear"), tree.ID(sftpWindowRemote, "filter-clear")}
+	hitSFTPWindowCoverage        = tree.ID(sftpWindowLocal, "coverage")
 	sftpWindowHeaderHidden       = [2]ui.ID{tree.ID(sftpWindowLocal, "header-hidden"), tree.ID(sftpWindowRemote, "header-hidden")}
 	sftpWindowHidden             = [2]ui.ID{tree.ID(sftpWindowLocal, "hidden"), tree.ID(sftpWindowRemote, "hidden")}
 	sftpWindowMore               = [2]ui.ID{tree.ID(sftpWindowLocal, "more"), tree.ID(sftpWindowRemote, "more")}
@@ -206,6 +207,9 @@ func (w *sftpWindow) paintPane(canvas *ui.Canvas, bounds ui.Rect, local bool) {
 		if folder.filterOpen {
 			filter = f.Slot().Height(32).Shrink(0)
 		}
+		if local {
+			w.owner.declareLocalCoverage(f, folder, hitSFTPWindowCoverage)
+		}
 		{
 			f.Row().Height(20).Gap(8).PadX(8).Items(flex.Center).Children(func() {
 				for column, label := range []string{m.SFTPWindow.Name, m.SFTPWindow.Size, m.SFTPWindow.Modified} {
@@ -308,6 +312,9 @@ func (w *sftpWindow) paintPane(canvas *ui.Canvas, bounds ui.Rect, local bool) {
 		label := m.SFTPEmpty
 		if folder.filterInputEditor().String() != "" {
 			label = fmt.Sprintf(m.Tools.FilesFilterCountFmt, 0, sftpVisibleRowCount(folder))
+		}
+		if local && folder.coverageEmpty != "" {
+			label = folder.coverageEmpty
 		}
 		if !local && w.view.busy {
 			label = m.SFTPLoading

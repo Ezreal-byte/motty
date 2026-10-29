@@ -215,6 +215,9 @@ func (state *State) paintSFTPPage(canvas *ui.Canvas, size ui.Size, session *Sess
 			})
 		}
 
+		if local {
+			state.declareLocalCoverage(f, folder, hitSFTPCoverage)
+		}
 		// What is happening.
 		f.Row().Height(28).Shrink(0).Gap(8).Items(flex.Center).MarginSides(6, 0, 0, 0).Children(func() {
 			if view.busy {
@@ -297,7 +300,11 @@ func (state *State) paintSFTPList(canvas *ui.Canvas, size ui.Size, list ui.Rect,
 				return
 			}
 			if empty {
-				f.Text(state.messages.SFTPEmpty).FontSize(metrics.FontSizeM).Color(pal.muted)
+				label := state.messages.SFTPEmpty
+				if local && folder.coverageEmpty != "" {
+					label = folder.coverageEmpty
+				}
+				f.Text(label).FontSize(metrics.FontSizeM).Color(pal.muted)
 				return
 			}
 			for index := first; index < end; index++ {

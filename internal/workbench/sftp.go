@@ -75,6 +75,11 @@ type sftpFolder struct {
 	headerMenuOpen bool
 	sortOrder      sftpWindowSort
 	sortChosen     bool
+	localCoverage  localListingCoverage
+	coverageLabel  string // bounded scope, formatted when a listing/filter changes
+	coverageText   string // full semantic warning, independent of ordinary feedback
+	coverageEmpty  string
+	hiddenMatch    bool // the query matches rows this folder hides
 }
 
 type sftpView struct {
@@ -101,6 +106,7 @@ type sftpView struct {
 	// listingStatus is the listing message status still holds, so a completed
 	// listing can retire it without dropping the feedback that replaced it.
 	listingStatus         string
+	localListingStatus    bool // the shared listing message belongs to a pending local read
 	errorText             string
 	refreshStatus         string
 	dialog                sftpDialogKind
@@ -406,6 +412,7 @@ func (view *sftpView) active() *sftpFolder {
 // that replaces it can tell its own message from feedback written meanwhile.
 func (view *sftpView) startListingStatus(message string) {
 	view.status, view.listingStatus = message, message
+	view.localListingStatus = false
 }
 
 // setItemCountStatus reports a folder's count in the embedded panel's status

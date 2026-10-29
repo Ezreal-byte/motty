@@ -209,6 +209,13 @@ func (state *State) setLanguage(language i18n.Language) bool {
 	for index := range state.sessions {
 		state.sessions[index].reconnectText = ""
 		state.describe(&state.sessions[index])
+		if view := state.sessions[index].files; view != nil {
+			state.refreshLocalCoverage(&view.lfolder)
+		}
+	}
+	for _, window := range state.sftpWindows {
+		state.refreshLocalCoverage(&window.view.lfolder)
+		window.view.invalidateDetached()
 	}
 	state.describeTerminalFinds()
 	if state.modal == modalCommandPalette {
