@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"math"
 	"net"
-	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -531,26 +530,12 @@ func (s *State) paintDashboardDialog(c *ui.Canvas, viewport ui.Rect) {
 	if e.id != "" {
 		title, submit = m.Edit, m.Save
 	}
-	count := 0
-	for _, h := range s.hosts {
-		if h.isSSH() && h.ID != localHostID {
-			count++
-		}
-	}
-	for _, id := range e.selected {
-		if _, ok := s.dashboardHost(id); !ok {
-			count++
-		}
-	}
-	columns := 1
-	if viewport.Width >= 740 && count > 1 {
-		columns = 2
-	}
-	// Base height follows the unfiltered catalog, keeping the search field
-	// stationary while results change. One host does not leave an empty list.
-	rows := min(3, max(1, (count+columns-1)/columns))
-	bodyHeight := float32(266 + rows*76)
-	dialog := components.BeginDialog(c, theme, viewport, components.DialogOptions{Layer: dialogLayer, Scope: dialogScope, DismissID: hitDashboardDismiss, CloseID: hitDashboardDialogCancel, InitialFocusID: hitDashboardName, ContentSize: ui.Size{Width: 720}, FitBody: true, BodyHeight: bodyHeight})
+	groups, count, shown := s.dashboardPickerGroups()
+	// The dialog's height follows the unfiltered catalog so filtering does not
+	// move the fields. Cards wrap into up to three compact columns.
+	rows := min(4, max(1, (count+2)/3))
+	bodyHeight := float32(300 + rows*60)
+	dialog := components.BeginDialog(c, theme, viewport, components.DialogOptions{Layer: dialogLayer, Scope: dialogScope, DismissID: hitDashboardDismiss, CloseID: hitDashboardDialogCancel, InitialFocusID: hitDashboardName, ContentSize: ui.Size{Width: 780}, FitBody: true, BodyHeight: bodyHeight})
 	layout := dialog.Begin(title, "")
 	b := layout.Body
 	y := b.Y + 4
@@ -564,34 +549,21 @@ func (s *State) paintDashboardDialog(c *ui.Canvas, viewport ui.Rect) {
 	}
 	options := s.dashboardEditorTabs()
 	components.BeginTabs(c, theme, ui.Rect{X: b.X + 4, Y: y + 4, Width: 260, Height: 34}, options[:], options[e.page].ID).Paint()
-	monitorRight(c, fmt.Sprintf(m.Selected, len(e.selected)), ui.Rect{X: b.X + 270, Y: y + 4, Width: max(0, b.Width-274), Height: 34}, 12, s.pal.muted, ui.WeightRegular)
+	countText := fmt.Sprintf(m.PickerCount, len(e.selected), shown, count)
+	if e.page == 1 {
+		countText = fmt.Sprintf(m.Selected, len(e.selected))
+	}
+	monitorRight(c, countText, ui.Rect{X: b.X + 270, Y: y + 4, Width: max(0, b.Width-274), Height: 34}, 12, s.pal.muted, ui.WeightRegular)
 	y += 44
 	if e.page == 0 {
-		search := ui.Rect{X: b.X + 4, Y: y, Width: b.Width - 8, Height: 34}
-		components.PaintInputGroup(c, theme, search, components.InputGroupSnapshot{ID: hitDashboardHostQuery, Label: m.HostSearch, Placeholder: m.HostSearch, Value: e.query.String(), NativeEditing: c.Focused() == hitDashboardHostQuery && e.query.String() != "", InlineStart: components.InputGroupSlot{Kind: components.InputGroupSlotIcon, Icon: icons.Search}})
+		s.paintDashboardPickerFilters(c, ui.Rect{X: b.X + 4, Y: y, Width: b.Width - 8, Height: 34})
 	} else {
 		monitorLabel(c, m.SortHint, ui.Rect{X: b.X + 4, Y: y, Width: b.Width - 8, Height: 34}, 12, s.pal.muted, ui.WeightRegular)
 	}
 	y += 46
-	query := strings.ToLower(strings.TrimSpace(e.query.String()))
-	hosts := make([]Host, 0, count)
-	for _, h := range s.hosts {
-		if h.isSSH() && h.ID != localHostID && (query == "" || strings.Contains(strings.ToLower(h.Label+" "+h.Address+" "+h.Group+" "+h.Tags), query)) {
-			hosts = append(hosts, h)
-		}
-	}
-	missing := []int{}
-	for i, id := range e.selected {
-		if _, ok := s.dashboardHost(id); !ok && (query == "" || strings.Contains(strings.ToLower(id), query)) {
-			missing = append(missing, i)
-		}
-	}
 	e.bounds = ui.Rect{X: b.X + 4, Y: y, Width: b.Width - 8, Height: max(40, b.Y+b.Height-y-56)}
-	if e.bounds.Width < 2*hostCardMinWidth+hostCardGap {
-		columns = 1
-	}
-	cardRows := (len(hosts) + len(missing) + columns - 1) / columns
-	e.content = max(0, float32(cardRows)*76-12)
+	columns := dashboardPickerColumns(e.bounds.Width - 12)
+	e.content = dashboardPickerHeight(groups, columns)
 	if e.page == 1 {
 		e.content = max(0, float32(len(e.selected))*48-4)
 	}
@@ -601,23 +573,7 @@ func (s *State) paintDashboardDialog(c *ui.Canvas, viewport ui.Rect) {
 	if e.page == 1 {
 		s.paintDashboardHostOrder(c, geo)
 	} else {
-		cardW := (geo.Viewport.Width - 12 - float32(columns-1)*12) / float32(columns)
-		for i := 0; i < len(hosts)+len(missing); i++ {
-			box := ui.Rect{X: geo.Content.X + float32(i%columns)*(cardW+12), Y: geo.Content.Y + float32(i/columns)*76, Width: cardW, Height: 64}
-			if box.Y+box.Height < e.bounds.Y || box.Y > e.bounds.Y+e.bounds.Height {
-				continue
-			}
-			if i < len(hosts) {
-				h := hosts[i]
-				s.paintDashboardHostChoice(c, h, box, hitDashboardHostList.At(int(h.ID)), slices.Contains(e.selected, h.CatalogID), false)
-			} else {
-				index := missing[i-len(hosts)]
-				s.paintDashboardHostChoice(c, Host{Label: m.Missing, Address: e.selected[index]}, box, hitDashboardMissingList.At(index), true, true)
-			}
-		}
-		if cardRows == 0 {
-			components.Empty(c, theme, geo.Viewport, components.EmptyData{Title: s.messages.KnownHostsNoMatches})
-		}
+		s.paintDashboardPickerGroups(c, geo, groups, columns)
 	}
 	area.EndContent()
 	hint, color := m.PickerHint, s.pal.muted
@@ -651,21 +607,13 @@ func (s *State) paintDashboardHostChoice(c *ui.Canvas, h Host, b ui.Rect, id ui.
 		c.RoundedBorder(b, theme.Metrics.RadiusSurface+4, 1.5, s.pal.accent, theme.Card)
 	}
 	paintHostColorMark(c, b, h.Color)
-	s.paintHostCatalogIcon(c, h, ui.Rect{X: b.X + 12, Y: b.Y + 14, Width: 36, Height: 36}, background)
-	textX, textW := b.X+60, b.Width-100
-	nameW := textW
-	if h.Group != "" {
-		badgeW, _ := components.BadgeExtent(c, theme, h.Group)
-		if badgeW <= textW*.45 {
-			components.PaintBadge(c, theme, ui.Rect{X: textX + textW - badgeW, Y: b.Y + 10}, h.Group, components.BadgeSecondary)
-			nameW -= badgeW + 8
-		}
-	}
+	s.paintHostCatalogIcon(c, h, ui.Rect{X: b.X + 10, Y: b.Y + 12, Width: 28, Height: 28}, background)
+	textX, textW := b.X+48, b.Width-78
 	color := s.pal.text
 	if missing {
 		color = s.pal.warning
 	}
-	monitorLabel(c, h.Label, ui.Rect{X: textX, Y: b.Y + 9, Width: nameW, Height: 22}, 13, color, ui.WeightSemibold)
+	monitorLabel(c, h.Label, ui.Rect{X: textX, Y: b.Y + 5, Width: textW, Height: 20}, 13, color, ui.WeightSemibold)
 	address := h.Address
 	if !missing {
 		port := h.Port
@@ -677,7 +625,7 @@ func (s *State) paintDashboardHostChoice(c *ui.Canvas, h Host, b ui.Rect, id ui.
 			address = h.User + "@" + address
 		}
 	}
-	monitorLabel(c, address, ui.Rect{X: textX, Y: b.Y + 33, Width: textW, Height: 20}, 11, s.pal.muted, ui.WeightRegular)
+	monitorLabel(c, address, ui.Rect{X: textX, Y: b.Y + 27, Width: textW, Height: 18}, 11, s.pal.muted, ui.WeightRegular)
 	side := components.CheckboxExtent(theme)
 	components.BeginCheckbox(c, theme, id, ui.Rect{X: b.X + b.Width - 28, Y: b.Y + (b.Height-side)/2}, selected).Label(h.Label).HitBounds(b).Paint()
 }

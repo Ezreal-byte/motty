@@ -62,7 +62,7 @@ func TestDashboardNativeSelectsAndHostCards(t *testing.T) {
 		t.Fatal(err)
 	}
 	card, ok := view.Hit("web")
-	if !ok || card.Role != ui.RoleCheckbox || card.Bounds.Width < 280 {
+	if !ok || card.Role != ui.RoleCheckbox || card.Bounds.Width < 180 {
 		t.Fatalf("host card is not one accessible checkbox: %+v", card)
 	}
 	// Clicking the avatar side of the card must work like its checkbox.
@@ -257,6 +257,96 @@ func TestDashboardNativeHostOrderAndBulkAdd(t *testing.T) {
 	click("生产环境")
 	if s.activeSection != sectionDashboard || len(s.dashboardPanel().Hosts) != len(original) || len(s.dashboard.sources) != 0 {
 		t.Fatal("adding existing hosts must deduplicate and navigate without starting a stopped panel")
+	}
+}
+
+func TestDashboardNativeGroupedPickerPreservesFilteredSelection(t *testing.T) {
+	s := dashboardNativeFixture(t)
+	for i := 0; i < 90; i++ {
+		s.hosts = append(s.hosts, Host{ID: uint32(i + 10), CatalogID: fmt.Sprintf("many-%d", i), Label: fmt.Sprintf("node-%03d", i), Address: fmt.Sprintf("10.0.0.%d", i+1), Port: 22, Group: []string{"生产环境", "测试环境", "开发环境"}[i%3]})
+	}
+	s.openDashboardEditor(false)
+	s.dashboard.editor.selected = []string{"host-0", "many-4"}
+	view, err := headless.Open(app.Config{Title: "Motty", Width: 1487, Height: 1058, Tree: Tree(), Paint: s.Paint, OnPointer: s.Pointer, OnKey: s.Key, OnShortcut: s.Shortcut, OnScroll: s.Scroll, OnResize: s.Resize, TextInput: func(context app.TextInputContext) *app.TextInput {
+		if editor := s.EditorFor(context.ID); editor != nil {
+			return &app.TextInput{Editor: editor, NavigationKeys: context.NavigationKeys}
+		}
+		return nil
+	}}, nil, headless.Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer view.Close()
+	click := func(label string) {
+		t.Helper()
+		if err := view.ClickLabel(label); err != nil {
+			t.Fatal(err)
+		}
+		if err := view.Rest(); err != nil {
+			t.Fatal(err)
+		}
+	}
+	shot := func(name string) {
+		t.Helper()
+		if err := view.Rest(); err != nil {
+			t.Fatal(err)
+		}
+		if dir := os.Getenv("MOTTY_DASHBOARD_SCREENSHOTS"); dir != "" {
+			if err := view.Screenshot(filepath.Join(dir, name+".png")); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	m := s.messages.Dashboard
+	shot("dashboard-picker-many")
+	click(m.GroupFilter)
+	option, ok := view.Hit("开发环境")
+	if !ok {
+		t.Fatal("group select option is missing")
+	}
+	beforeScroll := s.dashboard.editor.scroll
+	if err := view.Scroll(ui.ScrollEvent{X: option.Bounds.X + 10, Y: option.Bounds.Y + 10, DeltaY: 80}); err != nil {
+		t.Fatal(err)
+	}
+	if s.dashboard.editor.scroll != beforeScroll {
+		t.Fatal("scrolling the group popup moved the cards behind it")
+	}
+	if err := view.Keys("escape"); err != nil {
+		t.Fatal(err)
+	}
+	if s.modal != modalDashboard || s.dashboard.editor.groupOpen {
+		t.Fatal("Escape must dismiss the group picker without closing the editor")
+	}
+	click(m.GroupFilter)
+	click("测试环境")
+	click(m.SelectedOnly)
+	groups, total, shown := s.dashboardPickerGroups()
+	if total != 96 || shown != 1 || len(groups) != 1 || groups[0].hosts[0].CatalogID != "many-4" {
+		t.Fatal("group and selected-only filters did not compose")
+	}
+	click(m.HostSearch)
+	if err := view.Type("node-007"); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, shown := s.dashboardPickerGroups(); shown != 0 {
+		t.Fatal("keyword search did not compose with selected-only filtering")
+	}
+	click(m.SelectedOnly)
+	card, ok := view.Hit("node-007")
+	if !ok || card.Bounds.Height != 52 || card.Bounds.Width >= 280 {
+		t.Fatalf("expected a compact host card: %+v", card)
+	}
+	click("node-007")
+	shot("dashboard-picker-filtered")
+	if len(s.dashboard.editor.selected) != 3 {
+		t.Fatal("selecting a filtered host discarded hidden selections")
+	}
+	click(m.OrderTab)
+	if len(s.dashboard.editor.selected) != 3 || s.dashboard.editor.selected[0] != "host-0" || s.dashboard.editor.selected[1] != "many-4" {
+		t.Fatal("order tab lost the hidden hosts or their order")
+	}
+	if _, ok := view.Hit(fmt.Sprintf(m.SortPanel, "prod-web-01")); !ok {
+		t.Fatal("order tab must include hosts outside the selection filter")
 	}
 }
 

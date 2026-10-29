@@ -51,6 +51,9 @@ func (s *State) dashboardScroll(e ui.ScrollEvent) ui.EventResult {
 		return ui.EventResult{}
 	}
 	if s.modal == modalDashboard {
+		if d.editor.groupOpen {
+			return ui.EventResult{}
+		}
 		if pointInRect(e.X, e.Y, d.editor.bounds) {
 			before := d.editor.scroll
 			d.editor.scroll = min(max(0, before+e.DeltaY), max(0, d.editor.content-d.editor.bounds.Height))
@@ -79,6 +82,14 @@ func (s *State) dashboardKey(e ui.KeyEvent) ui.EventResult {
 		return ui.EventResult{}
 	}
 	if s.modal == modalDashboard {
+		if s.dashboard.editor.groupOpen && e.Key == ui.KeyEscape {
+			s.dashboard.editor.groupOpen = false
+			return ui.EventResult{Handled: true, Repaint: true, Focus: hitDashboardGroupFilter, FocusVisible: true}
+		}
+		if e.Target == hitDashboardGroupFilter && e.Key == ui.KeyDown {
+			s.dashboard.editor.groupOpen = true
+			return ui.EventResult{Handled: true, Repaint: true, Focus: hitDashboardGroupList.At(0), FocusVisible: true}
+		}
 		if s.dashboard.editor.page == 1 {
 			move, result := s.dashboard.editor.order.Key(e)
 			if result.Handled {

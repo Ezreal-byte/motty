@@ -56,15 +56,18 @@ var dashboardIntervals = [...]int{2, 5, 10, 30, 60}
 var dashboardRetentions = [...]int{15, 60, 360, 1440}
 
 type dashboardEditor struct {
-	id                string
-	name, note, query text.Editor
-	selected          []string
-	error             string
-	scroll, content   float32
-	bounds            ui.Rect
-	fromHosts         bool
-	page              int
-	order             components.ReorderListState
+	id                                   string
+	name, note, query                    text.Editor
+	selected                             []string
+	error                                string
+	scroll, content                      float32
+	bounds                               ui.Rect
+	fromHosts                            bool
+	page                                 int
+	order                                components.ReorderListState
+	groups                               []string
+	group                                string
+	groupFilter, groupOpen, selectedOnly bool
 }
 type dashboardState struct {
 	panels          []monitoring.Panel
@@ -487,8 +490,26 @@ func (s *State) clickDashboard(id ui.ID) bool {
 	}
 	if s.modal == modalDashboard {
 		switch {
+		case id == hitDashboardGroupFilter:
+			d.editor.groupOpen = !d.editor.groupOpen
+		case id == hitDashboardGroupDismiss:
+			d.editor.groupOpen = false
+		case id == hitDashboardSelectedOnly:
+			d.editor.selectedOnly = !d.editor.selectedOnly
+			d.editor.scroll = 0
+		case id.Scope() == hitDashboardGroupList:
+			i := item(id)
+			if i >= 0 && i <= len(d.editor.groups) {
+				d.editor.groupFilter = i > 0
+				if i > 0 {
+					d.editor.group = d.editor.groups[i-1]
+				}
+				d.editor.groupOpen = false
+				d.editor.scroll = 0
+			}
 		case id == hitDashboardPickTab || id == hitDashboardOrderTab:
 			d.editor.order.Cancel()
+			d.editor.groupOpen = false
 			d.editor.page = 0
 			if id == hitDashboardOrderTab {
 				d.editor.page = 1
