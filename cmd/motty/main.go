@@ -112,6 +112,7 @@ func main() {
 	if err != nil {
 		fatal(err)
 	}
+	log.Print("motty: exiting normally")
 }
 
 func mainWindowTitle() string { return buildinfo.ProductName }
@@ -238,6 +239,7 @@ func openWorkbenchWindow(application *app.Application, status *tray, hub *workbe
 	// chose in Settings that closing quits.
 	requestClose := func(allow func()) {
 		if status.hasStatusArea() && state.StaysInTray() && (state.WantsToStay() || status.list.WindowCount() <= 1) {
+			log.Print("motty: window hidden to the status area; the program keeps running")
 			mainWindow.Hide()
 			return
 		}
@@ -351,6 +353,7 @@ func openWorkbenchWindow(application *app.Application, status *tray, hub *workbe
 		OnFrameChange: state.NoteWindowFrame,
 		OnMinimize:    state.SetWindowMinimized,
 		OnClosed: func() {
+			log.Print("motty: window closed")
 			windows.remove(state)
 			hub.Remove(state)
 			state.Close()

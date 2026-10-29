@@ -222,6 +222,15 @@ Linux (`motty-data\logs` beside the program in a portable copy). Attach
 cannot start at all, it says why in a message box and writes the reason to the
 log.
 
+If the program disappears and `crash.log` stays empty, the process was ended by
+a native fault (a graphics driver, for instance) before Go could write
+anything. On Windows 11 22H2 or later Motty then asks Windows Error Reporting for
+a dump in `%LOCALAPPDATA%\Motty\CrashDumps`; the Application Error event in
+Event Viewer (Windows Logs → Application) names the faulting module. To tell
+the usual suspects apart, start Motty with `VIVA_SOFTWARE_RENDERING=1` (no
+graphics driver) or `VIVA_ACCESSIBILITY=0` (no UI Automation tree) set. A dump
+is a copy of the program's memory: look before you share it.
+
 ## 🛠 Build from source
 
 Requirements:

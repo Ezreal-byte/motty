@@ -178,6 +178,13 @@ Windows 在 `%APPDATA%\motty\logs`，macOS 在
 （便携版在程序旁的 `motty-data\logs`）。反馈问题时请附上 `motty.log` 和最新的
 `crash-*.log`。如果程序根本无法启动，它会用对话框说明原因，并把原因写进日志。
 
+如果程序消失而 `crash.log` 仍是空的，说明进程在 Go 来得及写任何东西之前就被原生错误
+（例如显卡驱动）终止了。Windows 11 22H2 及以上时，Motty 会请求 Windows 错误报告把转储
+保存到 `%LOCALAPPDATA%\Motty\CrashDumps`；事件查看器（Windows 日志 → 应用程序）里的
+"Application Error" 事件会写出出错的模块。要排查常见原因，可在设置环境变量
+`VIVA_SOFTWARE_RENDERING=1`（不用显卡驱动）或 `VIVA_ACCESSIBILITY=0`（不建立 UI Automation
+树）后启动 Motty。转储是程序内存的副本，分享前请先自行确认。
+
 ## 🛠 从源码构建
 
 要求：

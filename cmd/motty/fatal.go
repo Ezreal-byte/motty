@@ -3,6 +3,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -51,6 +52,14 @@ func startLogging() {
 	app.SetFaultHandler(func(fault app.Fault) {
 		log.Printf("motty: caught a panic in %s: %s\n%s", fault.Where, fault.Message, fault.Stack)
 	})
+	// A native fault (a graphics driver, a fast-fail) ends the process before
+	// the Go runtime can write anything. Windows can keep a dump of it.
+	switch dumps, err := app.EnableCrashDumps(`Motty\CrashDumps`); {
+	case err == nil:
+		log.Printf("motty: native crash dumps go to %s", dumps)
+	case !errors.Is(err, app.ErrUnsupported):
+		log.Printf("motty: no native crash dumps: %v", err)
+	}
 	if session.PreviousCrash != "" {
 		log.Printf("motty: the previous run ended abnormally; report kept as %s", session.PreviousCrash)
 	}
