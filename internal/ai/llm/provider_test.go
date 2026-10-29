@@ -122,10 +122,10 @@ func TestPlainText(t *testing.T) {
 				if done.Kind != EventDone || text(evs, EventText) != "Hello 你好🙂 world" {
 					t.Fatalf("got %+v", evs)
 				}
-				if p.name == "openai" && (done.Usage != Usage{7, 3} || done.StopReason != "stop") {
+				if p.name == "openai" && (done.Usage != (Usage{InputTokens: 7, OutputTokens: 3}) || done.StopReason != "stop") {
 					t.Fatalf("done %+v", done)
 				}
-				if p.name == "anthropic" && (done.Usage != Usage{11, 9} || done.StopReason != "end_turn") {
+				if p.name == "anthropic" && (done.Usage != (Usage{InputTokens: 11, OutputTokens: 9}) || done.StopReason != "end_turn") {
 					t.Fatalf("done %+v", done)
 				}
 			})
@@ -593,7 +593,7 @@ func TestAnthropicRequestGolden(t *testing.T) {
 		t.Fatalf("headers %v", hdr)
 	}
 	jsonEq(t, got, `{
-	"model":"the-model","stream":true,"max_tokens":256,"temperature":0.25,"system":"be brief",
+	"model":"the-model","stream":true,"max_tokens":256,"temperature":0.25,"system":[{"type":"text","text":"be brief","cache_control":{"type":"ephemeral"}}],
 	"messages":[
 	 {"role":"user","content":[{"type":"text","text":"look at two files"}]},
 	 {"role":"assistant","content":[{"type":"text","text":"ok"},
@@ -605,10 +605,10 @@ func TestAnthropicRequestGolden(t *testing.T) {
 	 {"role":"assistant","content":[{"type":"tool_use","id":"c3","name":"read","input":{"path":"b"}}]},
 	 {"role":"user","content":[
 	   {"type":"tool_result","tool_use_id":"c3","content":"CCC"},
-	   {"type":"text","text":"thanks"}]}],
+	   {"type":"text","text":"thanks","cache_control":{"type":"ephemeral"}}]}],
 	"tools":[
 	 {"name":"read","description":"read a file","input_schema":{"type":"object","properties":{"path":{"type":"string"}},"required":["path"]}},
-	 {"name":"noargs","input_schema":{"type":"object","properties":{}}}]
+	 {"name":"noargs","input_schema":{"type":"object","properties":{}},"cache_control":{"type":"ephemeral"}}]
 	}`)
 }
 
@@ -741,7 +741,46 @@ func TestOpenAIReusedChunkDoesNotLeakFields(t *testing.T) {
 	if calls := toolCalls(evs); len(calls) != 1 || calls[0].ID != "call" {
 		t.Fatalf("tool calls = %+v", calls)
 	}
-	if done.Usage != (Usage{5, 1}) || done.StopReason != "stop" {
+	if done.Usage != (Usage{InputTokens: 5, OutputTokens: 1}) || done.StopReason != "stop" {
 		t.Fatalf("done = %+v", done)
+	}
+}
+
+func TestAnthropicUsageCountsCachedTokens(t *testing.T) {
+	// Anthropic reports cached tokens apart from input_tokens; the request's
+	// prompt is all three.
+	body := anEv("message_start", `{"type":"message_start","message":{"usage":{"input_tokens":4,"cache_creation_input_tokens":100,"cache_read_input_tokens":2000,"output_tokens":1}}}`) +
+		anTextBlock(0, "hi") + anEnd("end_turn")
+	srv := sseServer(t, body, false, nil)
+	ch, err := NewAnthropic(Config{BaseURL: srv.URL, APIKey: testKey}).Stream(bg, simpleReq)
+	if err != nil {
+		t.Fatal(err)
+	}
+	done := terminal(t, collect(t, ch))
+	want := Usage{InputTokens: 2104, OutputTokens: 9, CacheReadTokens: 2000, CacheWriteTokens: 100}
+	if done.Usage != want {
+		t.Fatalf("usage = %+v, want %+v", done.Usage, want)
+	}
+}
+
+func TestOpenAIUsageReportsCachedTokens(t *testing.T) {
+	for name, usage := range map[string]string{
+		"nested":   `{"prompt_tokens":3000,"completion_tokens":3,"prompt_tokens_details":{"cached_tokens":2816}}`,
+		"deepseek": `{"prompt_tokens":3000,"completion_tokens":3,"prompt_cache_hit_tokens":2816,"prompt_cache_miss_tokens":184}`,
+		"flat":     `{"prompt_tokens":3000,"completion_tokens":3,"cached_tokens":2816}`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			body := oaText("hi") + oaData(`{"choices":[{"delta":{},"finish_reason":"stop"}]}`) +
+				oaData(`{"choices":[],"usage":`+usage+`}`) + oaData("[DONE]")
+			srv := sseServer(t, body, false, nil)
+			ch, err := NewOpenAI(Config{BaseURL: srv.URL, APIKey: testKey}).Stream(bg, simpleReq)
+			if err != nil {
+				t.Fatal(err)
+			}
+			want := Usage{InputTokens: 3000, OutputTokens: 3, CacheReadTokens: 2816}
+			if done := terminal(t, collect(t, ch)); done.Usage != want {
+				t.Fatalf("usage = %+v, want %+v", done.Usage, want)
+			}
+		})
 	}
 }

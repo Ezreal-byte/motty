@@ -737,8 +737,9 @@ var chineseAIPanel = AIPanelMessages{
 	RenameSubmit:      "重命名",
 	RenameRequired:    "标题不能为空。",
 
-	UsageFmt:      "Token:%s 入,%s 出",
-	UsageTotalFmt: " · 累计 %s 入,%s 出",
+	UsageFmt:       "Token:%s 入,%s 出",
+	UsageTotalFmt:  " · 累计 %s 入,%s 出",
+	UsageCachedFmt: " · %s 命中缓存",
 
 	ModeAsk:            "问答",
 	Target:             "目标连接",

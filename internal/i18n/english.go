@@ -737,8 +737,9 @@ var englishAIPanel = AIPanelMessages{
 	RenameSubmit:      "Rename",
 	RenameRequired:    "A title is required.",
 
-	UsageFmt:      "Tokens: %s in, %s out",
-	UsageTotalFmt: " · total %s in, %s out",
+	UsageFmt:       "Tokens: %s in, %s out",
+	UsageTotalFmt:  " · total %s in, %s out",
+	UsageCachedFmt: " · %s cached",
 
 	ModeAsk:            "Ask",
 	Target:             "Target connection",

@@ -207,6 +207,23 @@ type oaChoice struct {
 type oaUsage struct {
 	PromptTokens     int `json:"prompt_tokens"`
 	CompletionTokens int `json:"completion_tokens"`
+	// The cached share of PromptTokens is reported under different names:
+	// OpenAI and most compatible providers nest it, DeepSeek and Moonshot do not.
+	PromptTokensDetails struct {
+		CachedTokens int `json:"cached_tokens"`
+	} `json:"prompt_tokens_details"`
+	PromptCacheHitTokens int `json:"prompt_cache_hit_tokens"`
+	CachedTokens         int `json:"cached_tokens"`
+}
+
+// cacheRead is the number of prompt tokens served from the provider's cache.
+func (u *oaUsage) cacheRead() int {
+	for _, n := range [...]int{u.PromptTokensDetails.CachedTokens, u.PromptCacheHitTokens, u.CachedTokens} {
+		if n > 0 {
+			return min(n, u.PromptTokens)
+		}
+	}
+	return 0
 }
 
 type oaChunk struct {
@@ -319,7 +336,7 @@ func (h *oaHandler) event(ev sseEvent, em *emitter) (bool, error) {
 		return false, errors.New("llm: provider error: " + errorMessage(c.Error))
 	}
 	if c.Usage != nil {
-		h.usage = Usage{InputTokens: c.Usage.PromptTokens, OutputTokens: c.Usage.CompletionTokens}
+		h.usage = Usage{InputTokens: c.Usage.PromptTokens, OutputTokens: c.Usage.CompletionTokens, CacheReadTokens: c.Usage.cacheRead()}
 	}
 	if len(c.Choices) == 0 {
 		return false, nil

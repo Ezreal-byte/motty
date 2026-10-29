@@ -241,8 +241,7 @@ func Run(ctx context.Context, cfg Config, history []llm.Message, userText string
 			req.Tools = specs
 		}
 		text, calls, u, err := stream(ctx, cfg.Provider, req, turn, emit)
-		usage.InputTokens += u.InputTokens
-		usage.OutputTokens += u.OutputTokens
+		usage = usage.Add(u)
 		if ctx.Err() != nil {
 			return newMsgs(), ctx.Err()
 		}

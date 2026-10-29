@@ -793,8 +793,7 @@ func (state *State) aiEvent(run *aiRun, event agent.Event) {
 		ai.scroll.ScrollToEnd()
 	case agent.EventDone:
 		ai.lastUsage = event.Usage
-		ai.totalUsage.InputTokens += event.Usage.InputTokens
-		ai.totalUsage.OutputTokens += event.Usage.OutputTokens
+		ai.totalUsage = ai.totalUsage.Add(event.Usage)
 	case agent.EventError:
 		ai.items = append(ai.items, aiItem{kind: aiNotice, text: errorText(event.Text)})
 	}
@@ -806,6 +805,9 @@ func (state *State) aiEvent(run *aiRun, event agent.Event) {
 func (state *State) aiUsageText() string {
 	m := state.messages.AIPanel
 	last := fmt.Sprintf(m.UsageFmt, groupDigits(state.ai.lastUsage.InputTokens), groupDigits(state.ai.lastUsage.OutputTokens))
+	if state.ai.lastUsage.CacheReadTokens > 0 {
+		last += fmt.Sprintf(m.UsageCachedFmt, groupDigits(state.ai.lastUsage.CacheReadTokens))
+	}
 	if state.ai.totalUsage.InputTokens > state.ai.lastUsage.InputTokens ||
 		state.ai.totalUsage.OutputTokens > state.ai.lastUsage.OutputTokens {
 		last += fmt.Sprintf(m.UsageTotalFmt, groupDigits(state.ai.totalUsage.InputTokens), groupDigits(state.ai.totalUsage.OutputTokens))

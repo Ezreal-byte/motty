@@ -62,7 +62,17 @@ type anBlock struct {
 	Input     json.RawMessage `json:"input,omitempty"`
 	ToolUseID string          `json:"tool_use_id,omitempty"`
 	Content   string          `json:"content,omitempty"`
+	// CacheControl marks the end of a cacheable prefix.
+	CacheControl *anCacheControl `json:"cache_control,omitempty"`
 }
+
+// anCacheControl is a prompt-cache breakpoint: the provider caches the whole
+// request prefix up to and including the block that carries it.
+type anCacheControl struct {
+	Type string `json:"type"`
+}
+
+var ephemeral = &anCacheControl{Type: "ephemeral"}
 
 type anMessage struct {
 	Role    string    `json:"role"`
@@ -70,15 +80,16 @@ type anMessage struct {
 }
 
 type anTool struct {
-	Name        string          `json:"name"`
-	Description string          `json:"description,omitempty"`
-	InputSchema json.RawMessage `json:"input_schema"`
+	Name         string          `json:"name"`
+	Description  string          `json:"description,omitempty"`
+	InputSchema  json.RawMessage `json:"input_schema"`
+	CacheControl *anCacheControl `json:"cache_control,omitempty"`
 }
 
 type anRequest struct {
 	Model       string      `json:"model"`
 	MaxTokens   int         `json:"max_tokens"`
-	System      string      `json:"system,omitempty"`
+	System      []anBlock   `json:"system,omitempty"`
 	Messages    []anMessage `json:"messages"`
 	Tools       []anTool    `json:"tools,omitempty"`
 	Stream      bool        `json:"stream"`
@@ -145,7 +156,6 @@ func (p *anthropic) buildBody(req Request) ([]byte, error) {
 	if len(out.Messages) == 0 {
 		return nil, errors.New("llm: request has no non-empty messages")
 	}
-	out.System = strings.Join(system, "\n\n")
 	for _, t := range req.Tools {
 		schema, err := validateSchema(t.Schema)
 		if err != nil {
@@ -153,7 +163,28 @@ func (p *anthropic) buildBody(req Request) ([]byte, error) {
 		}
 		out.Tools = append(out.Tools, anTool{Name: t.Name, Description: t.Description, InputSchema: schema})
 	}
+	out.markCacheable(strings.Join(system, "\n\n"))
 	return json.Marshal(out)
+}
+
+// markCacheable sets the system prompt and places the prompt-cache breakpoints.
+// The prefix is tools, then system, then messages, and a breakpoint caches
+// everything before it, so one goes on each of the last tool, the system
+// prompt and the last message block: a later request that repeats those
+// prefixes reads them at a fraction of the price instead of reprocessing them.
+// Providers cache only prefixes above a model-specific length (1024 tokens and
+// up) and silently ignore a breakpoint on a shorter one.
+func (r *anRequest) markCacheable(system string) {
+	if n := len(r.Tools); n > 0 {
+		r.Tools[n-1].CacheControl = ephemeral
+	}
+	if system != "" {
+		r.System = []anBlock{{Type: "text", Text: system, CacheControl: ephemeral}}
+	}
+	if n := len(r.Messages); n > 0 {
+		last := r.Messages[n-1].Content
+		last[len(last)-1].CacheControl = ephemeral
+	}
 }
 
 func (p *anthropic) Stream(ctx context.Context, req Request) (<-chan Event, error) {
@@ -218,8 +249,44 @@ func (p *anthropic) Models(ctx context.Context) ([]string, error) {
 
 type anHandler struct {
 	blocks map[int]*anBlockState
-	usage  Usage
+	usage  anUsage
 	stop   string
+}
+
+// anUsage is what the stream reports. Anthropic counts the cached tokens
+// apart from input_tokens, so the request's whole prompt is their sum.
+type anUsage struct {
+	input, output, cacheRead, cacheWrite int
+}
+
+func (u anUsage) total() Usage {
+	return Usage{
+		InputTokens:      u.input + u.cacheRead + u.cacheWrite,
+		OutputTokens:     u.output,
+		CacheReadTokens:  u.cacheRead,
+		CacheWriteTokens: u.cacheWrite,
+	}
+}
+
+// anUsageFields are the usage members of message_start and message_delta; a
+// relay may leave any of them out, and an absent field must not erase a count
+// an earlier event reported.
+type anUsageFields struct {
+	InputTokens      *int `json:"input_tokens"`
+	OutputTokens     *int `json:"output_tokens"`
+	CacheReadTokens  *int `json:"cache_read_input_tokens"`
+	CacheWriteTokens *int `json:"cache_creation_input_tokens"`
+}
+
+func (u *anUsage) merge(f anUsageFields) {
+	for _, field := range []struct {
+		from *int
+		to   *int
+	}{{f.InputTokens, &u.input}, {f.OutputTokens, &u.output}, {f.CacheReadTokens, &u.cacheRead}, {f.CacheWriteTokens, &u.cacheWrite}} {
+		if field.from != nil && *field.from > 0 {
+			*field.to = *field.from
+		}
+	}
 }
 
 type anBlockState struct {
@@ -233,10 +300,7 @@ type anEvent struct {
 	Type    string `json:"type"`
 	Index   int    `json:"index"`
 	Message struct {
-		Usage struct {
-			InputTokens  int `json:"input_tokens"`
-			OutputTokens int `json:"output_tokens"`
-		} `json:"usage"`
+		Usage anUsageFields `json:"usage"`
 	} `json:"message"`
 	ContentBlock struct {
 		Type string `json:"type"`
@@ -251,10 +315,7 @@ type anEvent struct {
 		PartialJSON string `json:"partial_json"`
 		StopReason  string `json:"stop_reason"`
 	} `json:"delta"`
-	Usage struct {
-		InputTokens  *int `json:"input_tokens"`
-		OutputTokens int  `json:"output_tokens"`
-	} `json:"usage"`
+	Usage anUsageFields   `json:"usage"`
 	Error json.RawMessage `json:"error"`
 }
 
@@ -268,8 +329,7 @@ func (h *anHandler) event(ev sseEvent, em *emitter) (bool, error) {
 	}
 	switch e.Type {
 	case "message_start":
-		h.usage.InputTokens = e.Message.Usage.InputTokens
-		h.usage.OutputTokens = e.Message.Usage.OutputTokens
+		h.usage.merge(e.Message.Usage)
 	case "content_block_start":
 		if h.blocks == nil {
 			h.blocks = map[int]*anBlockState{}
@@ -312,14 +372,9 @@ func (h *anHandler) event(ev sseEvent, em *emitter) (bool, error) {
 		if e.Delta.StopReason != "" {
 			h.stop = e.Delta.StopReason
 		}
-		if e.Usage.InputTokens != nil && *e.Usage.InputTokens > 0 {
-			h.usage.InputTokens = *e.Usage.InputTokens
-		}
-		if e.Usage.OutputTokens > 0 {
-			h.usage.OutputTokens = e.Usage.OutputTokens
-		}
+		h.usage.merge(e.Usage)
 	case "message_stop":
-		return true, em.send(Event{Kind: EventDone, Usage: h.usage, StopReason: h.stop})
+		return true, em.send(Event{Kind: EventDone, Usage: h.usage.total(), StopReason: h.stop})
 	case "error":
 		return false, errors.New("llm: provider error: " + errorMessage(e.Error))
 	}

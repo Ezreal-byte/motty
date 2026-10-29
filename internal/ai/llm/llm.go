@@ -78,8 +78,25 @@ const (
 
 // Usage is the token accounting reported by the provider, when it reports any.
 type Usage struct {
+	// InputTokens counts every prompt token of the request, cached or not.
 	InputTokens  int
 	OutputTokens int
+	// CacheReadTokens is the part of InputTokens the provider served from its
+	// prompt cache, CacheWriteTokens the part it stored there (Anthropic
+	// reports it, OpenAI-compatible providers do not). Zero means none or
+	// not reported.
+	CacheReadTokens  int
+	CacheWriteTokens int
+}
+
+// Add returns the sum of u and o.
+func (u Usage) Add(o Usage) Usage {
+	return Usage{
+		InputTokens:      u.InputTokens + o.InputTokens,
+		OutputTokens:     u.OutputTokens + o.OutputTokens,
+		CacheReadTokens:  u.CacheReadTokens + o.CacheReadTokens,
+		CacheWriteTokens: u.CacheWriteTokens + o.CacheWriteTokens,
+	}
 }
 
 // Event is one streamed item. Exactly one EventDone or EventError terminates

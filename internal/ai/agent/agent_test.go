@@ -592,3 +592,22 @@ func TestAskModeAfterADeclineAnswersWithNoTools(t *testing.T) {
 		t.Fatalf("messages = %+v", got)
 	}
 }
+
+func TestRunSumsCacheUsageAcrossTurns(t *testing.T) {
+	lsArgs := `{"command":"ls"}`
+	cached := func(in, read, write int) llm.Event {
+		return llm.Event{Kind: llm.EventDone, Usage: llm.Usage{InputTokens: in, OutputTokens: 1, CacheReadTokens: read, CacheWriteTokens: write}}
+	}
+	p := &fakeProvider{turns: []turn{
+		{events: []llm.Event{call("c1", tools.NameTerminalExec, lsArgs), cached(3000, 0, 2900)}},
+		{events: []llm.Event{text("done"), cached(3100, 2900, 100)}},
+	}}
+	evs, emit := collect()
+	if _, err := Run(context.Background(), newCfg(p, &fakeBackend{}, true), nil, "go", emit); err != nil {
+		t.Fatal(err)
+	}
+	want := llm.Usage{InputTokens: 6100, OutputTokens: 2, CacheReadTokens: 2900, CacheWriteTokens: 3000}
+	if u := (*evs)[len(*evs)-1].Usage; u != want {
+		t.Fatalf("usage = %+v, want %+v", u, want)
+	}
+}
