@@ -25,6 +25,9 @@ computer. Copy or move the two together to take your setup with you.
 - Saved passwords are protected by a master password alone, not by Windows
   Credential Manager, so they stay readable on another computer. Set one in
   Settings, Security, before saving a password.
+- To bring an installed copy's data along, set the master password in that copy first,
+  then copy its data folder into `motty-data`. Otherwise the key stays in the old
+  computer's Credential Manager and the saved passwords cannot be opened.
 - A portable copy does not update itself. To update, replace `motty.exe` with the one in
   the new zip and keep `motty-data`.
 - Without the `motty-data` folder, or when the folder is read-only, Motty runs as an
