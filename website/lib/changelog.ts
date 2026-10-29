@@ -21,6 +21,91 @@ export type ChangelogEntry = {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '0.1.9',
+    date: '2026-10-29',
+    sections: [
+      {
+        title: { en: 'New', zh: '新功能' },
+        items: [
+          {
+            en: 'A resource monitor can sit beside the terminal, showing CPU, memory, disks, network and load every 1, 2 or 5 seconds.',
+            zh: '终端旁可以打开资源监控，查看 CPU、内存、磁盘、网络和负载，每 1 / 2 / 5 秒刷新，可暂停。',
+          },
+          {
+            en: 'The terminal has a scrollbar, and Settings can turn on copy on select and right-click paste.',
+            zh: '终端新增滚动条，设置里可以开启选中即复制和右键粘贴。',
+          },
+          {
+            en: 'Up to three fallback fonts can follow the terminal font, so a code font and a CJK font render together.',
+            zh: '终端字体后面可以再加最多三个回退字体，代码字体和中文可以同时正常显示。',
+          },
+          {
+            en: 'The file panel has back, forward and recent folders, and navigation can be cancelled.',
+            zh: '文件面板支持后退、前进和「最近目录」，导航可以取消。',
+          },
+          {
+            en: 'Xshell .xsh files open their SSH and Telnet sessions directly.',
+            zh: '可以直接打开 Xshell 的 `.xsh` 文件里的 SSH / Telnet 会话。',
+          },
+          {
+            en: 'Closing the last window can quit or stay in the tray, chosen in Settings.',
+            zh: '设置里可以选择关闭窗口时留在托盘还是直接退出。',
+          },
+          {
+            en: 'Look-alike command characters and a shell that is not UTF-8 are flagged before sending, with a per-session fix.',
+            zh: '形近命令字符和不是 UTF-8 的 shell 会在发送前提醒，并可只修复当前会话。',
+          },
+          {
+            en: 'User messages, answers and tool output in the assistant panel can be selected and copied.',
+            zh: '助手面板里的用户消息、回答和工具输出都可以选中复制。',
+          },
+        ],
+      },
+      {
+        title: { en: 'Improvements', zh: '改进' },
+        items: [
+          {
+            en: 'Diagnostics log the window being hidden, closed and exiting normally, and Windows keeps native crash dumps.',
+            zh: '诊断日志会记录窗口隐藏、关闭和正常退出，Windows 上还会保留原生崩溃转储。',
+          },
+          {
+            en: 'Local .app bundles show their system icon in the file panel.',
+            zh: '本地文件面板里的 `.app` 会显示系统图标。',
+          },
+          {
+            en: 'The About page credits Viva and links to its repository.',
+            zh: '关于页新增「构建于 Viva」和仓库链接。',
+          },
+          {
+            en: 'Development builds show DEV on the Dock badge.',
+            zh: '开发版在 Dock 上显示 DEV 徽标。',
+          },
+        ],
+      },
+      {
+        title: { en: 'Fixes', zh: '修复' },
+        items: [
+          {
+            en: 'S3 sync no longer fails entirely on services such as Aliyun OSS that answer 400 NotImplemented.',
+            zh: '阿里云 OSS 等返回 400 `NotImplemented` 的服务，S3 同步不再全部失败。',
+          },
+          {
+            en: 'A repeated multi-factor round no longer blames the password.',
+            zh: '服务器要求再次多因素认证时，提示不再误说是密码错误。',
+          },
+          {
+            en: 'Text in the assistant panel could not be selected or copied; it can be now.',
+            zh: '助手面板里用户消息和工具输出之前无法正常选中复制的问题已修复。',
+          },
+          {
+            en: 'Ctrl-C now stops a watch build that failed on its first round.',
+            zh: '开发用的 watch 构建在第一轮失败时，Ctrl-C 能干净退出。',
+          },
+        ],
+      },
+    ],
+  },
+  {
     version: '0.1.8',
     date: '2026-10-29',
     sections: [
