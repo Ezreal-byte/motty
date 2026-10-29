@@ -149,6 +149,9 @@ func TestLocalScopeNativeWindowWarningSurvivesCompactAndFeedback(t *testing.T) {
 }
 
 func TestLocalScopeWindowWarningAddsNoSteadyPaintAllocations(t *testing.T) {
+	if raceDetector {
+		t.Skip("allocation counts are not comparable under the race detector")
+	}
 	state, w, _, _, dir := dualSFTPFixture(t, 1)
 	partial := unreadableLocalListing(t, dir)
 	complete := scanLocalListing(dir, scopeDirEntries(t, dir))
