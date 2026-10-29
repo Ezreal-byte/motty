@@ -542,6 +542,11 @@ type ToolsMessages struct {
 	RemoteBadName                   string
 	RemoteLoading                   string
 	RemoteLoadedFmt                 string
+	RemoteSearch                    string
+	RemoteSearchPlaceholder         string
+	RemoteSearchClear               string
+	RemoteSearchCountFmt            string
+	RemoteSearchLimited             string
 	RemoteEmptyContainers           string
 	RemoteErrUnsupportedFmt         string
 	RemoteErrNoDocker               string

@@ -295,6 +295,9 @@ func (state *State) Shortcut(event ui.KeyEvent) (outcome ui.EventResult) {
 		state.save()
 		return ui.EventResult{Handled: true, Repaint: true}
 	}
+	if result := state.remoteSearchShortcut(event); result.Handled {
+		return result
+	}
 	if state.modal != modalNone {
 		return ui.EventResult{}
 	}

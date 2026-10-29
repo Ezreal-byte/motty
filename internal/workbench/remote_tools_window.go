@@ -62,6 +62,10 @@ func (state *State) openRemoteToolsWindow(session *Session) {
 		MinWidth:   remoteToolsMinWidth, MinHeight: remoteToolsMinHeight,
 		ClearColor: app.Color{Red: float64(state.pal.workspace.Red), Green: float64(state.pal.workspace.Green), Blue: float64(state.pal.workspace.Blue), Alpha: 1},
 		Paint:      w.paint, OnKey: w.key, OnClosed: w.dispose,
+		OnShortcut: func(event ui.KeyEvent) ui.EventResult {
+			w.ui.shortcuts = w.owner.shortcuts
+			return w.ui.remoteSearchShortcut(event)
+		},
 		OnMinimize: func(minimized bool) {
 			if minimized || w.closed || w.ui.remote.loading {
 				return
@@ -77,6 +81,9 @@ func (state *State) openRemoteToolsWindow(session *Session) {
 			return ui.EventResult{Handled: true}
 		},
 		TextInput: func(c app.TextInputContext) *app.TextInput {
+			if input := w.ui.RemoteToolsInput(c); input != nil {
+				return input
+			}
 			if w.ui.modal != modalForm || c.ID.Scope() != hitFormFieldList {
 				return nil
 			}
@@ -274,6 +281,9 @@ func (w *remoteToolsWindow) click(id ui.ID) {
 }
 
 func (w *remoteToolsWindow) key(event ui.KeyEvent) ui.EventResult {
+	if result := w.ui.remoteSearchKey(event); result.Handled {
+		return result
+	}
 	if result := w.ui.remoteRefreshKey(event); result.Handled {
 		return result
 	}
@@ -335,7 +345,7 @@ func (w *remoteToolsWindow) paint(canvas *ui.Canvas, size ui.Size) {
 	}
 	footerTop := max(pad, size.Height-pad-y-buttonHeight)
 	body := ui.Rect{X: pad, Y: pad, Width: width, Height: max(footerTop-pad-12, 0)}
-	toolbar := remoteToolbarHeight
+	toolbar := remoteToolbarHeight + remoteSearchHeight + 8
 	if width < 800 {
 		toolbar += remoteToolbarHeight + 8
 	}

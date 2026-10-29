@@ -132,14 +132,18 @@ type remoteToolsView struct {
 	sort     remotetools.SortKey
 	ordering [6]components.TableSortState
 
-	procs      []remotetools.Process
-	containers []remotetools.Container
-	compose    []remotetools.ComposeProject
-	resources  []remotetools.Resource
-	rows       []remoteRow
-	selected   string
-	page       int
-	pageText   string
+	procs                                 []remotetools.Process
+	containers                            []remotetools.Container
+	compose                               []remotetools.ComposeProject
+	resources                             []remotetools.Resource
+	rows                                  []remoteRow
+	selected                              string
+	page                                  int
+	pageText                              string
+	searches                              [6]remoteSearch
+	sourceTotal                           int
+	processesTruncated, commandsTruncated bool
+	searchSummary                         string
 
 	loading  bool
 	noDocker bool
@@ -189,6 +193,8 @@ func (state *State) clickRemoteTools(id ui.ID) {
 	view := &state.remote
 	m := state.messages.Tools
 	switch {
+	case id == hitRemoteSearchClear:
+		state.clearRemoteSearch()
 	case id == hitRemoteClose || id == hitRemoteDismiss:
 		view.auto.enabled, view.auto.open = false, false
 		view.serial++
@@ -518,6 +524,7 @@ func (state *State) refreshRemoteTools() {
 		defer cancel()
 		var (
 			procs      []remotetools.Process
+			snapshot   remotetools.ProcessSnapshot
 			containers []remotetools.Container
 			compose    []remotetools.ComposeProject
 			resources  []remotetools.Resource
@@ -528,7 +535,8 @@ func (state *State) refreshRemoteTools() {
 		} else if tab == remoteCompose {
 			compose, err = remotetools.Compose(ctx, runner)
 		} else if tab == remoteProcesses {
-			procs, err = remotetools.Processes(ctx, runner, key)
+			snapshot, err = remotetools.ReadProcessSnapshot(ctx, runner, key)
+			procs = snapshot.Processes
 		} else {
 			containers, err = remotetools.Containers(ctx, runner)
 		}
@@ -548,6 +556,7 @@ func (state *State) refreshRemoteTools() {
 				return
 			}
 			view.procs, view.containers, view.compose, view.resources = procs, containers, compose, resources
+			view.processesTruncated, view.commandsTruncated = snapshot.Truncated, snapshot.CommandsTruncated
 			state.rebuildRemoteRows()
 			m := state.messages.Tools
 			empty := ""
@@ -564,7 +573,7 @@ func (state *State) refreshRemoteTools() {
 				empty = m.RemoteEmptyNetworks
 			}
 			switch {
-			case empty != "" && len(view.rows) == 0:
+			case empty != "" && view.sourceTotal == 0:
 				view.status = empty
 			default:
 				view.status = fmt.Sprintf(m.RemoteLoadedFmt, len(view.rows))
@@ -702,6 +711,7 @@ func (state *State) rebuildRemoteRows() {
 			}})
 		}
 	}
+	state.filterRemoteRows()
 	state.sortRemoteRows()
 	if view.page*state.remotePageSize() >= len(view.rows) {
 		view.page = 0
@@ -720,7 +730,7 @@ func (state *State) paintRemoteTools(canvas *ui.Canvas, viewport ui.Rect) {
 	dialog := components.BeginDialog(canvas, theme, viewport, components.DialogOptions{
 		Layer: dialogLayer, Scope: dialogScope,
 		DismissID: hitRemoteDismiss, CloseID: hitRemoteClose, InitialFocusID: hitRemoteRefresh,
-		ContentSize: ui.Size{Width: 940}, FitBody: true, BodyHeight: 52 + tableHeight + 34,
+		ContentSize: ui.Size{Width: 940}, FitBody: true, BodyHeight: 52 + tableHeight + 34 + remoteSearchHeight,
 	})
 	layout := dialog.Begin("", "")
 	state.paintRemoteToolsBody(canvas, layout.Body)
@@ -758,7 +768,7 @@ func (state *State) paintRemoteToolsBody(canvas *ui.Canvas, bounds ui.Rect) {
 	if view.failed {
 		color = pal.danger
 	}
-	var tabsSlot, refreshSlot, tableSlot, pagesSlot flex.Box
+	var tabsSlot, refreshSlot, tableSlot, pagesSlot, searchSlot flex.Box
 	f := state.partLayout.Begin(canvas, theme, bounds)
 	stacked := bounds.Width < 800
 	f.Column().Fill().Children(func() {
@@ -776,7 +786,8 @@ func (state *State) paintRemoteToolsBody(canvas *ui.Canvas, bounds ui.Rect) {
 				refreshSlot = f.Slot().Width(174).Height(remoteToolbarHeight)
 			})
 		}
-		tableSlot = f.Slot().Height(tableHeight).Shrink(0).MarginSides(12, 0, 0, 0)
+		searchSlot = f.Slot().Height(remoteSearchHeight).Shrink(0).MarginSides(8, 0, 0, 0)
+		tableSlot = f.Slot().Height(tableHeight).Shrink(0).MarginSides(4, 0, 0, 0)
 		f.Row().Height(30).Shrink(0).Items(flex.Center).MarginSides(6, 0, 0, 0).Children(func() {
 			f.Text(status).FontSize(metrics.FontSizeS).Weight(ui.WeightMedium).Color(color).Ellipsis().Grow(1).MarginSides(0, 0, 0, 2)
 			if len(view.rows) > pageSize {
@@ -788,6 +799,7 @@ func (state *State) paintRemoteToolsBody(canvas *ui.Canvas, bounds ui.Rect) {
 
 	components.BeginSegmentedControl(canvas, theme, tabsSlot.Rect(), tabs[:], selectedTab).Paint()
 	state.paintRemoteRefresh(canvas, refreshSlot.Rect())
+	state.paintRemoteSearch(canvas, searchSlot.Rect())
 	if missingDocker {
 		state.paintRemoteDockerEmpty(canvas, tableSlot.Rect())
 		return

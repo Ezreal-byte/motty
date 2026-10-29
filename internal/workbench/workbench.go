@@ -1861,6 +1861,9 @@ func (state *State) Key(event ui.KeyEvent) (outcome ui.EventResult) {
 }
 
 func (state *State) key(event ui.KeyEvent) ui.EventResult {
+	if result := state.remoteSearchKey(event); result.Handled {
+		return result
+	}
 	if result, handled := state.hostGroupPickerKey(event); handled {
 		return result
 	}

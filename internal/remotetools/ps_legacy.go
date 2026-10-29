@@ -16,6 +16,10 @@ func unsupportedPSOptions(output []byte) bool {
 
 // ps aux keeps real CPU and memory but has no portable elapsed-time field.
 func parseLegacyProcesses(output []byte, key SortKey) ([]Process, error) {
+	return parseLegacyProcessRows(output, key, maxProcesses, maxCommand)
+}
+
+func parseLegacyProcessRows(output []byte, key SortKey, rowLimit, commandLimit int) ([]Process, error) {
 	var list []Process
 	var firstBad string
 	for _, line := range strings.Split(string(output), "\n") {
@@ -43,8 +47,8 @@ func parseLegacyProcesses(output []byte, key SortKey) ([]Process, error) {
 		if strings.Contains(command, legacyProcessCommand) || ownPipeline(command) {
 			continue
 		}
-		if len(command) > maxCommand {
-			command = strings.ToValidUTF8(command[:maxCommand], "") + "…"
+		if len(command) > commandLimit {
+			command = strings.ToValidUTF8(command[:commandLimit], "") + "…"
 		}
 		list = append(list, Process{PID: pid, User: fields[0], CPU: cpu, Memory: memory, Command: command})
 	}
@@ -60,8 +64,8 @@ func parseLegacyProcesses(output []byte, key SortKey) ([]Process, error) {
 		}
 		return list[a].CPU > list[b].CPU
 	})
-	if len(list) > maxProcesses {
-		list = list[:maxProcesses]
+	if len(list) > rowLimit {
+		list = list[:rowLimit]
 	}
 	return list, nil
 }

@@ -177,6 +177,10 @@ func ParseProcesses(output []byte, key SortKey) ([]Process, error) {
 }
 
 func parseProcess(line string) (Process, bool) {
+	return parseProcessWithLimit(line, maxCommand)
+}
+
+func parseProcessWithLimit(line string, commandLimit int) (Process, bool) {
 	rest := line
 	var fields [5]string
 	for index := range fields {
@@ -198,8 +202,8 @@ func parseProcess(line string) (Process, bool) {
 		return Process{}, false
 	}
 	command := strings.TrimSpace(rest)
-	if len(command) > maxCommand {
-		command = strings.ToValidUTF8(command[:maxCommand], "") + "…"
+	if len(command) > commandLimit {
+		command = strings.ToValidUTF8(command[:commandLimit], "") + "…"
 	}
 	return Process{PID: pid, User: fields[1], CPU: cpu, Memory: memory, Elapsed: fields[4], Command: command}, true
 }

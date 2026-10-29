@@ -54,19 +54,14 @@ func (state *State) clickRemoteTableSort(id ui.ID) bool {
 		}
 		view.ordering[view.tab] = view.tableSort().Toggle(column)
 		view.page, view.pageText = 0, ""
-		// Preserve the existing bounded top-CPU/top-memory queries. Changing
-		// direction or any other field orders the complete loaded snapshot
-		// locally; it never changes which stable ID an action targets.
+		// The searchable snapshot is independent of the chosen sort order.
+		// Header changes never issue another remote query.
 		if view.tab == remoteProcesses && (column == 2 || column == 3) {
 			key := remotetools.SortCPU
 			if column == 3 {
 				key = remotetools.SortMemory
 			}
-			if key != view.sort {
-				view.sort = key
-				state.refreshRemoteTools()
-				return true
-			}
+			view.sort = key
 		}
 		state.sortRemoteRows()
 		return true
