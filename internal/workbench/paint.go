@@ -175,6 +175,9 @@ func (state *State) Paint(canvas *ui.Canvas, size ui.Size) {
 		state.paintLockup(canvas, chrome.lockup.Rect())
 	}
 
+	// The embedded file header also paints a popup: start the shared menu
+	// lifecycle before workspace content so its scroll/focus state survives.
+	state.beginMenus()
 	if terminal {
 		state.paintWorkspacePanes(canvas, size)
 		state.paintAIPanel(canvas, size)
@@ -203,7 +206,6 @@ func (state *State) Paint(canvas *ui.Canvas, size ui.Size) {
 		state.paintAIPanel(canvas, size)
 	}
 	viewport := state.windowRect()
-	state.beginMenus()
 	state.paintAITargetSelect(canvas)
 	state.paintMCPClientSelect(canvas)
 	state.paintLocalShellSelect(canvas)

@@ -54,17 +54,23 @@ func (state *State) recordTerminalDirectory(sessionID uint32, cwd term.Cwd, repl
 }
 
 func (state *State) navigateSFTPDirectory(view *sftpView, directory string) {
+	state.navigateSFTPDirectoryNavigation(view, directory, sftpNavigationManual, 0)
+}
+
+func (state *State) navigateSFTPDirectoryNavigation(view *sftpView, directory string, kind sftpNavigationKind, index int) {
+	directory = path.Clean(directory)
+	nav := state.beginSFTPNavigation(view, false, directory, kind, index)
 	state.requestTerminalDirectory(view, directory)
 	if view.terminalPath != "" {
 		// A cached listing is optimistic UI, not proof that this directory
 		// still exists. Reverse commands require a fresh successful read.
-		state.listSFTP(view, directory)
+		state.queueSFTPListing(view, directory, nav)
 		if !view.busy {
 			view.terminalPath = ""
 		}
 		return
 	}
-	state.openSFTPDirectory(view, directory)
+	state.openSFTPDirectoryNavigation(view, directory, nav)
 }
 
 func validSyncDirectory(directory string) bool {

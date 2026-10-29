@@ -90,6 +90,11 @@ func (state *State) toggleSFTPPane(view *sftpView) {
 	}
 	dir := view.lfolder.path
 	if dir == "" {
+		if session, ok := state.sftpSession(view); ok {
+			dir = session.fileHistory[0].path
+		}
+	}
+	if dir == "" {
 		dir = localStart()
 	}
 	state.listLocal(view, dir)
@@ -100,6 +105,24 @@ func (state *State) toggleSFTPPane(view *sftpView) {
 // on the window thread when it arrives. localSeq drops an answer that a newer
 // listing has overtaken.
 func (state *State) listLocal(view *sftpView, dir string) error {
+	return state.listLocalNavigation(view, dir, sftpNavigationPassive, 0)
+}
+
+func (state *State) listLocalNavigation(view *sftpView, dir string, kind sftpNavigationKind, index int) error {
+	dir = filepath.Clean(dir)
+	nav := state.beginSFTPNavigation(view, true, dir, kind, index)
+	if view.detached != nil {
+		view.detached.pendingLocal = dir
+	}
+	succeeded := false
+	defer func() {
+		if !succeeded && view.lfolder.navigation.id == nav.id {
+			view.lfolder.navigation = sftpNavigation{}
+			if view.detached != nil {
+				view.detached.pendingLocal = ""
+			}
+		}
+	}()
 	// Even a failed newer request retires older background/deferred answers.
 	view.localSeq++
 	seq := view.localSeq
@@ -133,15 +156,19 @@ func (state *State) listLocal(view *sftpView, dir string) error {
 	if len(first) <= localListingInlineEntries {
 		listing := readLocalListing(dir, file, first, readErr)
 		file.Close()
+		listing.navigation = nav
+		succeeded = true
 		state.applyLocalListing(view, listing, seq)
 		return nil
 	}
 	view.errorText = ""
 	view.startListingStatus(state.messages.SFTPLoading)
 	view.localListingStatus = true
+	succeeded = true
 	go func() {
 		defer file.Close()
 		listing := readLocalListing(dir, file, first, readErr)
+		listing.navigation = nav
 		state.aiPost(func(*State) {
 			if seq != view.localSeq {
 				return
@@ -167,10 +194,11 @@ func (state *State) retireLocalListingStatus(view *sftpView) {
 
 // localListing is a local folder scanned away from the window thread.
 type localListing struct {
-	dir      string
-	entries  []sftpclient.Entry
-	rows     []sftpRow
-	coverage localListingCoverage
+	navigation sftpNavigation
+	dir        string
+	entries    []sftpclient.Entry
+	rows       []sftpRow
+	coverage   localListingCoverage
 }
 
 type localListingCoverage struct {
@@ -269,15 +297,20 @@ func (state *State) applyLocalListing(view *sftpView, listing localListing, seq 
 	if view.deferDraggedListing(true, func() { state.applyLocalListing(view, listing, seq) }) {
 		return
 	}
+	if listing.navigation.id != 0 && listing.navigation.id != view.lfolder.navigation.id {
+		return
+	}
 	if view.detached != nil {
 		view.detached.pendingLocal = ""
 	}
 	folder := &view.lfolder
+	place, restore := folder.acceptNavigation(listing.dir, listing.navigation)
 	folder.path = listing.dir
 	folder.allRows = listing.rows
 	folder.localCoverage = listing.coverage
 	folder.crumbs = prepareLocalCrumbs(folder.crumbs, listing.dir)
 	state.applySFTPFilter(view, folder, true)
+	state.finishSFTPNavigation(view, true, place, restore)
 	state.retireLocalListingStatus(view)
 	view.errorText = ""
 	if view.detached != nil {
@@ -319,7 +352,7 @@ func (state *State) clickSFTPLocal(session *Session, view *sftpView, id ui.ID) b
 		state.listLocal(view, folder.path)
 	case id == hitSFTPUp:
 		if parent := filepath.Dir(folder.path); parent != folder.path {
-			state.listLocal(view, parent)
+			state.navigateLocalDirectory(view, parent)
 		}
 	case id == hitSFTPNewDirectory:
 		state.openSFTPDialog(view, sftpDialogCreateDirectory)
@@ -331,7 +364,7 @@ func (state *State) clickSFTPLocal(session *Session, view *sftpView, id ui.ID) b
 		state.insertLocalPaths(session, view)
 	case id.Scope() == hitSFTPBreadcrumbList:
 		if index := item(id); index < len(folder.crumbs) {
-			state.listLocal(view, folder.crumbs[index].path)
+			state.navigateLocalDirectory(view, folder.crumbs[index].path)
 		}
 	case id.Scope() == hitSFTPEntryList:
 		index := folder.first + item(id)
@@ -357,7 +390,7 @@ func (state *State) openLocalSelected(view *sftpView) {
 		state.openFileWindow(view, filepath.Join(view.lfolder.path, entry.Name), true)
 		return
 	}
-	state.listLocal(view, filepath.Join(view.lfolder.path, entry.Name))
+	state.navigateLocalDirectory(view, filepath.Join(view.lfolder.path, entry.Name))
 }
 
 // insertLocalPaths types the selected items' paths into the local shell, quoted

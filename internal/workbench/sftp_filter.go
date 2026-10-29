@@ -117,20 +117,19 @@ func (state *State) clickSFTPFilter(view *sftpView, id ui.ID) bool {
 	return false
 }
 
-func (state *State) paintSFTPHeaderMenu(canvas *ui.Canvas, viewport ui.Size, anchor ui.Rect, folder *sftpFolder) {
+func (state *State) paintSFTPHeaderMenu(canvas *ui.Canvas, viewport ui.Size, anchor ui.Rect, folder *sftpFolder, view *sftpView) {
 	if anchor.Width == 0 || anchor.Height == 0 {
 		return
 	}
-	const (
-		menuWidth  = float32(224)
-		menuHeight = float32(5*32 + 17)
-	)
+	const menuWidth = float32(280)
+	menuHeight := float32((8+len(folder.history.recent))*32 + 26)
 	bounds := state.popupBelow(canvas, anchor, menuWidth, menuHeight, flex.End)
 	menu := components.BeginDropdownMenu(canvas, state.Theme(), bounds, components.DropdownMenuOptions{
 		Layer: dialogLayer, Scope: dialogScope, DismissID: hitSFTPHeaderMenuDismiss,
 		Viewport: ui.Rect{Width: viewport.Width, Height: viewport.Height}, Scroll: state.menuScrollFor(hitSFTPHeaderMenuDismiss),
 	})
 	state.menuPlaced(menu.Bounds())
+	state.paintSFTPHistoryMenu(&menu, view, view.local, hitSFTPHistoryBack, hitSFTPHistoryForward, sftpRecentHits)
 	menu.AddItem(components.DropdownMenuItem{
 		ID: hitSFTPHeaderFilter, Label: state.messages.Tools.FilesFilterLabel, Icon: lucideIcons[iconSearch],
 		Selected: folder.filterOpen || folder.filterInputEditor().String() != "",

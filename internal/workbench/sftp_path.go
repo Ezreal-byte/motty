@@ -116,9 +116,13 @@ func (state *State) sftpPathKey(event ui.KeyEvent) (ui.EventResult, bool) {
 		}
 	case ui.KeyEscape:
 		if !event.Repeat && !composing {
+			if view.local && folder.navigation.id != 0 {
+				state.cancelSFTPLocalNavigation(view)
+			}
 			if view.busy && view.pathRequest != "" {
 				// Escape cancels the navigation it started, not just the text.
-				view.abandonedPath, view.pathRequest = view.pathRequest, ""
+				view.abandonedPath = view.pathRequest
+				state.cancelSFTPNavigation(view)
 			}
 			folder.resetPathInput()
 			if !state.sftpPathInput {
@@ -165,7 +169,7 @@ func (state *State) submitSFTPPath(view *sftpView) {
 		if destination == folder.path {
 			folder.resetPathInput()
 		}
-		if err := state.listLocal(view, destination); err != nil {
+		if err := state.navigateLocalDirectory(view, destination); err != nil {
 			if view.detached != nil {
 				view.detached.pendingLocal = ""
 			}
@@ -192,8 +196,9 @@ func (state *State) submitSFTPPath(view *sftpView) {
 	// Manual entry validates the directory on the server, even if an older
 	// listing is cached. A removed cached folder must not appear to open.
 	view.pathRequest = destination
+	nav := state.beginSFTPNavigation(view, false, destination, sftpNavigationManual, 0)
 	state.requestTerminalDirectory(view, destination)
-	state.listSFTP(view, destination)
+	state.queueSFTPListing(view, destination, nav)
 	if !view.busy {
 		view.pathRequest = ""
 		view.terminalPath = ""

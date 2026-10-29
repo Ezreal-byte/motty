@@ -1889,6 +1889,10 @@ func (state *State) Key(event ui.KeyEvent) (outcome ui.EventResult) {
 		state.ActivatePane(session.ID)
 		mount, _ = tree.MountOf(event.Target.Scope())
 		event.Target = local
+	} else if event.Target.IsZero() && state.popups.owner == hitSFTPHeaderMenuDismiss {
+		// Opening an embedded menu can temporarily leave its focus trap empty.
+		// Its first keyboard-selected row still belongs to the file panel.
+		mount = contextMount
 	}
 	result := state.key(event)
 	result.Focus = tree.MountID(mount, result.Focus)

@@ -577,6 +577,12 @@ func (w *sftpWindow) key(event ui.KeyEvent) ui.EventResult {
 				if event.Target == id {
 					folder := w.folder(side == 0)
 					if _, composing := folder.pathInput().Composition(); !composing && !event.Repeat {
+						if side == 0 && folder.navigation.id != 0 {
+							w.owner.cancelSFTPLocalNavigation(w.view)
+						}
+						if side == 1 && w.view.pathRequest != "" {
+							w.owner.cancelSFTPNavigation(w.view)
+						}
 						folder.resetPathInput()
 					}
 				}
@@ -608,6 +614,16 @@ func (w *sftpWindow) key(event ui.KeyEvent) ui.EventResult {
 	}
 	if w.closeConfirm || w.externalConflict != 0 || w.view.dialog != sftpDialogNone {
 		return ui.EventResult{}
+	}
+	if delta, ok := sftpHistoryChord(event); ok {
+		isText := false
+		for side := range 2 {
+			isText = isText || event.Target == sftpWindowPath[side] || event.Target == sftpWindowFilter[side]
+		}
+		if local, fileControl := w.targetSide(event.Target); fileControl && !isText {
+			w.owner.navigateSFTPHistory(w.view, local, delta)
+			return handled
+		}
 	}
 	for _, id := range sftpWindowFilter {
 		if event.Target == id {

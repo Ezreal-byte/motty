@@ -41,7 +41,16 @@ func TestNewSymbolicLinkIsCreatedListedAndOpensLikeAFolder(t *testing.T) {
 	typeLinkField(t, state, hitSFTPDialogField, "shortcut")
 	state.Click(hitSFTPDialogSubmit)
 	waitSFTP(t, state, session, func(view *sftpView) bool {
-		return !view.busy && view.dialog == sftpDialogNone && len(view.rows) == 3
+		if view.busy || view.dialog != sftpDialogNone || len(view.rows) != 3 {
+			return false
+		}
+		// Link metadata arrives in a follow-up after the initial directory rows.
+		for _, row := range view.rows {
+			if row.entry.Name == "shortcut" {
+				return row.entry.IsLink() && row.entry.IsDir() && row.entry.LinkTarget == "docs"
+			}
+		}
+		return false
 	})
 	remote.mu.Lock()
 	target := remote.links["/home/test/shortcut"]

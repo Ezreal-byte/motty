@@ -144,7 +144,10 @@ const maxLinkLookups = 200
 
 // Result is the immutable completion of one worker request.
 type Result struct {
-	Data []byte // immutable bounded bytes for independent document windows
+	// ListID echoes the caller's opaque listing token, including deferred links.
+	// Legacy List/Prefetch calls use zero; transfer task identity is independent.
+	ListID uint64
+	Data   []byte // immutable bounded bytes for independent document windows
 	// Background marks the result of Prefetch: a listing the caller asked for in
 	// advance. It is the caller's to cache, not to show as the outcome of an
 	// action, and its failure is not worth reporting.
@@ -180,6 +183,7 @@ type Result struct {
 // goroutine. entries is a clone: the first result may be read by the caller
 // while this mutates the clone.
 type linkJob struct {
+	listID      uint64
 	client      Remote
 	directory   string
 	entries     []Entry
@@ -189,6 +193,7 @@ type linkJob struct {
 }
 
 type request struct {
+	listID      uint64
 	data        []byte
 	id          uint64
 	background  bool // a listing nobody is waiting on: its Result says so
@@ -323,14 +328,22 @@ func NewWorker(open func() (Remote, error), notify func()) *Worker {
 var liveWorkers = leaks.New("sftp workers")
 
 func (worker *Worker) List(remotePath string) bool {
-	return worker.enqueue(request{operation: OperationList, remote: remotePath})
+	return worker.ListWithID(remotePath, 0)
+}
+
+func (worker *Worker) ListWithID(remotePath string, id uint64) bool {
+	return worker.enqueue(request{operation: OperationList, remote: remotePath, listID: id})
 }
 
 // Prefetch lists a directory ahead of need, for a caller that keeps what it
 // learns: it runs in the same order as every other request and its Result is
 // marked Background.
 func (worker *Worker) Prefetch(remotePath string) bool {
-	return worker.enqueue(request{operation: OperationList, remote: remotePath, background: true})
+	return worker.PrefetchWithID(remotePath, 0)
+}
+
+func (worker *Worker) PrefetchWithID(remotePath string, id uint64) bool {
+	return worker.enqueue(request{operation: OperationList, remote: remotePath, background: true, listID: id})
 }
 
 // Download preserves the original single-file API. It still stages and
@@ -911,6 +924,7 @@ func (worker *Worker) setProgress(id uint64, files int, bytes, resumed int64) {
 
 func (worker *Worker) execute(next request) Result {
 	result := Result{
+		ListID:     next.listID,
 		Background: next.background,
 		Operation:  next.operation, TransferID: next.id, Path: next.remote,
 		LocalPath: next.local, Destination: next.destination, Mode: next.mode,
@@ -929,6 +943,7 @@ func (worker *Worker) execute(next request) Result {
 			if _, ok := client.(remoteLinks); ok {
 				result.LinksPending = true
 				result.links = &linkJob{
+					listID: next.listID,
 					client: client, directory: result.Path, entries: slices.Clone(result.Entries),
 					generation: generation, background: next.background, approximate: result.Approximate,
 				}
@@ -1045,6 +1060,7 @@ func (worker *Worker) resolveLinks(job linkJob) {
 		return
 	}
 	worker.publish(Result{
+		ListID:     job.listID,
 		Background: job.background, Operation: OperationList, Path: job.directory,
 		Entries: job.entries, Approximate: job.approximate, FollowUp: true,
 	})

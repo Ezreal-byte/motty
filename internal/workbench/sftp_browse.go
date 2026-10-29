@@ -100,23 +100,22 @@ func (w *sftpWindow) stopBrowseCounterpart() {
 		return
 	}
 	if request.side == 0 {
-		w.view.localSeq++
-		w.pendingLocal = ""
-		w.owner.retireLocalListingStatus(w.view)
+		w.owner.cancelSFTPLocalNavigation(w.view)
 		return
 	}
 	directory := request.paths[1]
-	w.view.pathRequest = ""
-	if w.view.preparingPath == directory {
-		w.view.remoteSeq++
-		w.view.preparingPath, w.view.followUpPath, w.view.followUpEntries = "", "", nil
-		w.view.busy = false
-	} else if w.view.busy {
-		w.view.abandonedPath = directory
+	preparing := w.view.preparingPath == directory
+	w.owner.cancelSFTPNavigation(w.view)
+	if !preparing {
+		w.view.abandonedPath, w.view.busy = directory, true
 	}
 }
 
 func (w *sftpWindow) startBrowseNavigation(local bool, destination string) {
+	w.startBrowseNavigationHistory(local, destination, sftpNavigationManual, 0)
+}
+
+func (w *sftpWindow) startBrowseNavigationHistory(local bool, destination string, kind sftpNavigationKind, index int) {
 	if w.browse.enabled {
 		counterpart, ok := browseCounterpart(local, w.browse.roots, destination)
 		if !ok {
@@ -128,13 +127,17 @@ func (w *sftpWindow) startBrowseNavigation(local bool, destination string) {
 			w.browse.pending = request
 		}
 	}
-	w.readBrowseDirectory(local, destination)
+	w.readBrowseDirectoryHistory(local, destination, kind, index)
 }
 
 func (w *sftpWindow) readBrowseDirectory(local bool, destination string) {
+	w.readBrowseDirectoryHistory(local, destination, sftpNavigationManual, 0)
+}
+
+func (w *sftpWindow) readBrowseDirectoryHistory(local bool, destination string, kind sftpNavigationKind, index int) {
 	if local {
 		w.pendingLocal = destination
-		if err := w.owner.listLocal(w.view, destination); err != nil {
+		if err := w.owner.listLocalNavigation(w.view, destination, kind, index); err != nil {
 			w.pendingLocal = ""
 			if !w.browseListingFailed(true, destination, err) {
 				w.view.errorText = ""
@@ -145,12 +148,13 @@ func (w *sftpWindow) readBrowseDirectory(local bool, destination string) {
 	}
 	fresh := w.browse.pending != nil || w.view.pathRequest == destination
 	w.view.pathRequest = destination
+	nav := w.owner.beginSFTPNavigation(w.view, false, destination, kind, index)
 	if fresh {
 		// A cached directory is optimistic UI, not proof that a paired folder
 		// still exists. Confirm both ends before enabling a saved pair.
-		w.owner.listSFTP(w.view, destination)
+		w.owner.queueSFTPListing(w.view, destination, nav)
 	} else {
-		w.owner.openSFTPDirectory(w.view, destination)
+		w.owner.openSFTPDirectoryNavigation(w.view, destination, nav)
 	}
 	if !w.view.busy {
 		w.view.pathRequest = ""
@@ -190,6 +194,16 @@ func (w *sftpWindow) browseListingFailed(local bool, directory string, err error
 	m := w.owner.messages.SFTPWindow
 	w.notices.showPathReason(m.BrowseSync, m.BrowseFailedFmt, directory, err.Error(), components.ToastError)
 	return true
+}
+
+func (w *sftpWindow) cancelBrowseNavigation(local bool, directory string) {
+	request := w.browse.pending
+	if request == nil || request.side != sideIndex(local) || request.paths[request.side] != directory {
+		return
+	}
+	// The retired listing cannot finish the pair; its two locations no longer
+	// confirm synchronization, even when opening a profile with sync disabled.
+	w.browse.pending, w.browse.enabled = nil, false
 }
 
 func (w *sftpWindow) openPairedBookmark(bookmark sftpBookmark) {

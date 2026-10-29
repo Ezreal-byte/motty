@@ -165,6 +165,12 @@ func TestWSLScriptFallsBackToAPlainLoginShellForOtherShells(t *testing.T) {
 	shell.Write([]byte("echo plain-shell-$((6*7))\n"))
 	until(t, shell, wakes, "plain-shell-42")
 	shell.Write([]byte("exit 0\n"))
+	// Close is asynchronous; let the child leave before TempDir removes its home.
+	select {
+	case <-shell.Done():
+	case <-time.After(5 * time.Second):
+		t.Fatal("the plain login shell did not exit")
+	}
 }
 
 func TestWSLCommandLineFallsBackToTheUsersShellWhenItCannotBeDecoded(t *testing.T) {

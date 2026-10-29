@@ -124,6 +124,9 @@ type Session struct {
 	questions []sshconn.Question
 	identity  string
 	files     *sftpView
+
+	// Idle pane history lives with this session, not its worker.
+	fileHistory [2]sftpSavedHistory
 	// pastingImage is set while a pasted image is on its way to the server.
 	pastingImage bool
 	// relay is where this session's background goroutines report progress. It
