@@ -473,6 +473,7 @@ type Messages struct {
 	PasswordHintUnsaved            string
 	PasswordHintNoStore            string
 	PasswordRetry                  string
+	PasswordRetryFactor            string
 	StatusConnectedFmt             string
 	StatusConnectFailed            string
 	ClipboardRequestTitle          string

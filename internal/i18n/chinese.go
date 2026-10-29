@@ -449,6 +449,7 @@ var ChineseMessages = Messages{
 	PasswordHintUnsaved:   "按回车提交。",
 	PasswordHintNoStore:   "按回车提交。要保存密码,请先在设置中设置主密码。",
 	PasswordRetry:         "密码错误,请重试。",
+	PasswordRetryFactor:   "认证未通过，请检查本次输入后重试。",
 	StatusConnectedFmt:    "已连接 · ",
 	StatusConnectFailed:   "连接失败 · ",
 

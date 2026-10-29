@@ -31,16 +31,24 @@ func (state *State) preparePassword(session *Session) {
 	state.passwordBoxes = make([]flex.Box, len(questions))
 	state.passwordError = ""
 	state.offerToSave()
-	if passwordQuestionIndex(questions) < 0 {
+	passwordIndex := passwordQuestionIndex(questions)
+	if passwordIndex < 0 {
 		// Nothing here is the account password, so there is nothing worth
 		// saving under the password's name.
 		state.secrets.canSave = false
 	}
-	if session.attempt > 1 {
+	switch {
+	case session.attempt > 1 && passwordIndex >= 0 && otpQuestionIndex(questions) < 0:
+		// Only a round that asks for the password alone can blame it. A round
+		// that still carries a one-time code may have refused either factor.
 		state.passwordError = state.messages.PasswordRetry
 		if state.forgetRefusedSecret(session, passwordSecretName(session.endpoint)) {
 			state.passwordError = state.messages.PasswordSavedRefused
 		}
+	case session.attempt > 1 && passwordIndex >= 0:
+		// A round that only asks for a later factor keeps the dialog quiet: the
+		// server moved on, and the password was not what it refused.
+		state.passwordError = state.messages.PasswordRetryFactor
 	}
 	state.passwordDescription = passwordDialogAddress(state, session)
 	state.prefillPasswordAnswers(session)

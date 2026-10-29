@@ -2012,31 +2012,15 @@ func (state *State) paintPasswordDialog(canvas *ui.Canvas, viewport ui.Rect) {
 	})
 	layout := dialog.Begin(m.PasswordTitle, state.passwordDescription)
 	fields, save := state.layoutPasswordFields(canvas, layout.Body)
-	hint := m.PasswordHint
-	switch {
-	case state.secrets.canSave:
-	case state.secrets.needsMaster:
-		hint = m.PasswordHintNoStore
-	default:
-		hint = m.PasswordHintUnsaved
-	}
-	if len(state.passwordQuestions) > 1 {
-		// One hint under every field would run into the label below it; the
-		// labels and the buttons are enough to explain a multi-field round.
-		hint = ""
-	}
+	hint := state.passwordHintText()
 	for index, bounds := range fields {
 		question := state.passwordQuestions[index]
 		label := strings.TrimSpace(question.Text)
 		if label == "" {
 			label = m.PasswordLabel
 		}
-		fieldHint := hint
-		if state.secrets.canSave {
-			fieldHint = "" // the save box carries it as a help icon
-		}
 		field := components.BeginField(canvas, theme, bounds)
-		content := field.Paint(label, fieldHint, "")
+		content := field.Paint(label, "", "")
 		value := state.passwordFields[index].String()
 		id := hitPasswordFields.At(index + 1)
 		focused := canvas.Focused() == id
@@ -2060,10 +2044,13 @@ func (state *State) paintPasswordDialog(canvas *ui.Canvas, viewport ui.Rect) {
 func (state *State) passwordBodyHeight() float32 {
 	count := max(len(state.passwordQuestions), 1)
 	if count == 1 {
-		// One field is 62 high plus its 4px bottom margin. The error line, when
-		// present, and the save box follow directly; no large fixed gap is
-		// reserved for an error that may never appear.
+		// One field is 62 high plus its 4px bottom margin. The hint line under
+		// it, the error line, when present, and the save box follow directly;
+		// no large fixed gap is reserved for an error that may never appear.
 		height := float32(66)
+		if !state.secrets.canSave && state.passwordHintText() != "" {
+			height += 18
+		}
 		if state.passwordError != "" {
 			height += 18
 		}
@@ -2101,6 +2088,7 @@ func (state *State) layoutPasswordFields(canvas *ui.Canvas, body ui.Rect) (field
 		for index := range boxes {
 			boxes[index] = f.Slot().Height(62).MarginSides(0, 0, 4, 0)
 		}
+		state.hintLine(f)
 		state.problemLine(f, state.passwordError)
 		if state.secrets.canSave {
 			if multi {
@@ -2118,6 +2106,36 @@ func (state *State) layoutPasswordFields(canvas *ui.Canvas, body ui.Rect) (field
 		save = saveBox.Rect()
 	}
 	return fields, save
+}
+
+// passwordHintText is the guidance about submitting and saving: a help icon on
+// the save box when it can save, otherwise a line under the field. A
+// multi-field round shows none; its labels and buttons are explanation enough.
+func (state *State) passwordHintText() string {
+	hint := state.messages.PasswordHint
+	switch {
+	case state.secrets.canSave:
+	case state.secrets.needsMaster:
+		hint = state.messages.PasswordHintNoStore
+	default:
+		hint = state.messages.PasswordHintUnsaved
+	}
+	if len(state.passwordQuestions) > 1 {
+		hint = ""
+	}
+	return hint
+}
+
+// hintLine declares the hint row under the fields. The field's description
+// slot would draw past its fixed 62 pixel slot onto the error line, so the
+// hint is a row of its own.
+func (state *State) hintLine(f *flex.Frame) {
+	if state.secrets.canSave {
+		return
+	}
+	if hint := state.passwordHintText(); hint != "" {
+		f.Text(hint).FontSize(metrics.FontSizeS).Weight(ui.WeightRegular).Color(state.pal.muted).LineHeight(18)
+	}
 }
 
 func (state *State) paintKeyPassphraseDialog(canvas *ui.Canvas, viewport ui.Rect) {

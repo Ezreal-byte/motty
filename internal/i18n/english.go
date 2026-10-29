@@ -449,6 +449,7 @@ var EnglishMessages = Messages{
 	PasswordHintUnsaved:   "Enter submits.",
 	PasswordHintNoStore:   "Enter submits. To save passwords, set a master password in Settings.",
 	PasswordRetry:         "Permission denied. Try again.",
+	PasswordRetryFactor:   "Authentication did not succeed. Check what you entered and try again.",
 	StatusConnectedFmt:    "Connected · ",
 	StatusConnectFailed:   "Connection failed · ",
 

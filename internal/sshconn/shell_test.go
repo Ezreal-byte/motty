@@ -106,6 +106,32 @@ func passwordServer(t *testing.T, shell func(*fakeShell)) *testServer {
 	})
 }
 
+// A restricted gateway ends the connection when it is asked for a second
+// channel, so neither the system probe nor the shell-integration probe may
+// run on one.
+func TestARestrictedGatewayIsAskedForNoChannelBeyondItsShell(t *testing.T) {
+	for _, banner := range []string{"SSH-2.0-BHostSSH_7.0", "SSH-2.0-SSHD_0.7.6"} {
+		t.Run(banner, func(t *testing.T) {
+			server := startServer(t, func(server *testServer) {
+				server.password = "secret"
+				server.version = banner
+				server.oneChannel = true
+				server.shell = echoShell
+			})
+			h := connect(t, server)
+			w := openShellWith(t, h, ShellConfig{Cols: 80, Rows: 24, IntegrateShell: true, IntegrationToken: "integration"})
+			w.until("the greeting", func(output string) bool { return strings.Contains(output, "welcome\r\n$ ") })
+			if system := h.conn.Status().System; system != SystemUnknown {
+				t.Fatalf("the gateway was probed for its system anyway: %v", system)
+			}
+			if !w.shell.Write([]byte("exit\r")) {
+				t.Fatal("writing to the shell failed")
+			}
+			w.waitDone()
+		})
+	}
+}
+
 func TestShellRunsOnAPtyAndCarriesDataBothWays(t *testing.T) {
 	server := passwordServer(t, echoShell)
 	h := connect(t, server)

@@ -29,6 +29,7 @@ func TestIntegrationRealSSHPTYTracksCD(t *testing.T) {
 	}
 	server := startServer(t, func(server *testServer) {
 		server.password, server.shell = "secret", echoShell
+		server.version = "SSH-2.0-OpenSSH_9.6" // probes run only on known implementations
 		server.command = func(command string, channel ssh.Channel) {
 			defer channel.Close()
 			if command == shellIntegrationProbe {

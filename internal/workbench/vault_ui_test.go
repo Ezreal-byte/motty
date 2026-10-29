@@ -172,6 +172,32 @@ func TestASavedPasswordTheServerRefusesIsForgottenAndTheUserIsAsked(t *testing.T
 	}
 }
 
+func TestASecondFactorRoundKeepsTheSavedPasswordAndReportsNoError(t *testing.T) {
+	world, options := newWorld(t)
+	state := newTestState(t, options)
+	signInSavingThePassword(t, state, world, "hunter2")
+
+	state.Click(hitHosts)
+	second := connect(t, state, world)
+	askForPassword(state, second, 1)
+	if len(second.passwords) != 1 || second.passwords[0] != "hunter2" {
+		t.Fatalf("the saved password was not tried: %v", second.passwords)
+	}
+	// The password was accepted; the server moved on to its second factor.
+	second.set(func(s *sshconn.Status) {
+		s.Phase, s.Attempt = sshconn.PhasePasswordPrompt, 2
+		s.Questions = []sshconn.Question{{Text: "Please enter the MFA verification code: ", Secret: true}}
+		s.Endpoint = sshconn.Endpoint{Host: "prod.example.com", Port: 22, User: "deploy"}
+	})
+	state.Wake()
+	if state.modal != modalPassword || state.passwordError != "" {
+		t.Fatalf("modal %d, error %q; the second factor was mistaken for a refused password", state.modal, state.passwordError)
+	}
+	if got, found, _ := state.secrets.vault.Get(prodPasswordName); !found || got != "hunter2" {
+		t.Fatalf("the saved password did not survive the second-factor round: %q, %v", got, found)
+	}
+}
+
 func TestAKeyPassphraseCanBeSavedAndAnswersTheNextQuestion(t *testing.T) {
 	world, options := newWorld(t)
 	state := newTestState(t, options)

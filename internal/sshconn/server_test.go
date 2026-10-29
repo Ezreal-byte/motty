@@ -28,10 +28,14 @@ type testServer struct {
 	question string // accepted keyboard-interactive question; empty disables it
 	// questions asks a whole keyboard-interactive round instead of question;
 	// answers, when set, are the replies it accepts, in order.
-	questions   []string
-	answers     []string
-	authorized  []ssh.PublicKey
-	banner      string
+	questions  []string
+	answers    []string
+	authorized []ssh.PublicKey
+	banner     string
+	version    string // identification string; empty keeps SSH-2.0-GopTest
+	// oneChannel ends the connection when a second channel is opened, the way
+	// a restricted gateway does.
+	oneChannel  bool
 	port        uint16 // fixed port to listen on; zero picks one
 	direct      string // exact direct-tcpip destination; empty refuses forwarding
 	exec        func(string) (string, uint32)
@@ -90,7 +94,11 @@ func startServer(t *testing.T, configure func(*testServer)) *testServer {
 		t.Fatal(err)
 	}
 	server.listener = listener
-	config := &ssh.ServerConfig{ServerVersion: "SSH-2.0-GopTest"}
+	version := server.version
+	if version == "" {
+		version = "SSH-2.0-GopTest"
+	}
+	config := &ssh.ServerConfig{ServerVersion: version}
 	if server.algorithms != nil {
 		config.Config = *server.algorithms
 	}
@@ -189,7 +197,13 @@ func startServer(t *testing.T, configure func(*testServer)) *testServer {
 					go ssh.DiscardRequests(requests)
 				}
 				go func() {
+					opened := 0
 					for newChannel := range channels {
+						opened++
+						if server.oneChannel && opened > 1 {
+							serverConn.Close()
+							return
+						}
 						switch newChannel.ChannelType() {
 						case "session":
 							if server.shell == nil && server.exec == nil && server.command == nil {
