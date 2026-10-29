@@ -155,7 +155,7 @@ func TestSFTPWindowToolbarAndNativeFileActions(t *testing.T) {
 	w.session.host.CatalogID = "dual-window-host"
 	w.click(hitSFTPBookmarkToggle)
 	// The directory star saves only this server path, independently of profiles.
-	if !state.bookmarked(&w.session, w.view.path) {
+	if !w.placeBrowser().directoryFavorite(false) {
 		t.Fatal("bookmark not added")
 	}
 	w.navigate(false, "/home/test/docs")

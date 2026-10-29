@@ -64,50 +64,6 @@ type sftpBookmark struct {
 	shared      bool
 }
 
-// bookmarksFor lists the bookmarked folders of the session's host, in the order
-// they were added.
-func (state *State) bookmarksFor(session *Session) []string {
-	var paths []string
-	for _, bookmark := range state.sftpBookmarks {
-		if bookmark.host == session.host.CatalogID && bookmark.local == "" {
-			paths = append(paths, bookmark.path)
-		}
-	}
-	return paths
-}
-
-func (state *State) bookmarked(session *Session, folder string) bool {
-	return slices.Contains(state.bookmarksFor(session), folder)
-}
-
-// toggleBookmark bookmarks the folder on screen, or removes the bookmark.
-func (state *State) toggleBookmark(session *Session, view *sftpView) {
-	folder := path.Clean(view.path)
-	if folder == "." || session.host.CatalogID == "" {
-		return
-	}
-	if state.removeBookmark(session, folder) {
-		state.save()
-		return
-	}
-	if state.bookmarkScopeSize(session.host.CatalogID, false) >= maxBookmarksPerHost || len(state.sftpBookmarks) >= maxBookmarks {
-		view.errorText = fmt.Sprintf(state.messages.Tools.BookmarkLimitFmt, maxBookmarksPerHost)
-		return
-	}
-	state.sftpBookmarks = append(state.sftpBookmarks, sftpBookmark{host: session.host.CatalogID, path: folder})
-	state.save()
-}
-
-func (state *State) removeBookmark(session *Session, folder string) bool {
-	for index, bookmark := range state.sftpBookmarks {
-		if bookmark.host == session.host.CatalogID && bookmark.path == folder && bookmark.local == "" {
-			state.sftpBookmarks = slices.Delete(state.sftpBookmarks, index, index+1)
-			return true
-		}
-	}
-	return false
-}
-
 // clickSFTPExtra handles the presses this file adds to the panel.
 func (state *State) clickSFTPExtra(session *Session, view *sftpView, id ui.ID) bool {
 	switch {

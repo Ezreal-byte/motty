@@ -227,8 +227,8 @@ func TestSFTPBrowsePathInputUsesTheSamePairAndBookmarkValidationKeepsTheDraft(t 
 	if len(marks) != 1 || marks[0].local != "" {
 		t.Fatal("remote-only bookmark kept paired browsing")
 	}
-	if len(state.bookmarksFor(&w.session)) != 1 {
-		t.Fatal("remote-only bookmark is not compatible with the docked panel")
+	if len(w.placeBrowser().directoryFavorites()) != 0 {
+		t.Fatal("a named profile leaked into the directory favorites")
 	}
 }
 
