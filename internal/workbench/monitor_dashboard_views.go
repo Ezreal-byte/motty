@@ -85,7 +85,7 @@ func (s *State) paintDashboardHeading(c *ui.Canvas, p *monitoring.Panel, h Host,
 		}
 	}
 	if h.ID != 0 {
-		s.paintIconButton(c, hitDashboardTerminalList.At(int(h.ID)), iconTerminal, ui.Rect{X: b.X + b.Width - 38, Y: y + 5, Width: 32, Height: 32}, s.messages.Dashboard.Terminal, false, iconButtonQuiet, pal.workspace)
+		components.BeginButton(c, s.Theme(), hitDashboardTerminalList.At(int(h.ID)), ui.Rect{X: b.X + b.Width - 38, Y: y + 5, Width: 32}).WithIcon(lucideIcons[iconTerminal]).Icon().Ghost(s.messages.Dashboard.Terminal)
 	}
 	return header
 }
@@ -115,34 +115,14 @@ func (s *State) paintDashboardSimpleHead(c *ui.Canvas, b ui.Rect) {
 }
 func (s *State) paintDashboardSimpleTabs(c *ui.Canvas, h Host, r *dashboardRow, b ui.Rect) {
 	options := s.dashboardViewOptions(h.ID, true)
-	roving := options[r.simplePage].ID
-	for _, option := range options {
-		if c.FocusVisible() == option.ID {
-			roving = option.ID
-		}
+	for i := range options {
+		options[i].IconOnly = true
 	}
-	c.Rounded(b, 7, withAlpha(s.pal.surfaceSoft, .12))
-	for i, option := range options {
-		box := ui.Rect{X: b.X + 3, Y: b.Y + 3 + float32(i)*28, Width: b.Width - 6, Height: 26}
-		selected := i == r.simplePage
-		fg := s.pal.muted
-		if selected {
-			c.RoundedBorder(box, 5, 1, withAlpha(s.pal.accent, .24), withAlpha(s.pal.accent, .12))
-			fg = s.pal.text
-		}
-		if c.Hovered() == option.ID || c.Pressed() == option.ID {
-			c.Rounded(box, 5, withAlpha(s.pal.surfaceHot, .32))
-			fg = s.pal.text
-		}
-		if c.FocusVisible() == option.ID {
-			c.RoundedBorder(ui.Rect{X: box.X - 1, Y: box.Y - 1, Width: box.Width + 2, Height: box.Height + 2}, 6, 1, withAlpha(s.pal.accent, .6), ui.Color{})
-		}
-		if option.Disabled {
-			fg.Alpha *= .4
-		}
-		c.DrawIcon(option.Icon, ui.Rect{X: box.X + (box.Width-16)/2, Y: box.Y + 5, Width: 16, Height: 16}, fg)
-		c.HitWithOptions(option.ID, box, option.Label, ui.HitOptions{Role: ui.RoleTab, Selected: selected, Disabled: option.Disabled, SkipTab: option.ID != roving, Hint: option.Label})
-	}
+	theme := s.Theme()
+	theme.Muted = withAlpha(s.pal.surfaceSoft, .12)
+	theme.Background = withAlpha(s.pal.accent, .12)
+	theme.Input = withAlpha(s.pal.accent, .24)
+	components.BeginTabs(c, theme, b, options[:], options[r.simplePage].ID).Vertical().Paint()
 }
 
 func dashboardDeviceColumns(x, w float32) [7]float32 {

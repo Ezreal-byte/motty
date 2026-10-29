@@ -47,6 +47,9 @@ func (s *State) dashboardArea() components.ScrollArea {
 }
 func (s *State) dashboardScroll(e ui.ScrollEvent) ui.EventResult {
 	d := &s.dashboard
+	if s.modal == modalDashboardAdd {
+		return ui.EventResult{}
+	}
 	if s.modal == modalDashboard {
 		if pointInRect(e.X, e.Y, d.editor.bounds) {
 			before := d.editor.scroll
@@ -65,10 +68,30 @@ func (s *State) dashboardScroll(e ui.ScrollEvent) ui.EventResult {
 	return ui.EventResult{Handled: true, Repaint: before != d.scroll || x != d.scrollX}
 }
 func (s *State) dashboardKey(e ui.KeyEvent) ui.EventResult {
+	if s.modal == modalDashboardAdd {
+		if e.Key == ui.KeyEscape && !e.Release {
+			s.closeModal()
+			return ui.EventResult{Handled: true, Repaint: true}
+		}
+		return ui.EventResult{}
+	}
 	if e.Release {
 		return ui.EventResult{}
 	}
 	if s.modal == modalDashboard {
+		if s.dashboard.editor.page == 1 {
+			move, result := s.dashboard.editor.order.Key(e)
+			if result.Handled {
+				s.moveDashboardHost(move)
+				return result
+			}
+		}
+		if e.Target == hitDashboardPickTab || e.Target == hitDashboardOrderTab {
+			options := s.dashboardEditorTabs()
+			if next, ok := components.TabsKeyDown(e.Target, options[:], components.TabsHorizontal, components.DirectionLTR, e.Key); ok {
+				return ui.EventResult{Handled: true, Repaint: true, Focus: next, FocusVisible: true}
+			}
+		}
 		if e.Target == hitDashboardHostScroll {
 			editor := &s.dashboard.editor
 			area := components.BeginScrollArea(nil, s.Theme(), editor.bounds, ui.Size{Width: editor.bounds.Width, Height: editor.content})
@@ -145,6 +168,13 @@ func (s *State) dashboardPointer(e ui.PointerEvent) (ui.EventResult, bool) {
 	d := &s.dashboard
 	if s.modal == modalDashboard {
 		editor := &d.editor
+		if editor.page == 1 {
+			move, result := editor.order.Pointer(e)
+			if result.Handled {
+				s.moveDashboardHost(move)
+				return result, true
+			}
+		}
 		area := components.BeginScrollArea(nil, s.Theme(), editor.bounds, ui.Size{Width: editor.bounds.Width, Height: editor.content}).Offset(0, editor.scroll)
 		if e.Kind == ui.PointerDown && e.Target == hitDashboardHostThumb {
 			d.dragging = true

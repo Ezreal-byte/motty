@@ -10,6 +10,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/vivaui/viva/components"
 	"github.com/vivaui/viva/text"
 	"github.com/vivaui/viva/ui"
 	"motty/internal/monitoring"
@@ -61,6 +62,9 @@ type dashboardEditor struct {
 	error             string
 	scroll, content   float32
 	bounds            ui.Rect
+	fromHosts         bool
+	page              int
+	order             components.ReorderListState
 }
 type dashboardState struct {
 	panels          []monitoring.Panel
@@ -72,7 +76,8 @@ type dashboardState struct {
 	search          text.Editor
 	editor          dashboardEditor
 	menu            int
-	anchor, body    ui.Rect
+	selectBounds    [3]ui.Rect
+	body            ui.Rect
 	scroll, content float32
 	width           int
 	refresh         monitorView
@@ -80,6 +85,8 @@ type dashboardState struct {
 	dragging        bool
 	dragX           bool
 	grab            float32
+	addHosts        []string
+	addAnchor       ui.Rect
 }
 type dashboardSource struct {
 	session              Session
@@ -423,6 +430,9 @@ func (s *State) submitDashboard() {
 		d.panels[index] = p
 	}
 	d.active = p.ID
+	if e.fromHosts {
+		s.activeSection = sectionDashboard
+	}
 	d.search = text.Editor{}
 	d.scroll = 0
 	s.pruneDashboardRows(p.ID, p.Hosts)
@@ -472,8 +482,18 @@ func (s *State) dashboardEditorFor(hit ui.ID) *text.Editor {
 }
 func (s *State) clickDashboard(id ui.ID) bool {
 	d := &s.dashboard
+	if s.clickDashboardManagement(id) {
+		return true
+	}
 	if s.modal == modalDashboard {
 		switch {
+		case id == hitDashboardPickTab || id == hitDashboardOrderTab:
+			d.editor.order.Cancel()
+			d.editor.page = 0
+			if id == hitDashboardOrderTab {
+				d.editor.page = 1
+			}
+			d.editor.scroll = 0
 		case id.Scope() == hitDashboardMissingList:
 			if i := item(id); i < len(d.editor.selected) {
 				if _, ok := s.dashboardHost(d.editor.selected[i]); !ok {
@@ -543,6 +563,8 @@ func (s *State) clickDashboard(id ui.ID) bool {
 		}
 	case id == hitDashboardDismiss:
 		d.menu = 0
+	case id == hitDashboardSort:
+		s.openDashboardOrder()
 	case id == hitDashboardEdit:
 		d.menu = 0
 		s.openDashboardEditor(true)

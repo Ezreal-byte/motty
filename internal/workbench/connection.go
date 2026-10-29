@@ -383,6 +383,7 @@ const (
 	modalUpdate
 	modalUpdateProgress
 	modalDashboard
+	modalDashboardAdd
 	modalToolbarSettings
 	modalTerminalInput
 )
@@ -974,6 +975,12 @@ func (state *State) showNextPrompt() {
 func (state *State) closeModal() {
 	if state.modal == modalTerminalInput {
 		state.inputConfirmation = terminalInputConfirmation{}
+	}
+	if state.modal == modalDashboard {
+		state.dashboard.editor.order.Cancel()
+	}
+	if state.modal == modalDashboardAdd {
+		state.dashboard.addHosts = nil
 	}
 	if state.modal == modalToolbarSettings {
 		state.toolbarEditor.list.Cancel()

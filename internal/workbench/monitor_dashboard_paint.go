@@ -3,6 +3,7 @@ package workbench
 import (
 	"fmt"
 	"math"
+	"net"
 	"slices"
 	"strconv"
 	"strings"
@@ -141,39 +142,47 @@ func (s *State) paintDashboard(c *ui.Canvas, b ui.Rect) {
 	pal := s.pal
 	x, w := b.X+18, b.Width-36
 	y := b.Y + 14
-	titleW := max(float32(76), c.TextWidthWeight(m.Title, 24, ui.WeightSemibold)+4)
-	monitorLabel(c, m.Title, ui.Rect{X: x, Y: y, Width: titleW, Height: 40}, 24, pal.text, ui.WeightSemibold)
 	p := s.dashboardPanel()
+	theme := s.Theme()
+	if p == nil {
+		content := components.Empty(c, theme, b, components.EmptyData{Media: components.EmptyMediaIcon, Icon: icons.Activity, Title: m.Empty, Description: m.EmptyHint, ContentHeight: 36})
+		components.BeginButton(c, theme, hitDashboardNew, ui.Rect{}).WithIcon(icons.Plus).SizeToFit(m.Create).CenterIn(content).Default(m.Create)
+		return
+	}
 	compact := w < 720
 	buttonW := float32(112)
 	if compact {
 		buttonW = 36
 	}
-	newBox := ui.Rect{X: x + w - buttonW, Y: y, Width: buttonW, Height: 36}
-	if p != nil {
-		newBox.X -= buttonW + 12
+	newBox := ui.Rect{X: x + w - buttonW*2 - 12, Y: y, Width: buttonW, Height: 36}
+	panelW := min(float32(240), max(120, newBox.X-x-132))
+	d.selectBounds[0] = ui.Rect{X: x, Y: y, Width: panelW, Height: 36}
+	components.BeginButton(c, theme, hitDashboardEdit, ui.Rect{X: x + panelW + 8, Y: y + 2, Width: 32}).WithIcon(icons.Pencil).Icon().Ghost(m.Edit)
+	sortButton := components.BeginButton(c, theme, hitDashboardSort, ui.Rect{X: x + panelW + 44, Y: y + 2, Width: 32}).WithIcon(icons.ArrowUpDown).Icon()
+	if len(p.Hosts) < 2 {
+		sortButton = sortButton.Disabled()
 	}
-	s.paintToolbarButtonIn(c, hitDashboardNew, newBox, m.New, iconPlus, true, true, compact)
-	if p == nil {
-		monitorLabel(c, m.Empty, ui.Rect{X: x + 20, Y: y + 170, Width: w - 40, Height: 40}, 22, pal.text, ui.WeightSemibold)
-		monitorLabel(c, m.EmptyHint, ui.Rect{X: x + 20, Y: y + 215, Width: w - 40, Height: 50}, 14, pal.muted, ui.WeightRegular)
-		return
-	}
-	switchBox := ui.Rect{X: x + titleW + 8, Y: y, Width: min(218, max(120, newBox.X-x-106)), Height: 36}
-	components.BeginButton(c, s.Theme(), hitDashboardSwitch, switchBox).Secondary(p.Name + "  ⌄")
-	if d.menu == 1 {
-		d.anchor = switchBox
-	}
-	noteX := switchBox.X + switchBox.Width + 20
-	monitorLabel(c, p.Note, ui.Rect{X: noteX, Y: y, Width: max(0, newBox.X-noteX-16-dashboardStatusReserve(w)), Height: 36}, 13, pal.muted, ui.WeightRegular)
+	sortButton.Ghost(m.Sort)
+	components.BeginButton(c, theme, hitDashboardDelete, ui.Rect{X: x + panelW + 80, Y: y + 2, Width: 32}).WithIcon(icons.Trash2).Icon().Ghost(m.Delete)
+	actionTheme := theme
+	actionTheme.Metrics.ControlHeight = 36
+	newButton := components.BeginButton(c, actionTheme, hitDashboardNew, newBox).WithIcon(icons.Plus)
+	toggleBox := ui.Rect{X: x + w - buttonW, Y: y, Width: buttonW, Height: 36}
 	running := d.running[p.ID]
-	toggle := m.Start
-	ic := uint8(iconPlay)
+	toggle, toggleIcon := m.Start, icons.Play
 	if running {
-		toggle = m.Stop
-		ic = iconPause
+		toggle, toggleIcon = m.Stop, icons.Pause
 	}
-	s.paintToolbarButtonIn(c, hitDashboardToggle, ui.Rect{X: x + w - buttonW, Y: y, Width: buttonW, Height: 36}, toggle, ic, !running, true, compact)
+	toggleButton := components.BeginButton(c, actionTheme, hitDashboardToggle, toggleBox).WithIcon(toggleIcon)
+	if compact {
+		newButton, toggleButton = newButton.Icon(), toggleButton.Icon()
+	}
+	newButton.Default(m.New)
+	if running {
+		toggleButton.Outline(toggle)
+	} else {
+		toggleButton.Default(toggle)
+	}
 	y += 58
 	controlH := float32(42)
 	if w < 860 {
@@ -202,16 +211,8 @@ func (s *State) paintDashboard(c *ui.Canvas, b ui.Rect) {
 	}
 	searchBox := ui.Rect{X: x + 152, Y: y, Width: searchW, Height: 34}
 	components.PaintInputGroup(c, s.Theme(), searchBox, components.InputGroupSnapshot{ID: hitDashboardSearch, Label: m.Search, Placeholder: m.Search, Value: d.search.String(), NativeEditing: c.Focused() == hitDashboardSearch && d.search.String() != "", InlineStart: components.InputGroupSlot{Kind: components.InputGroupSlotIcon, Icon: lucideIcons[iconSearch]}})
-	intervalBox := ui.Rect{X: x + w - 304, Y: settingsY, Width: 152, Height: 34}
-	retainBox := ui.Rect{X: x + w - 142, Y: settingsY, Width: 142, Height: 34}
-
-	components.BeginButton(c, s.Theme(), hitDashboardRetention, retainBox).Secondary(m.Retention + ": " + s.dashboardRetention(p.Retention) + " ⌄")
-	if d.menu == 2 {
-		d.anchor = intervalBox
-	}
-	if d.menu == 3 {
-		d.anchor = retainBox
-	}
+	d.selectBounds[1] = ui.Rect{X: x + w - 304, Y: settingsY, Width: 152, Height: 34}
+	d.selectBounds[2] = ui.Rect{X: x + w - 142, Y: settingsY, Width: 142, Height: 34}
 	y += controlH + 10
 	c.Fill(ui.Rect{X: x, Y: y, Width: w, Height: 1}, pal.line)
 	y += 8
@@ -296,7 +297,6 @@ func (s *State) paintDashboard(c *ui.Canvas, b ui.Rect) {
 			break
 		}
 	}
-	s.paintIntervalClock(c, &d.refresh, intervalBox, running && live > 0, hitDashboardInterval, m.Sampling, d.menu == 2)
 	if w >= 1000 {
 		monitorRight(c, fmt.Sprintf(m.Collecting, live, len(p.Hosts)), ui.Rect{X: newBox.X - 174, Y: b.Y + 14, Width: 160, Height: 36}, 12, s.dashboardLiveColor(running), ui.WeightMedium)
 	}
@@ -339,9 +339,12 @@ func (s *State) paintDashboardState(c *ui.Canvas, p *monitoring.Panel, h Host, r
 	if running && r.snapshot.Status >= monitoring.Failed {
 		color = s.pal.warning
 	}
-	monitorLabel(c, label, b, 12, color, ui.WeightMedium)
 	if running && r.snapshot.Status == monitoring.Failed && h.ID != 0 {
-		c.HitWithOptions(hitDashboardRetryList.At(int(h.ID)), b, s.messages.Dashboard.Retry, ui.HitOptions{Role: ui.RoleButton})
+		theme := s.Theme()
+		theme.Metrics.ControlHeight = b.Height
+		components.BeginButton(c, theme, hitDashboardRetryList.At(int(h.ID)), b).WithIcon(icons.RotateCw).Ghost(s.messages.Dashboard.Retry)
+	} else {
+		monitorLabel(c, label, b, 12, color, ui.WeightMedium)
 	}
 }
 func dashboardHostHeight(r *dashboardRow, w float32) float32 {
@@ -469,115 +472,212 @@ func (s *State) paintDashboardChart(c *ui.Canvas, p *monitoring.Panel, h Host, r
 	theme.Border = ui.Color{}
 	components.PaintAreaChart(c, theme, b, r.chartIDs[metric], components.AreaChart{Series: cache.series[:count], X: r.x, Values: cache.values[:count], Curve: components.ChartCurveMonotone, Fill: components.ChartFillGradient, StrokeWidth: 1.5, XAxis: components.ChartAxis{Linear: true, Fixed: true, Min: 0, Max: 1, Ticks: 3, Format: r.clock}, YAxis: yaxis, Label: label, Version: uint32(r.snapshot.Version), HideTooltip: true}, &cache.state)
 }
+
+// Selects are declared in the overlay pass, outside the workspace clip. Both
+// the trigger and its popup come from Viva; the application only owns values.
 func (s *State) paintDashboardMenu(c *ui.Canvas) {
-	d := &s.dashboard
-	if d.menu == 0 || s.activeSection != sectionDashboard || s.modal != modalNone {
+	d, m := &s.dashboard, s.messages.Dashboard
+	p := s.dashboardPanel()
+	if s.activeSection != sectionDashboard || p == nil {
 		return
 	}
-	m := s.messages.Dashboard
-	b := d.anchor
-	count := len(d.panels) + 2
-	if d.menu == 2 {
-		count = len(dashboardIntervals)
+	controls := [...]struct {
+		id           ui.ID
+		label, value string
+		rows         int
+		icon         ui.Icon
+	}{
+		{hitDashboardSwitch, m.Title, p.Name, len(d.panels), ui.Icon{}},
+		{hitDashboardInterval, m.Sampling, fmt.Sprintf(m.Every, p.Interval), len(dashboardIntervals), remoteRefreshClock},
+		{hitDashboardRetention, m.Retention, m.Retention + ": " + s.dashboardRetention(p.Retention), len(dashboardRetentions), ui.Icon{}},
 	}
-	if d.menu == 3 {
-		count = len(dashboardRetentions)
-	}
-	menu := components.BeginDropdownMenu(c, s.Theme(), ui.Rect{X: b.X, Y: b.Y + b.Height + 4, Width: max(210, b.Width), Height: min(420, float32(count*34+12))}, components.DropdownMenuOptions{Layer: popupLayer, Scope: hitDashboardDismiss, DismissID: hitDashboardDismiss, Viewport: s.windowRect(), Scroll: s.selectScroll(true, hitDashboardDismiss)})
-	if d.menu == 1 {
-		for i, p := range d.panels {
-			menu.AddItem(components.DropdownMenuItem{ID: hitDashboardPanelList.At(i), Label: p.Name, Kind: components.DropdownMenuRadio, Selected: p.ID == d.active})
-		}
-		menu.AddItem(components.DropdownMenuItem{ID: hitDashboardEdit, Label: m.Edit})
-		menu.AddItem(components.DropdownMenuItem{ID: hitDashboardDelete, Label: m.Delete})
-	}
-	if p := s.dashboardPanel(); p != nil {
-		if d.menu == 2 {
-			for i, n := range dashboardIntervals {
-				menu.AddItem(components.DropdownMenuItem{ID: hitDashboardIntervalList.At(i), Label: fmt.Sprintf(m.Every, n), Kind: components.DropdownMenuRadio, Selected: n == p.Interval})
+	for i, item := range controls {
+		b := d.selectBounds[i]
+		open := d.menu == i+1 && s.modal == modalNone
+		viewport := s.windowRect()
+		height := min(float32(item.rows*32+8), 420, max(40, viewport.Height-b.Y-b.Height-12))
+		list := ui.Rect{X: b.X, Y: b.Y + b.Height + 4, Width: max(144, b.Width), Height: height}
+		control := components.BeginSelect(c, s.Theme(), b, components.SelectOptions{TriggerID: item.id, Label: item.label, Value: item.value, Icon: item.icon, Open: open, Content: list, Layer: popupLayer, Scope: hitDashboardDismiss, DismissID: hitDashboardDismiss, Viewport: viewport, Scroll: s.selectScroll(open, hitDashboardDismiss)})
+		if i == 0 {
+			for j, panel := range d.panels {
+				control.AddItem(components.SelectItem{ID: hitDashboardPanelList.At(j), Label: panel.Name, Selected: panel.ID == p.ID})
+			}
+		} else if i == 1 {
+			for j, n := range dashboardIntervals {
+				control.AddItem(components.SelectItem{ID: hitDashboardIntervalList.At(j), Label: fmt.Sprintf(m.Every, n), Selected: n == p.Interval})
+			}
+		} else {
+			for j, n := range dashboardRetentions {
+				control.AddItem(components.SelectItem{ID: hitDashboardRetentionList.At(j), Label: s.dashboardRetention(n), Selected: n == p.Retention})
 			}
 		}
-		if d.menu == 3 {
-			for i, n := range dashboardRetentions {
-				menu.AddItem(components.DropdownMenuItem{ID: hitDashboardRetentionList.At(i), Label: s.dashboardRetention(n), Kind: components.DropdownMenuRadio, Selected: n == p.Retention})
-			}
+		if open {
+			s.menuPlaced(control.ContentBounds())
+		}
+		control.End()
+		if i == 1 {
+			// The animated hands share the terminal monitor's SVG frames. Viva
+			// Select owns the clock slot, trigger, focus, and native chevron.
+			frame := monitorRefreshFrame(c, &d.refresh, d.refresh.count > 0)
+			c.DrawIcon(remoteRefreshHands[frame], ui.Rect{X: b.X + 11, Y: b.Y + (b.Height-16)/2, Width: 16, Height: 16}, s.Theme().Foreground)
 		}
 	}
-	s.menuPlaced(menu.Bounds())
-	menu.End()
 }
 
 func (s *State) paintDashboardDialog(c *ui.Canvas, viewport ui.Rect) {
 	e, m := &s.dashboard.editor, s.messages.Dashboard
 	theme := s.Theme()
-	title := m.New
-	submit := m.Create
+	title, submit := m.New, m.Create
 	if e.id != "" {
-		title = m.Edit
-		submit = m.Save
+		title, submit = m.Edit, m.Save
 	}
-	dialog := components.BeginDialog(c, theme, viewport, components.DialogOptions{Layer: dialogLayer, Scope: dialogScope, DismissID: hitDashboardDismiss, CloseID: hitDashboardDialogCancel, InitialFocusID: hitDashboardName, ContentSize: ui.Size{Width: 620}, FitBody: true, BodyHeight: 500})
+	count := 0
+	for _, h := range s.hosts {
+		if h.isSSH() && h.ID != localHostID {
+			count++
+		}
+	}
+	for _, id := range e.selected {
+		if _, ok := s.dashboardHost(id); !ok {
+			count++
+		}
+	}
+	columns := 1
+	if viewport.Width >= 740 && count > 1 {
+		columns = 2
+	}
+	// Base height follows the unfiltered catalog, keeping the search field
+	// stationary while results change. One host does not leave an empty list.
+	rows := min(3, max(1, (count+columns-1)/columns))
+	bodyHeight := float32(266 + rows*76)
+	dialog := components.BeginDialog(c, theme, viewport, components.DialogOptions{Layer: dialogLayer, Scope: dialogScope, DismissID: hitDashboardDismiss, CloseID: hitDashboardDialogCancel, InitialFocusID: hitDashboardName, ContentSize: ui.Size{Width: 720}, FitBody: true, BodyHeight: bodyHeight})
 	layout := dialog.Begin(title, "")
 	b := layout.Body
 	y := b.Y + 4
-	for i, field := range []struct {
-		id    ui.ID
-		label string
-		value string
-	}{{hitDashboardName, m.Name, e.name.String()}, {hitDashboardNote, m.Note, e.note.String()}, {hitDashboardHostQuery, m.HostSearch, e.query.String()}} {
-		box := components.BeginField(c, theme, ui.Rect{X: b.X + 4, Y: y, Width: b.Width - 8, Height: 62}).Paint(field.label, "", "")
+	for _, field := range []struct {
+		id           ui.ID
+		label, value string
+	}{{hitDashboardName, m.Name, e.name.String()}, {hitDashboardNote, m.Note, e.note.String()}} {
+		box := components.BeginField(c, theme, ui.Rect{X: b.X + 4, Y: y, Width: b.Width - 8, Height: 62}).For(field.id).Paint(field.label, "", "")
 		components.PaintInput(c, theme, box, components.InputSnapshot{ID: field.id, Label: field.label, Value: field.value, Focused: c.Focused() == field.id, PlatformEditing: c.Focused() == field.id && field.value != ""})
 		y += 64
-		if i == 1 {
-			monitorLabel(c, fmt.Sprintf("%s · %d", m.Hosts, len(e.selected)), ui.Rect{X: b.X + 4, Y: y, Width: b.Width - 8, Height: 28}, 13, s.pal.text, ui.WeightMedium)
-			y += 28
-		}
 	}
+	options := s.dashboardEditorTabs()
+	components.BeginTabs(c, theme, ui.Rect{X: b.X + 4, Y: y + 4, Width: 260, Height: 34}, options[:], options[e.page].ID).Paint()
+	monitorRight(c, fmt.Sprintf(m.Selected, len(e.selected)), ui.Rect{X: b.X + 270, Y: y + 4, Width: max(0, b.Width-274), Height: 34}, 12, s.pal.muted, ui.WeightRegular)
+	y += 44
+	if e.page == 0 {
+		search := ui.Rect{X: b.X + 4, Y: y, Width: b.Width - 8, Height: 34}
+		components.PaintInputGroup(c, theme, search, components.InputGroupSnapshot{ID: hitDashboardHostQuery, Label: m.HostSearch, Placeholder: m.HostSearch, Value: e.query.String(), NativeEditing: c.Focused() == hitDashboardHostQuery && e.query.String() != "", InlineStart: components.InputGroupSlot{Kind: components.InputGroupSlotIcon, Icon: icons.Search}})
+	} else {
+		monitorLabel(c, m.SortHint, ui.Rect{X: b.X + 4, Y: y, Width: b.Width - 8, Height: 34}, 12, s.pal.muted, ui.WeightRegular)
+	}
+	y += 46
 	query := strings.ToLower(strings.TrimSpace(e.query.String()))
-	hosts := make([]Host, 0, len(s.hosts))
+	hosts := make([]Host, 0, count)
 	for _, h := range s.hosts {
 		if h.isSSH() && h.ID != localHostID && (query == "" || strings.Contains(strings.ToLower(h.Label+" "+h.Address+" "+h.Group+" "+h.Tags), query)) {
 			hosts = append(hosts, h)
 		}
 	}
-	e.bounds = ui.Rect{X: b.X + 4, Y: y + 4, Width: b.Width - 8, Height: max(60, b.Y+b.Height-y-64)}
 	missing := []int{}
 	for i, id := range e.selected {
 		if _, ok := s.dashboardHost(id); !ok && (query == "" || strings.Contains(strings.ToLower(id), query)) {
 			missing = append(missing, i)
 		}
 	}
-	e.content = float32(len(hosts)+len(missing)) * 46
+	e.bounds = ui.Rect{X: b.X + 4, Y: y, Width: b.Width - 8, Height: max(40, b.Y+b.Height-y-56)}
+	if e.bounds.Width < 2*hostCardMinWidth+hostCardGap {
+		columns = 1
+	}
+	cardRows := (len(hosts) + len(missing) + columns - 1) / columns
+	e.content = max(0, float32(cardRows)*76-12)
+	if e.page == 1 {
+		e.content = max(0, float32(len(e.selected))*48-4)
+	}
 	area := components.BeginScrollArea(c, theme, e.bounds, ui.Size{Width: e.bounds.Width, Height: e.content}).Offset(0, e.scroll).Viewport(hitDashboardHostScroll, m.Hosts).VerticalScrollbar(hitDashboardHostThumb, m.Hosts, "")
 	geo := area.BeginContent()
 	e.scroll = geo.OffsetY
-	for i, h := range hosts {
-		box := ui.Rect{X: geo.Content.X + 4, Y: geo.Content.Y + float32(i)*46, Width: geo.Viewport.Width - 16, Height: 45}
-		if box.Y+box.Height < e.bounds.Y || box.Y > e.bounds.Y+e.bounds.Height {
-			continue
+	if e.page == 1 {
+		s.paintDashboardHostOrder(c, geo)
+	} else {
+		cardW := (geo.Viewport.Width - 12 - float32(columns-1)*12) / float32(columns)
+		for i := 0; i < len(hosts)+len(missing); i++ {
+			box := ui.Rect{X: geo.Content.X + float32(i%columns)*(cardW+12), Y: geo.Content.Y + float32(i/columns)*76, Width: cardW, Height: 64}
+			if box.Y+box.Height < e.bounds.Y || box.Y > e.bounds.Y+e.bounds.Height {
+				continue
+			}
+			if i < len(hosts) {
+				h := hosts[i]
+				s.paintDashboardHostChoice(c, h, box, hitDashboardHostList.At(int(h.ID)), slices.Contains(e.selected, h.CatalogID), false)
+			} else {
+				index := missing[i-len(hosts)]
+				s.paintDashboardHostChoice(c, Host{Label: m.Missing, Address: e.selected[index]}, box, hitDashboardMissingList.At(index), true, true)
+			}
 		}
-		id := hitDashboardHostList.At(int(h.ID))
-		side := components.CheckboxExtent(theme)
-		components.BeginCheckbox(c, theme, id, ui.Rect{X: box.X, Y: box.Y + (45-side)/2}, slices.Contains(e.selected, h.CatalogID)).Label(h.Label).Paint()
-		monitorLabel(c, h.Label, ui.Rect{X: box.X + 30, Y: box.Y, Width: box.Width - 35, Height: 24}, 13, s.pal.text, ui.WeightMedium)
-		monitorLabel(c, h.Address+" · "+h.Group, ui.Rect{X: box.X + 30, Y: box.Y + 23, Width: box.Width - 35, Height: 20}, 11, s.pal.muted, ui.WeightRegular)
-		c.HitLabel(id, ui.Rect{X: box.X + 26, Y: box.Y, Width: box.Width - 26, Height: 45}, h.Label, false)
-	}
-	for row, index := range missing {
-		box := ui.Rect{X: geo.Content.X + 4, Y: geo.Content.Y + float32(len(hosts)+row)*46, Width: geo.Viewport.Width - 16, Height: 45}
-		id := hitDashboardMissingList.At(index)
-		components.BeginCheckbox(c, theme, id, ui.Rect{X: box.X, Y: box.Y + 12}, true).Label(m.Missing).Paint()
-		monitorLabel(c, m.Missing+" · "+e.selected[index], ui.Rect{X: box.X + 30, Y: box.Y, Width: box.Width - 35, Height: 45}, 12, s.pal.warning, ui.WeightRegular)
-		c.HitLabel(id, box, m.Missing, false)
+		if cardRows == 0 {
+			components.Empty(c, theme, geo.Viewport, components.EmptyData{Title: s.messages.KnownHostsNoMatches})
+		}
 	}
 	area.EndContent()
-	hint := m.PickerHint
-	color := s.pal.muted
-	if e.error != "" {
-		hint = e.error
-		color = s.pal.danger
+	hint, color := m.PickerHint, s.pal.muted
+	if e.page == 1 {
+		hint = m.OrderHint
 	}
-	monitorLabel(c, hint, ui.Rect{X: b.X + 4, Y: b.Y + b.Height - 48, Width: b.Width - 8, Height: 44}, 12, color, ui.WeightRegular)
+	if e.error != "" {
+		hint, color = e.error, s.pal.danger
+	}
+	var lines [3]string
+	for i, line := range c.WrapLines(lines[:0], hint, 12, ui.WeightRegular, b.Width-8, len(lines)) {
+		monitorLabel(c, line, ui.Rect{X: b.X + 4, Y: b.Y + b.Height - 48 + float32(i)*17, Width: b.Width - 8, Height: 17}, 12, color, ui.WeightRegular)
+	}
 	dialog.Actions(layout, components.ButtonAction{ID: hitDashboardDialogCancel, Label: s.messages.Cancel, Variant: components.ButtonSecondary}, components.ButtonAction{ID: hitDashboardDialogSave, Label: submit})
 	dialog.End()
+}
+
+// Cards compose Viva's surface and checkbox. The checkbox owns the entire
+// card's hit region, including its keyboard and checked-state semantics.
+func (s *State) paintDashboardHostChoice(c *ui.Canvas, h Host, b ui.Rect, id ui.ID, selected, missing bool) {
+	theme := s.Theme()
+	background := s.pal.surface
+	if selected {
+		background = s.pal.accentSoft
+	} else if c.Hovered() == id {
+		background = s.pal.surfaceSoft
+	}
+	theme.Card = tintHostSurface(background, h.Color, .10)
+	components.PaintCard(c, theme, b, components.CardOptions{Size: components.CardSizeSmall})
+	if selected || c.FocusVisible() == id {
+		c.RoundedBorder(b, theme.Metrics.RadiusSurface+4, 1.5, s.pal.accent, theme.Card)
+	}
+	paintHostColorMark(c, b, h.Color)
+	s.paintHostCatalogIcon(c, h, ui.Rect{X: b.X + 12, Y: b.Y + 14, Width: 36, Height: 36}, background)
+	textX, textW := b.X+60, b.Width-100
+	nameW := textW
+	if h.Group != "" {
+		badgeW, _ := components.BadgeExtent(c, theme, h.Group)
+		if badgeW <= textW*.45 {
+			components.PaintBadge(c, theme, ui.Rect{X: textX + textW - badgeW, Y: b.Y + 10}, h.Group, components.BadgeSecondary)
+			nameW -= badgeW + 8
+		}
+	}
+	color := s.pal.text
+	if missing {
+		color = s.pal.warning
+	}
+	monitorLabel(c, h.Label, ui.Rect{X: textX, Y: b.Y + 9, Width: nameW, Height: 22}, 13, color, ui.WeightSemibold)
+	address := h.Address
+	if !missing {
+		port := h.Port
+		if port == 0 {
+			port = 22
+		}
+		address = net.JoinHostPort(h.Address, strconv.Itoa(int(port)))
+		if h.User != "" {
+			address = h.User + "@" + address
+		}
+	}
+	monitorLabel(c, address, ui.Rect{X: textX, Y: b.Y + 33, Width: textW, Height: 20}, 11, s.pal.muted, ui.WeightRegular)
+	side := components.CheckboxExtent(theme)
+	components.BeginCheckbox(c, theme, id, ui.Rect{X: b.X + b.Width - 28, Y: b.Y + (b.Height-side)/2}, selected).Label(h.Label).HitBounds(b).Paint()
 }

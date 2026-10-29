@@ -222,6 +222,8 @@ func (state *State) Paint(canvas *ui.Canvas, size ui.Size) {
 	switch state.modal {
 	case modalTerminalInput:
 		state.paintTerminalInputConfirm(canvas, viewport)
+	case modalDashboardAdd:
+		state.paintDashboardAddMenu(canvas)
 	case modalDashboard:
 		state.paintDashboardDialog(canvas, viewport)
 	case modalNewHost:
@@ -794,6 +796,7 @@ func (state *State) paintHostsHeader(canvas *ui.Canvas, bounds ui.Rect) ui.Rect 
 		{hitEditHost, m.EditHost, iconPencil, false, false},
 		{hitCopyHost, m.CopyHost, iconCopy, false, false},
 		{hitMoveHostGroup, m.MoveHostGroup, iconFolderOpen, false, false},
+		{hitDashboardAddHosts, state.messages.Dashboard.AddHosts, iconActivity, false, false},
 		{hitDeleteHost, m.DeleteHost, iconTrash, false, true},
 	}
 	var actionWidths [len(actions)]float32
@@ -803,7 +806,16 @@ func (state *State) paintHostsHeader(canvas *ui.Canvas, bounds ui.Rect) ui.Rect 
 	if anySelected {
 		enabled := state.selectedHostID != 0
 		single := enabled && len(state.hostSelections) <= 1
-		actions[1].enabled, actions[2].enabled, actions[3].enabled, actions[4].enabled = single, single, enabled, enabled
+		for i := range actions {
+			switch actions[i].id {
+			case hitEditHost, hitCopyHost:
+				actions[i].enabled = single
+			case hitMoveHostGroup, hitDeleteHost:
+				actions[i].enabled = enabled
+			case hitDashboardAddHosts:
+				actions[i].enabled = state.dashboardCanAddHosts()
+			}
+		}
 		used := canvas.TextWidthWeight(state.hostSelectionText, metrics.FontSizeS, ui.WeightMedium) + toggleWidth + 3*rowGap
 		for _, action := range actions {
 			used += canvas.TextWidthWeight(action.label, metrics.FontSizeS, ui.WeightSemibold) + 4 + 2*quietPadding + actionGap
@@ -893,14 +905,22 @@ func (state *State) paintHostsHeader(canvas *ui.Canvas, bounds ui.Rect) ui.Rect 
 	state.paintHostViewToggle(canvas, toggle.Rect().X, toggle.Rect().Y+toggle.Rect().Height/2)
 	if anySelected {
 		for index, action := range actions {
+			theme := state.Theme()
+			theme.Metrics.ControlHeight = rowHeight
+			theme.Metrics.FontSizeM = metrics.FontSizeS
+			if action.danger {
+				theme.Foreground = theme.Danger
+			}
+			button := components.BeginButton(canvas, theme, action.id, buttons[index].Rect())
 			if actionsCondensed {
-				style := iconButtonQuiet
-				if action.danger {
-					style = iconButtonDanger
-				}
-				state.paintIconButton(canvas, action.id, action.icon, buttons[index].Rect(), action.label, !action.enabled, style, pal.workspace)
-			} else {
-				state.paintQuietButton(canvas, action.id, buttons[index].Rect(), action.label, action.danger, action.enabled)
+				button = button.WithIcon(lucideIcons[action.icon]).Icon()
+			}
+			if !action.enabled {
+				button = button.Disabled()
+			}
+			button.Ghost(action.label)
+			if action.id == hitDashboardAddHosts {
+				state.dashboard.addAnchor = buttons[index].Rect()
 			}
 			if action.id == hitMoveHostGroup {
 				state.groupMenu.button = buttons[index].Rect()
