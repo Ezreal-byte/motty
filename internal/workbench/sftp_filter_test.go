@@ -290,10 +290,8 @@ func TestSFTPFilterKeepsVisibleSelectionAndDropsHiddenRows(t *testing.T) {
 		{Name: "gamma.log", Mode: 0o644},
 	})
 	folder := &view.sftpFolder
-	for index := range folder.allRows {
-		folder.allRows[index].selected = true
-		folder.allRows[index].cells[0] = "✓"
-	}
+	folder.selectRow(0, 0)
+	folder.selectRow(len(folder.rows)-1, ui.ModifierShift)
 	replaceSFTPFilter(t, state, session, false, "beta")
 	if len(view.rows) != 1 || view.rows[0].entry.Name != "beta.txt" {
 		t.Fatalf("filtered rows = %v", rowNames(view.rows))

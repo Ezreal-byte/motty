@@ -13,6 +13,7 @@ import (
 )
 
 var (
+	sftpHeaderSortHits       = tree.Sub(sftpHits, tree.Name("header-sort"))
 	hitSFTPFilterToggle      = tree.ID(sftpHits, "sftp-filter-toggle")
 	hitSFTPFilter            = tree.ID(sftpHits, "sftp-filter")
 	hitSFTPFilterClear       = tree.ID(sftpHits, "sftp-filter-clear")
@@ -78,10 +79,16 @@ func (state *State) sftpFilterText(sessionID uint32, local bool, event app.TextE
 	if local {
 		folder = &view.lfolder
 	}
+	return state.applySFTPFilterText(view, folder, event)
+}
+
+// Both presentations use the owning folder, not the main window's active tab.
+func (state *State) applySFTPFilterText(view *sftpView, folder *sftpFolder, event app.TextEvent) app.TextState {
 	editor := folder.filterInputEditor()
 	before := editor.String()
 	event.Apply(editor)
 	if editor.String() != before {
+		folder.rememberSelection()
 		state.applySFTPFilter(view, folder, false)
 	}
 	next := app.TextStateOf(folder.filterInputEditor())
@@ -96,10 +103,12 @@ func (state *State) clickSFTPFilter(view *sftpView, id ui.ID) bool {
 		folder.filterOpen = !folder.filterOpen
 		return true
 	case hitSFTPFilterClear:
+		folder.rememberSelection()
 		folder.clearFilter()
 		state.applySFTPFilter(view, folder, false)
 		return true
 	case hitSFTPHiddenToggle:
+		folder.rememberSelection()
 		folder.showHidden = !folder.showHidden
 		state.applySFTPFilter(view, folder, false)
 		return true
@@ -113,7 +122,7 @@ func (state *State) paintSFTPHeaderMenu(canvas *ui.Canvas, viewport ui.Size, anc
 	}
 	const (
 		menuWidth  = float32(224)
-		menuHeight = float32(2*32 + 8)
+		menuHeight = float32(5*32 + 17)
 	)
 	bounds := state.popupBelow(canvas, anchor, menuWidth, menuHeight, flex.End)
 	menu := components.BeginDropdownMenu(canvas, state.Theme(), bounds, components.DropdownMenuOptions{
@@ -133,6 +142,18 @@ func (state *State) paintSFTPHeaderMenu(canvas *ui.Canvas, viewport ui.Size, anc
 		ID: hitSFTPHeaderHidden, Label: hiddenLabel, Icon: lucideIcons[hiddenIcon],
 		Selected: folder.showHidden,
 	})
+	menu.AddSeparator()
+	for column, label := range []string{state.messages.SFTPWindow.Name, state.messages.SFTPWindow.Size, state.messages.SFTPWindow.Modified} {
+		icon := uint8(iconArrowUp)
+		if folder.sortOrder.descending {
+			icon = iconChevronDown
+		}
+		item := components.DropdownMenuItem{ID: sftpHeaderSortHits.At(column), Label: label, Selected: folder.sortOrder.column == column}
+		if item.Selected {
+			item.Icon = lucideIcons[icon]
+		}
+		menu.AddItem(item)
+	}
 	menu.End()
 }
 
@@ -150,19 +171,23 @@ func (state *State) sftpFilterShortcut(target ui.ID) (ui.EventResult, bool) {
 }
 
 func (state *State) paintSFTPFilter(canvas *ui.Canvas, bounds ui.Rect, folder *sftpFolder) {
+	state.paintSFTPFilterInput(canvas, bounds, folder, hitSFTPFilter, hitSFTPFilterClear)
+}
+
+func (state *State) paintSFTPFilterInput(canvas *ui.Canvas, bounds ui.Rect, folder *sftpFolder, id, clearID ui.ID) {
 	value := folder.filterInputEditor().String()
 	clear := components.InputGroupSlot{}
 	if value != "" {
 		clear = components.InputGroupSlot{
-			Kind: components.InputGroupSlotButton, ID: hitSFTPFilterClear,
+			Kind: components.InputGroupSlotButton, ID: clearID,
 			Icon: lucideIcons[iconClose], Label: state.messages.Tools.FilesFilterClear,
 			ButtonSize: components.InputGroupButtonIconXS,
 		}
 	}
 	components.PaintInputGroup(canvas, state.Theme(), bounds, components.InputGroupSnapshot{
-		ID: hitSFTPFilter, Label: state.messages.Tools.FilesFilterLabel, Value: value,
+		ID: id, Label: state.messages.Tools.FilesFilterLabel, Value: value,
 		Placeholder:   state.messages.Tools.FilesFilterPlaceholder,
-		NativeEditing: canvas.Focused() == hitSFTPFilter && value != "",
+		NativeEditing: canvas.Focused() == id && value != "",
 		InlineStart:   components.InputGroupSlot{Kind: components.InputGroupSlotIcon, Icon: lucideIcons[iconSearch]},
 		InlineEnd:     clear,
 	})
@@ -238,7 +263,10 @@ func (state *State) applySFTPFilter(view *sftpView, folder *sftpFolder, clearSel
 			folder.selected = min(oldSelected, len(rows)-1)
 		}
 	}
-	view.sortedDetached(folder == &view.lfolder)
+	view.sortFilteredFolder(folder == &view.lfolder)
+	if clearSelection {
+		folder.first = 0
+	}
 	state.refreshSFTPFilterStatus(view, folder)
 }
 
@@ -315,4 +343,22 @@ func sftpRuneByteOffset(value string, runes int) int {
 		count++
 	}
 	return len(value)
+}
+
+// The visible copy owns user selection; retain it when rebuilding from the
+// complete listing, and never resurrect a checkmark hidden by an earlier query.
+func (folder *sftpFolder) rememberSelection() {
+	var selected map[string]struct{}
+	for _, row := range folder.rows {
+		if row.selected {
+			if selected == nil {
+				selected = make(map[string]struct{})
+			}
+			selected[row.entry.Name] = struct{}{}
+		}
+	}
+	for index := range folder.allRows {
+		_, folder.allRows[index].selected = selected[folder.allRows[index].entry.Name]
+		folder.allRows[index].cells[0] = sftpSelectionCell(folder.allRows[index].selected)
+	}
 }

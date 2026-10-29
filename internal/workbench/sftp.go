@@ -73,6 +73,8 @@ type sftpFolder struct {
 	showHidden     bool
 	pathEditing    bool
 	headerMenuOpen bool
+	sortOrder      sftpWindowSort
+	sortChosen     bool
 }
 
 type sftpView struct {
@@ -250,6 +252,13 @@ func (state *State) clickSFTP(id ui.ID) {
 	}
 	folder := view.active()
 	if folder.headerMenuOpen {
+		if column, ok := id.In(sftpHeaderSortHits); ok && column < 3 {
+			folder.headerMenuOpen = false
+			folder.sortChosen = true
+			folder.sortOrder.toggle(column)
+			folder.sortRows(folder.sortOrder)
+			return
+		}
 		switch id {
 		case hitSFTPHeaderFilter:
 			folder.headerMenuOpen = false
@@ -1338,6 +1347,7 @@ func (state *State) sftpKey(event ui.KeyEvent) (ui.EventResult, bool) {
 			// Escape leaves the filter, not the file panel: the first press drops
 			// the query, the next closes the row, as a find bar does.
 			if folder.filterInputEditor().String() != "" {
+				folder.rememberSelection()
 				folder.clearFilter()
 				state.applySFTPFilter(view, folder, false)
 				return ui.EventResult{Handled: true, Repaint: true, Focus: hitSFTPFilter, FocusVisible: true}, true

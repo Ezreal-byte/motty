@@ -16,6 +16,13 @@ var (
 	sftpWindowLocal              = tree.Sub(sftpWindowSides, tree.Name("local"))
 	sftpWindowRemote             = tree.Sub(sftpWindowSides, tree.Name("remote"))
 	sftpWindowRows               = [2]ui.Scope{tree.Sub(sftpWindowLocal, tree.Name("rows")), tree.Sub(sftpWindowRemote, tree.Name("rows"))}
+	sftpWindowFilter             = [2]ui.ID{tree.ID(sftpWindowLocal, "filter"), tree.ID(sftpWindowRemote, "filter")}
+	sftpWindowFilterClear        = [2]ui.ID{tree.ID(sftpWindowLocal, "filter-clear"), tree.ID(sftpWindowRemote, "filter-clear")}
+	sftpWindowHeaderHidden       = [2]ui.ID{tree.ID(sftpWindowLocal, "header-hidden"), tree.ID(sftpWindowRemote, "header-hidden")}
+	sftpWindowHidden             = [2]ui.ID{tree.ID(sftpWindowLocal, "hidden"), tree.ID(sftpWindowRemote, "hidden")}
+	sftpWindowMore               = [2]ui.ID{tree.ID(sftpWindowLocal, "more"), tree.ID(sftpWindowRemote, "more")}
+	sftpWindowFilterToggle       = [2]ui.ID{tree.ID(sftpWindowLocal, "filter-toggle"), tree.ID(sftpWindowRemote, "filter-toggle")}
+	hitSFTPWindowHeaderDismiss   = tree.ID(sftpWindowHits, "header-dismiss")
 	sftpWindowPath               = [2]ui.ID{tree.ID(sftpWindowLocal, "path"), tree.ID(sftpWindowRemote, "path")}
 	sftpWindowList               = [2]ui.ID{tree.ID(sftpWindowLocal, "list"), tree.ID(sftpWindowRemote, "list")}
 	sftpWindowSortHits           = [2]ui.Scope{tree.Sub(sftpWindowLocal, tree.Name("sort")), tree.Sub(sftpWindowRemote, tree.Name("sort"))}
@@ -64,6 +71,8 @@ type sftpWindowUI struct {
 	menuScroll     components.MenuScroll
 	bookmarkScroll components.MenuScroll
 	bookmarkAnchor ui.Rect
+	headerAnchor   [2]ui.Rect
+	headerScroll   components.MenuScroll
 	selection      [2]sftpWindowSelection
 }
 
@@ -134,6 +143,9 @@ func (w *sftpWindow) paint(canvas *ui.Canvas, size ui.Size) {
 	if w.ui.menuOpen {
 		w.paintMenu(canvas)
 	}
+	if side, ok := w.headerMenu(); ok {
+		w.paintHeaderMenu(canvas, side)
+	}
 	if w.drag.active {
 		w.paintDrag(canvas)
 	}
@@ -152,7 +164,7 @@ func (w *sftpWindow) paintPane(canvas *ui.Canvas, bounds ui.Rect, local bool) {
 	side := sideIndex(local)
 	folder := w.folder(local)
 	theme, m := w.owner.Theme(), w.owner.messages
-	var address, list flex.Box
+	var address, list, filter flex.Box
 	compact := bounds.Height < 230
 	var buttons [18]sftpIconButton
 	buttonCount := 0
@@ -168,16 +180,17 @@ func (w *sftpWindow) paintPane(canvas *ui.Canvas, bounds ui.Rect, local bool) {
 				title = m.SFTPWindow.Local
 			}
 			f.Text(title).Bold().Color(theme.Foreground).Ellipsis().Grow(1)
-			if !local {
+			if !local && bounds.Width >= 420 {
 				icon(hitSFTPWindowUpload, iconUpload, m.SFTPWindow.Upload, !w.canTransfer(true))
 				icon(hitSFTPWindowDownload, iconDownload, m.SFTPWindow.Download, !w.canTransfer(false))
 			}
 			icon(sftpWindowUp[side], iconArrowUp, m.SFTPUp, folder.path == "" || !local && (w.view.busy || !w.connected()))
 			icon(sftpWindowRefresh[side], iconRefresh, m.SFTPRefresh, !local && (w.view.busy || !w.connected()))
-			icon(sftpWindowNewFolder[side], iconFolderPlus, m.SFTPNewDirectory, local && w.pendingLocal != "" || !local && (w.view.busy || !w.connected()))
-			if !local {
-				icon(hitSFTPNewLink, iconLink, m.Tools.TipNewLink, w.view.busy || !w.connected())
+			if folder.showHidden {
+				icon(sftpWindowHidden[side], iconEye, m.Tools.FilesHideHidden, false)
+				buttons[buttonCount-1].style = iconButtonActive
 			}
+			icon(sftpWindowMore[side], iconEllipsis, m.Tools.FilesMore, false)
 		})
 		f.Row().Height(32).Gap(2).Items(flex.Center).Children(func() {
 			address = f.Slot().Height(32).Grow(1)
@@ -190,6 +203,9 @@ func (w *sftpWindow) paintPane(canvas *ui.Canvas, bounds ui.Rect, local bool) {
 				icon(hitSFTPBookmarkToggle, star, hint, w.view.busy || !w.connected())
 			}
 		})
+		if folder.filterOpen {
+			filter = f.Slot().Height(32).Shrink(0)
+		}
 		{
 			f.Row().Height(20).Gap(8).PadX(8).Items(flex.Center).Children(func() {
 				for column, label := range []string{m.SFTPWindow.Name, m.SFTPWindow.Size, m.SFTPWindow.Modified} {
@@ -220,6 +236,12 @@ func (w *sftpWindow) paintPane(canvas *ui.Canvas, bounds ui.Rect, local bool) {
 			format = m.SCPItemsFmt
 		}
 		status := fmt.Sprintf(format, len(folder.rows))
+		if folder.filterInputEditor().String() != "" {
+			status = fmt.Sprintf(m.Tools.FilesFilterCountFmt, len(folder.rows), sftpVisibleRowCount(folder))
+			if !local && w.view.approximate {
+				status += " · " + fmt.Sprintf(m.SCPItemsFmt, len(folder.rows))
+			}
+		}
 		if count > 0 {
 			status += " · " + fmt.Sprintf(m.SFTPWindow.SelectedFmt, count)
 		}
@@ -249,6 +271,14 @@ func (w *sftpWindow) paintPane(canvas *ui.Canvas, bounds ui.Rect, local bool) {
 	})
 	f.End()
 	w.owner.paintSFTPIconButtons(canvas, buttons[:buttonCount])
+	for _, button := range buttons[:buttonCount] {
+		if button.id == sftpWindowMore[side] {
+			w.ui.headerAnchor[side] = button.box.Rect()
+		}
+	}
+	if folder.filterOpen {
+		w.owner.paintSFTPFilterInput(canvas, filter.Rect(), folder, sftpWindowFilter[side], sftpWindowFilterClear[side])
+	}
 	if !local {
 		w.ui.bookmarkAnchor = address.Rect()
 	}
@@ -276,6 +306,9 @@ func (w *sftpWindow) paintPane(canvas *ui.Canvas, bounds ui.Rect, local bool) {
 	r.End()
 	if len(folder.rows) == 0 {
 		label := m.SFTPEmpty
+		if folder.filterInputEditor().String() != "" {
+			label = fmt.Sprintf(m.Tools.FilesFilterCountFmt, 0, sftpVisibleRowCount(folder))
+		}
 		if !local && w.view.busy {
 			label = m.SFTPLoading
 		}

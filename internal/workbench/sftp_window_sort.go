@@ -11,10 +11,24 @@ type sftpWindowSort struct {
 	descending bool
 }
 
+func (order *sftpWindowSort) toggle(column int) {
+	if order.column == column {
+		order.descending = !order.descending
+	} else {
+		order.column, order.descending = column, false
+	}
+}
+
 func (w *sftpWindow) sortFolder(local bool) {
-	defer w.selectionChanged(local)
-	folder, order := w.folder(local), w.ui.sort[sideIndex(local)]
-	selected, anchor := "", ""
+	w.folder(local).sortRows(w.ui.sort[sideIndex(local)])
+	w.selectionChanged(local)
+}
+
+func (folder *sftpFolder) sortRows(order sftpWindowSort) {
+	selected, anchor, top := "", "", ""
+	if folder.first >= 0 && folder.first < len(folder.rows) {
+		top = folder.rows[folder.first].entry.Name
+	}
 	if folder.selected >= 0 && folder.selected < len(folder.rows) {
 		selected = folder.rows[folder.selected].entry.Name
 	}
@@ -54,6 +68,9 @@ func (w *sftpWindow) sortFolder(local bool) {
 		return result
 	})
 	for i := range folder.rows {
+		if folder.rows[i].entry.Name == top {
+			folder.first = i
+		}
 		if folder.rows[i].entry.Name == selected {
 			folder.selected = i
 		}
@@ -63,9 +80,17 @@ func (w *sftpWindow) sortFolder(local bool) {
 	}
 }
 
-func (view *sftpView) sortedDetached(local bool) {
+func (view *sftpView) sortFilteredFolder(local bool) {
 	if view.detached != nil {
 		view.detached.sortFolder(local)
+	} else {
+		folder := &view.sftpFolder
+		if local {
+			folder = &view.lfolder
+		}
+		if folder.sortChosen {
+			folder.sortRows(folder.sortOrder)
+		}
 	}
 }
 
