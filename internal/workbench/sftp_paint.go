@@ -3,7 +3,6 @@ package workbench
 import (
 	"fmt"
 	"os"
-	"path"
 	"time"
 
 	"github.com/vivaui/viva/components"
@@ -70,10 +69,11 @@ func (state *State) paintSFTPPage(canvas *ui.Canvas, size ui.Size, session *Sess
 	// actions are as tall as what they hold; the list takes what they leave.
 	selectedCount, selected := selectedSFTP(view)
 	one := selectedCount == 1
-	starred := !local && state.bookmarked(session, path.Clean(view.path))
-	starIcon, starHint := uint8(iconStar), messages.Tools.BookmarkAdd
+	places := sftpPlaceBrowser{owner: state, session: session, view: view}
+	starred := places.directoryFavorite(local)
+	starIcon, starHint := uint8(iconStar), messages.SFTPWindow.FavoriteAdd
 	if starred {
-		starIcon, starHint = iconStarSolid, messages.Tools.BookmarkRemove
+		starIcon, starHint = iconStarSolid, messages.SFTPWindow.FavoriteRemove
 	}
 	paneIcon, paneHint := uint8(iconHardDrive), messages.Tools.PaneLocal
 	if local {
@@ -112,7 +112,7 @@ func (state *State) paintSFTPPage(canvas *ui.Canvas, size ui.Size, session *Sess
 	addHeader(hitSFTPClose, iconClose, messages.TipSFTPClose, false)
 	headerTools = state.orderToolbarTools(toolbarSFTP, headerTools, false)
 	buttonCount, headerButtonCount := 0, 0
-	var header, crumbs, filterSlot, popupTop, listSlot, spinnerSlot, moreButton flex.Box
+	var header, crumbs, filterSlot, listSlot, spinnerSlot, moreButton flex.Box
 
 	f := state.filesLayout.Begin(canvas, state.Theme(), ui.Rect{Y: windowBarHeight, Width: size.Width, Height: max(0, size.Height-windowBarHeight)})
 	// icon declares an icon button where it goes; it is painted after End.
@@ -151,18 +151,18 @@ func (state *State) paintSFTPPage(canvas *ui.Canvas, size ui.Size, session *Sess
 				height = sftpButton
 			}
 			crumbs = f.Slot().Grow(1).Height(height)
-			if !local {
-				f.Row().Gap(2).Shrink(0).Children(func() {
-					icon(sftpButton, hitSFTPBookmarkList, iconChevronDown, messages.Tools.Bookmarks, false, iconButtonQuiet)
-					icon(sftpButton, hitSFTPBookmarkToggle, starIcon, starHint, view.busy || view.path == "", iconButtonQuiet)
-				})
+			listID, starID, hint := hitSFTPBookmarkList, hitSFTPBookmarkToggle, messages.SFTPWindow.DirectoryFavorites
+			if local {
+				listID, starID, hint = hitSFTPLocalPlaces, hitSFTPLocalStar, messages.SFTPWindow.LocalPlaces
 			}
+			f.Row().Gap(2).Shrink(0).Children(func() {
+				icon(sftpButton, listID, iconChevronDown, hint, false, iconButtonQuiet)
+				icon(sftpButton, starID, starIcon, starHint, folder.path == "" || !local && (view.busy || !places.connected() || session.host.CatalogID == ""), iconButtonQuiet)
+			})
 		})
 		if folder.filterOpen {
 			filterSlot = f.Slot().Height(32).Shrink(0).MarginSides(5, 0, 4, 0)
 		}
-		// The bookmark list opens just under the path row.
-		popupTop = f.Slot().Height(0).MarginSides(4, 0, -4, 0)
 		f.Divider().Background(pal.line).MarginSides(2, 0, 3, 0)
 
 		listSlot = f.Slot().Grow(1)
@@ -255,8 +255,9 @@ func (state *State) paintSFTPPage(canvas *ui.Canvas, size ui.Size, session *Sess
 		state.paintSFTPBreadcrumbs(canvas, crumbs.Rect(), folder.crumbs)
 	}
 	state.paintSFTPList(canvas, size, listSlot.Rect(), session, view)
-	if view.bookmarksOpen && !local {
-		state.paintSFTPBookmarkPopup(canvas, popupTop.Rect().Y, size, session, view)
+	view.places.anchors[sideIndex(local)] = crumbs.Rect()
+	if view.bookmarksOpen {
+		places.paintDirectoryPlaces(canvas, ui.Rect{Y: windowBarHeight, Width: size.Width, Height: max(0, size.Height-windowBarHeight)})
 	}
 	if view.busy {
 		components.PaintSpinner(canvas, state.Theme(), spinnerSlot.Rect(), components.SpinnerPhase(canvas.Now()/(125*time.Millisecond)))

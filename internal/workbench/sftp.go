@@ -113,6 +113,7 @@ type sftpView struct {
 	dialogEditor          text.Editor
 	dialogEditor2         text.Editor
 	bookmarksOpen         bool
+	places                sftpPlaceMenu
 	dropping              bool // files are being dragged over the panel
 	dropRow               int  // the folder row they are over, or -1
 	details               sftpDetails
@@ -259,6 +260,10 @@ func (state *State) clickSFTP(id ui.ID) {
 		state.clickSFTPDialog(view, id)
 		return
 	}
+	if view.bookmarksOpen {
+		sftpPlaceBrowser{owner: state, session: session, view: view}.clickDirectoryPlace(id)
+		return
+	}
 	folder := view.active()
 	if folder.headerMenuOpen {
 		if column, ok := id.In(sftpHeaderSortHits); ok && column < 3 {
@@ -288,11 +293,6 @@ func (state *State) clickSFTP(id ui.ID) {
 		return
 	}
 	if view.local && state.clickSFTPLocal(session, view, id) {
-		return
-	}
-	if view.bookmarksOpen && id != hitSFTPBookmarkList && (id.Scope() != hitSFTPBookmarkItemList) {
-		// Pressing anywhere else closes the list, and does nothing more.
-		view.bookmarksOpen = false
 		return
 	}
 	if state.clickSFTPExtra(session, view, id) {
@@ -725,6 +725,9 @@ func (state *State) applySFTPListing(view *sftpView, remotePath string, rows []s
 		state.refreshSFTPFilterStatus(view, &view.sftpFolder)
 	}
 	state.syncTerminalDirectory(view)
+	if view.detached != nil {
+		view.detached.browseListingCommitted(false, remotePath)
+	}
 }
 
 // finishSFTPPrefetch takes in a folder read ahead of need: it is remembered, shown
@@ -1113,6 +1116,9 @@ func (state *State) pumpSFTP(session *Session) {
 			if result.Operation == sftpclient.OperationList && result.Err != nil && result.Path == view.terminalPath {
 				view.terminalPath = ""
 			}
+			if result.Operation == sftpclient.OperationList && result.Err != nil && view.detached != nil && view.detached.browseListingFailed(false, result.Path, result.Err) {
+				continue
+			}
 			if result.Operation == sftpclient.OperationList && view.pathRequest != "" && result.Path == view.pathRequest {
 				view.pathRequest = ""
 				if result.Err != nil && !errors.Is(result.Err, sftpclient.ErrCanceled) {
@@ -1292,6 +1298,9 @@ func (state *State) scrollSFTP(view *sftpView, event ui.ScrollEvent) ui.EventRes
 	if view == nil {
 		return ui.EventResult{Handled: true}
 	}
+	if view.bookmarksOpen {
+		return ui.EventResult{Handled: true, Repaint: view.places.scroll.Wheel(event)}
+	}
 	if view.editPath != "" && pointInRect(event.X, event.Y, view.editRect) {
 		view.editLayout.ScrollBy(event.DeltaY)
 		return ui.EventResult{Handled: true, Repaint: true}
@@ -1310,6 +1319,9 @@ func (state *State) fitSFTP(size ui.Size) {
 }
 
 func (state *State) sftpKey(event ui.KeyEvent) (ui.EventResult, bool) {
+	if result, handled := state.sftpPlacesKey(event); handled {
+		return result, true
+	}
 	if result, handled := state.sftpPathKey(event); handled {
 		return result, true
 	}

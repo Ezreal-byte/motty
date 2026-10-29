@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/vivaui/viva/components"
-	"github.com/vivaui/viva/flex"
 	"github.com/vivaui/viva/text"
 	"github.com/vivaui/viva/ui"
 	"motty/internal/sftpclient"
@@ -60,7 +59,9 @@ const (
 
 // sftpBookmark is a folder kept for a host, which the host's catalog id names.
 type sftpBookmark struct {
-	host, path string
+	host, path  string
+	name, local string
+	shared      bool
 }
 
 // bookmarksFor lists the bookmarked folders of the session's host, in the order
@@ -68,7 +69,7 @@ type sftpBookmark struct {
 func (state *State) bookmarksFor(session *Session) []string {
 	var paths []string
 	for _, bookmark := range state.sftpBookmarks {
-		if bookmark.host == session.host.CatalogID {
+		if bookmark.host == session.host.CatalogID && bookmark.local == "" {
 			paths = append(paths, bookmark.path)
 		}
 	}
@@ -89,7 +90,7 @@ func (state *State) toggleBookmark(session *Session, view *sftpView) {
 		state.save()
 		return
 	}
-	if len(state.bookmarksFor(session)) >= maxBookmarksPerHost || len(state.sftpBookmarks) >= maxBookmarks {
+	if state.bookmarkScopeSize(session.host.CatalogID, false) >= maxBookmarksPerHost || len(state.sftpBookmarks) >= maxBookmarks {
 		view.errorText = fmt.Sprintf(state.messages.Tools.BookmarkLimitFmt, maxBookmarksPerHost)
 		return
 	}
@@ -99,7 +100,7 @@ func (state *State) toggleBookmark(session *Session, view *sftpView) {
 
 func (state *State) removeBookmark(session *Session, folder string) bool {
 	for index, bookmark := range state.sftpBookmarks {
-		if bookmark.host == session.host.CatalogID && bookmark.path == folder {
+		if bookmark.host == session.host.CatalogID && bookmark.path == folder && bookmark.local == "" {
 			state.sftpBookmarks = slices.Delete(state.sftpBookmarks, index, index+1)
 			return true
 		}
@@ -117,25 +118,15 @@ func (state *State) clickSFTPExtra(session *Session, view *sftpView, id ui.ID) b
 	case id == hitSFTPNewLink && !view.busy:
 		state.openSFTPLinkDialog(view)
 	case id == hitSFTPBookmarkToggle:
-		state.toggleBookmark(session, view)
+		sftpPlaceBrowser{owner: state, session: session, view: view}.toggleDirectoryFavorite(false)
+	case id == hitSFTPLocalStar:
+		sftpPlaceBrowser{owner: state, session: session, view: view}.toggleDirectoryFavorite(true)
 	case id == hitSFTPBookmarkList:
-		view.bookmarksOpen = !view.bookmarksOpen
+		sftpPlaceBrowser{owner: state, session: session, view: view}.openDirectoryPlaces(false)
+	case id == hitSFTPLocalPlaces:
+		sftpPlaceBrowser{owner: state, session: session, view: view}.openDirectoryPlaces(true)
 	case id == hitSFTPBookmarkDismiss:
 		view.bookmarksOpen = false
-	case id.Scope() == hitSFTPBookmarkItemList:
-		marks := state.bookmarksFor(session)
-		if index := item(id); index < len(marks) {
-			view.bookmarksOpen = false
-			if !view.busy {
-				state.navigateSFTPDirectory(view, marks[index])
-			}
-		}
-	case id.Scope() == hitSFTPBookmarkRemoveList:
-		marks := state.bookmarksFor(session)
-		if index := item(id); index < len(marks) {
-			state.removeBookmark(session, marks[index])
-			state.save()
-		}
 	case id == hitSFTPExtract && !view.busy && !view.extracting:
 		state.openSFTPExtractDialog(view)
 	case id == hitSFTPCompress && !view.busy && !view.extracting:
@@ -448,59 +439,6 @@ func (state *State) configureSFTPWorker(view *sftpView) {
 
 // ---- painting ----
 
-// paintSFTPBookmarkPopup draws the list of bookmarked folders over the file
-// list, from top down to the panel's bottom margin.
-func (state *State) paintSFTPBookmarkPopup(canvas *ui.Canvas, top float32, size ui.Size, session *Session, view *sftpView) {
-	pal, m := state.pal, state.messages.Tools
-	marks := state.bookmarksFor(session)
-	const rowHeight, pad = float32(30), float32(6)
-	available := max(size.Height-top-sftpPad, 0)
-	height := min(float32(max(len(marks), 1))*rowHeight+pad*2, max(available-8, 0))
-	empty := len(marks) == 0
-	// A row that does not fit whole is not shown.
-	marks = marks[:min(len(marks), max(0, int((height-pad)/rowHeight)))]
-	icons, removes := state.filesRowIcons[:0], state.filesRowBoxes[:0]
-	panel := ui.Rect{Y: windowBarHeight, Width: size.Width, Height: size.Height - windowBarHeight}
-	// Anything else in the panel closes the list; the rows below are declared
-	// after this, so they win where the list covers them.
-	canvas.PushLayer(popupLayer)
-	defer canvas.PopLayer()
-	canvas.HitWithOptions(hitSFTPBookmarkDismiss, panel, m.Bookmarks, ui.HitOptions{Role: ui.RoleButton, SkipFocus: true})
-
-	f := state.filesPopup.Begin(canvas, state.Theme(), ui.Rect{Y: top, Width: size.Width, Height: available})
-	f.Column().Fill().PadSides(0, sftpPad, 0, sftpPad).Children(func() {
-		f.Column().Height(height).Shrink(0).PadSides(pad-1, 3, 0, 3). // inside the 1 pixel border
-										Border(1, withAlpha(pal.line, 0.9)).Background(pal.surface.Over(pal.workspace)).Radius(8).Children(func() {
-			if empty {
-				f.Row().Height(rowHeight).Items(flex.Center).PadSides(0, 8, 0, 8).Children(func() {
-					f.Text(m.BookmarksEmpty).FontSize(metrics.FontSizeS).Color(pal.muted).Ellipsis().Grow(1)
-				})
-				return
-			}
-			for index, mark := range marks {
-				id := hitSFTPBookmarkItemList.At(index)
-				background := ui.Color{}
-				if canvas.Hovered() == id {
-					background = withAlpha(pal.surfaceHot, 0.8)
-				}
-				f.Row().Height(rowHeight).Shrink(0).Background(background).Radius(6).Children(func() {
-					f.Row().Grow(1).Items(flex.Center).Gap(8).PadSides(0, 8, 0, 8).HitWith(id, mark, ui.HitOptions{Role: ui.RoleMenuItem}).Children(func() {
-						icons = append(icons, f.Slot().Size(16, 16))
-						f.Text(mark).FontSize(metrics.FontSizeS).Color(pal.text).Ellipsis().Grow(1)
-					})
-					removes = append(removes, f.Slot().Width(sftpButton))
-				})
-			}
-		})
-	})
-	f.End()
-	state.filesRowIcons, state.filesRowBoxes = icons, removes
-	for index := range marks {
-		paintIcon(canvas, iconFolderOpen, icons[index].Rect(), pal.muted)
-		state.paintIconButton(canvas, hitSFTPBookmarkRemoveList.At(index), iconClose, removes[index].Rect(), m.BookmarkRemove, false, iconButtonQuiet, pal.surface)
-	}
-}
-
 // sftpDetails caches the line describing the selected item, so painting a
 // panel that did not change builds no text.
 type sftpDetails struct {
@@ -556,8 +494,11 @@ func (state *State) sftpDetails(entry sftpclient.Entry) string {
 
 // savedBookmark is a bookmark in the state file.
 type savedBookmark struct {
-	Host string `json:"host"`
-	Path string `json:"path"`
+	Host   string `json:"host"`
+	Path   string `json:"path"`
+	Name   string `json:"name,omitempty"`
+	Local  string `json:"local,omitempty"`
+	Shared bool   `json:"shared,omitempty"`
 }
 
 // restoreSFTPSettings reads the file panel's settings and bookmarks from a state.
@@ -583,15 +524,22 @@ func (state *State) restoreSFTPSettings(saved savedState) {
 	perHost := map[string]int{}
 	for _, entry := range saved.SFTPBookmarks {
 		clean := path.Clean(entry.Path)
-		if entry.Host == "" || !path.IsAbs(clean) || len(clean) > 2048 || strings.ContainsRune(clean, 0) ||
+		if entry.Shared {
+			entry.Host = ""
+		}
+		if entry.Host == "" && !entry.Shared || !path.IsAbs(clean) || len(clean) > 2048 || strings.ContainsRune(clean, 0) ||
 			perHost[entry.Host] >= maxBookmarksPerHost || len(state.sftpBookmarks) >= maxBookmarks {
 			continue
 		}
-		if slices.Contains(state.sftpBookmarks, sftpBookmark{host: entry.Host, path: clean}) {
+		bookmark := sftpBookmark{host: entry.Host, path: clean, name: cleanBookmarkName(entry.Name), local: entry.Local, shared: entry.Shared}
+		if !validSavedBookmarkLocal(bookmark.local) {
+			bookmark.local = ""
+		}
+		if slices.Contains(state.sftpBookmarks, bookmark) {
 			continue
 		}
 		perHost[entry.Host]++
-		state.sftpBookmarks = append(state.sftpBookmarks, sftpBookmark{host: entry.Host, path: clean})
+		state.sftpBookmarks = append(state.sftpBookmarks, bookmark)
 	}
 }
 

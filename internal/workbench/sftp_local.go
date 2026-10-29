@@ -282,6 +282,7 @@ func (state *State) applyLocalListing(view *sftpView, listing localListing, seq 
 	view.errorText = ""
 	if view.detached != nil {
 		view.setItemCountStatus(state.messages.SFTPItemsFmt, len(folder.rows))
+		view.detached.browseListingCommitted(true, listing.dir)
 	}
 }
 
