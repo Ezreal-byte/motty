@@ -1,10 +1,13 @@
 package workbench
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
+	"github.com/vivaui/viva/components"
 	"github.com/vivaui/viva/ui"
 	"motty/internal/sftpclient"
 )
@@ -164,6 +167,28 @@ func TestDroppedFilesOnTheTerminalUploadIntoTheShellsFolder(t *testing.T) {
 	remote.mu.Unlock()
 	if got != "dropped" {
 		t.Fatalf("the shell's folder holds %q", got)
+	}
+	want := fmt.Sprintf(state.messages.Tools.DropTerminalDoneFmt, 1, "/home/test/docs")
+	if last := state.fileNotices.items[len(state.fileNotices.items)-1]; last.detail != want || last.kind != components.ToastSuccess {
+		t.Fatalf("notices %+v, want a success saying %q", state.fileNotices.items, want)
+	}
+	if len(state.terminalUploads) != 0 {
+		t.Fatal("a finished drop is still followed")
+	}
+}
+
+func TestDroppedFilesThatCannotBeUploadedAreReportedOnTheTerminal(t *testing.T) {
+	state, session, _, panel, paths := dropFixture(t)
+	x, y := terminalPoint(panel)
+	event := ui.FileDropEvent{X: x, Y: y, Paths: paths[:1]}
+	event.Phase = ui.FileDropDrop
+	state.FileDrop(event)
+	waitTransfersDone(t, state, session, 1)
+	state.FileDrop(event) // the same name is already there
+	waitSFTP(t, state, session, func(*sftpView) bool { return len(state.terminalUploads) == 0 })
+	last := state.fileNotices.items[len(state.fileNotices.items)-1]
+	if last.kind != components.ToastError || !strings.Contains(last.detail, "/home/test") {
+		t.Fatalf("notices %+v, want an error naming the folder", state.fileNotices.items)
 	}
 }
 

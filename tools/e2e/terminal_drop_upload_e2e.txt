@@ -11,7 +11,8 @@
 #
 # What to look for: the hover reports ok accepted, the screenshot taken while
 # hovering shows "Drop here to upload to /tmp/drop-dest", and after the drop
-# `ls -l` lists drop-me.txt (8 bytes) in that folder.
+# `ls -l` lists drop-me.txt (8 bytes) in that folder, and a toast says
+# "Uploaded 1 items to /tmp/drop-dest" (the screenshot /tmp/terminal-drop-notice.png).
 
 click "Search"
 type tester@127.0.0.1:2261
@@ -35,7 +36,8 @@ dragover 400 300 /tmp/drop-me.txt
 settle 300
 shot /tmp/terminal-drop-hover.png
 drop 400 300 /tmp/drop-me.txt
-settle 1500
+waitfor "Uploaded 1 items" 5000
+shot /tmp/terminal-drop-notice.png
 type ls -l
 key enter
 waitfor "drop-me.txt" 8000

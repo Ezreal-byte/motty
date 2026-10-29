@@ -317,6 +317,8 @@ type ToolsMessages struct {
 	DropUploadingFmt                string
 	DropUploadHint                  string
 	DropTerminalUploadFmt           string
+	DropTerminalDoneFmt             string
+	DropTerminalFailedFmt           string
 	LaunchTitle                     string
 	LaunchWarning                   string
 	LaunchDescriptionFmt            string

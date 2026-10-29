@@ -6,9 +6,12 @@ import (
 	"os"
 	"path"
 	"runtime"
+	"slices"
 	"strings"
 
+	"github.com/vivaui/viva/components"
 	"github.com/vivaui/viva/ui"
+	"motty/internal/sftpclient"
 	"motty/internal/sshconn"
 )
 
@@ -251,20 +254,81 @@ func (state *State) uploadToTerminalFolder(upload terminalDrop, paths []string) 
 	// The person is at the terminal and will type next, so the transfer center
 	// stays as it was rather than opening over the shell and taking the keyboard.
 	transfersOpen := state.transfers.open
-	queued := 0
+	batch := terminalUploadBatch{view: view, title: session.Title, directory: upload.directory, pending: map[uint64]struct{}{}}
 	for _, local := range paths {
 		info, err := os.Stat(local)
 		if err != nil {
 			continue
 		}
-		state.queueSFTPUploadTo(view, local, info.IsDir(), upload.directory)
-		queued++
+		if id := state.queueSFTPUploadTo(view, local, info.IsDir(), upload.directory); id != 0 {
+			batch.pending[id] = struct{}{}
+		}
 	}
 	state.transfers.open = transfersOpen
-	if queued > 0 {
-		state.status = fmt.Sprintf(state.messages.Tools.DropUploadingFmt, queued, upload.directory)
+	batch.total = len(batch.pending)
+	if batch.total == 0 {
+		return false
 	}
-	return queued > 0
+	state.terminalUploads = append(state.terminalUploads, batch)
+	state.fileOpenNotice(nil, batch.title, fmt.Sprintf(state.messages.Tools.DropUploadingFmt, batch.total, batch.directory), components.ToastInfo)
+	return true
+}
+
+// terminalUploadBatch is the files of one drop on a terminal, followed until
+// every transfer has ended so that a single notice can say how it went: the
+// transfer center stays shut, and nothing else would tell.
+type terminalUploadBatch struct {
+	view             *sftpView
+	title, directory string
+	pending          map[uint64]struct{}
+	total, failed    int
+	reason           string // why the first failed transfer failed
+}
+
+// settleTerminalUploads counts the transfers of view that have ended and, once a
+// drop has none left running, tells how it went.
+func (state *State) settleTerminalUploads(view *sftpView) {
+	for index := 0; index < len(state.terminalUploads); {
+		batch := &state.terminalUploads[index]
+		if batch.view != view {
+			index++
+			continue
+		}
+		for id := range batch.pending {
+			at := slices.IndexFunc(view.transfers, func(snapshot sftpclient.TransferSnapshot) bool { return snapshot.ID == id })
+			if at < 0 {
+				delete(batch.pending, id) // the worker has let it go; how it ended is not known
+				continue
+			}
+			switch snapshot := view.transfers[at]; snapshot.State {
+			case sftpclient.TransferCompleted:
+				delete(batch.pending, id)
+			case sftpclient.TransferFailed, sftpclient.TransferCanceled:
+				delete(batch.pending, id)
+				if batch.failed++; batch.reason == "" {
+					batch.reason = snapshot.Error
+				}
+			}
+		}
+		if len(batch.pending) > 0 {
+			index++
+			continue
+		}
+		done := *batch
+		state.terminalUploads = slices.Delete(state.terminalUploads, index, index+1)
+		m := state.messages.Tools
+		if done.failed == 0 {
+			state.fileOpenNotice(nil, done.title, fmt.Sprintf(m.DropTerminalDoneFmt, done.total, done.directory), components.ToastSuccess)
+			continue
+		}
+		state.fileOpenNotice(nil, done.title, fmt.Sprintf(m.DropTerminalFailedFmt, done.failed, done.total, done.directory, done.reason), components.ToastError)
+	}
+}
+
+// forgetTerminalUploads stops following the drops of a file view that is going
+// away.
+func (state *State) forgetTerminalUploads(view *sftpView) {
+	state.terminalUploads = slices.DeleteFunc(state.terminalUploads, func(batch terminalUploadBatch) bool { return batch.view == view })
 }
 
 // terminalTakesPaths reports whether the point is on the terminal of a live

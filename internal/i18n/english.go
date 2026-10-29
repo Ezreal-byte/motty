@@ -1364,6 +1364,8 @@ var englishTools = ToolsMessages{
 	DropUploadingFmt:                "Uploading %d dropped items to %s",
 	DropUploadHint:                  "Drop here to upload",
 	DropTerminalUploadFmt:           "Drop here to upload to %s",
+	DropTerminalDoneFmt:             "Uploaded %d items to %s",
+	DropTerminalFailedFmt:           "%d of %d uploads to %s failed: %s",
 	LaunchTitle:                     "Open connection",
 	LaunchDescriptionFmt:            "Connect to %[2]s over %[1]s?",
 	LaunchWarning:                   "Another program asked for this connection. Connect only if you expect it.",

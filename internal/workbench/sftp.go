@@ -207,6 +207,7 @@ func (state *State) closeSFTP(session *Session) {
 		state.refreshSFTPTransfers(session.files)
 		state.archiveTransfers(session.files)
 	}
+	state.forgetTerminalUploads(session.files)
 	session.files = nil
 }
 
@@ -876,18 +877,21 @@ func (state *State) queueSFTPUpload(view *sftpView, localPath string, recursive 
 }
 
 // queueSFTPUploadTo uploads localPath into the server's folder remoteDir.
-func (state *State) queueSFTPUploadTo(view *sftpView, localPath string, recursive bool, remoteDir string) {
+// queueSFTPUploadTo queues one upload and returns the id of its transfer, or
+// zero when the worker would not take it.
+func (state *State) queueSFTPUploadTo(view *sftpView, localPath string, recursive bool, remoteDir string) uint64 {
 	name := filepath.Base(filepath.Clean(localPath))
 	remotePath := path.Join(remoteDir, name)
-	_, queued := view.worker.QueueUpload(localPath, remotePath, recursive, sftpclient.ExistingFail)
+	id, queued := view.worker.QueueUpload(localPath, remotePath, recursive, sftpclient.ExistingFail)
 	if !queued {
 		view.errorText = state.messages.SFTPUnavailable
-		return
+		return 0
 	}
 	view.status = fmt.Sprintf(state.messages.SFTPQueuedFmt, name)
 	view.errorText = ""
 	state.transfers.open, state.transfers.filter, state.transfers.scroll = true, 0, 0
 	state.refreshSFTPTransfers(view)
+	return id
 }
 
 func (state *State) refreshSFTPTransfers(view *sftpView) {

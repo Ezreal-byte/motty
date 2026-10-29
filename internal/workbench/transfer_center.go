@@ -152,6 +152,7 @@ func (state *State) syncTransfers(view *sftpView) {
 		state.trimTransferHistory()
 		state.describeTransferSummary()
 	}
+	state.settleTerminalUploads(view)
 }
 
 func (state *State) archiveTransfers(view *sftpView) {
