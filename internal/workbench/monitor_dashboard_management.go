@@ -23,6 +23,11 @@ var (
 
 func dashboardOrderID(host string) ui.ID { return tree.ID(dashboardHits, "order-"+host) }
 
+func (s *State) dashboardModeTabs() [2]components.TabOption {
+	m := s.messages.Dashboard
+	return [2]components.TabOption{{ID: hitDashboardSimple, Label: m.Simple}, {ID: hitDashboardDetailed, Label: m.Detailed}}
+}
+
 func (s *State) dashboardEditorTabs() [2]components.TabOption {
 	m := s.messages.Dashboard
 	return [2]components.TabOption{{ID: hitDashboardPickTab, Label: m.Hosts, Icon: icons.Server}, {ID: hitDashboardOrderTab, Label: m.OrderTab, Icon: icons.ArrowUpDown}}
@@ -134,6 +139,9 @@ func (s *State) moveDashboardHost(move components.ReorderMove) {
 func (s *State) paintDashboardHostOrder(c *ui.Canvas, geo components.ScrollAreaGeometry) {
 	e, m, theme := &s.dashboard.editor, s.messages.Dashboard, s.Theme()
 	bounds := geo.Content
+	bounds.X += 3
+	bounds.Y += 3
+	bounds.Width = max(0, bounds.Width-6)
 	if geo.MaxOffsetY > 0 {
 		bounds.Width = max(0, bounds.Width-14)
 	}

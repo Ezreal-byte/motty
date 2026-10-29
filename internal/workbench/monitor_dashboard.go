@@ -404,16 +404,19 @@ func (s *State) submitDashboard() {
 	name := strings.TrimSpace(e.name.String())
 	if name == "" || utf8.RuneCountInString(name) > 40 {
 		e.error = m.NameRequired
+		e.page = 0
 		return
 	}
 	for _, p := range d.panels {
 		if p.ID != e.id && strings.EqualFold(p.Name, name) {
 			e.error = m.DuplicateName
+			e.page = 0
 			return
 		}
 	}
 	if len(e.selected) == 0 {
 		e.error = m.HostsRequired
+		e.page = 0
 		return
 	}
 	p := monitoring.Panel{ID: e.id, Name: name, Note: string([]rune(strings.TrimSpace(e.note.String()))[:min(160, utf8.RuneCountInString(strings.TrimSpace(e.note.String())))]), Hosts: slices.Clone(e.selected), Interval: 5, Retention: 60}
@@ -469,6 +472,9 @@ func (s *State) deleteDashboard() {
 }
 func (s *State) dashboardEditorFor(hit ui.ID) *text.Editor {
 	if s.modal == modalDashboard {
+		if s.dashboard.editor.page != 0 {
+			return nil
+		}
 		switch hit {
 		case hitDashboardName:
 			return &s.dashboard.editor.name

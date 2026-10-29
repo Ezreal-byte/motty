@@ -98,7 +98,7 @@ func dashboardPickerHeight(groups []dashboardPickerGroup, columns int) float32 {
 	var height float32
 	for _, g := range groups {
 		rows := (len(g.hosts) + len(g.missing) + columns - 1) / columns
-		height += 28 + float32(rows)*60
+		height += 28 + float32(rows)*44
 	}
 	return max(0, height-8)
 }
@@ -149,7 +149,7 @@ func (s *State) paintDashboardPickerGroups(c *ui.Canvas, geo components.ScrollAr
 		}
 		y += 28
 		for i := 0; i < n; i++ {
-			box := ui.Rect{X: geo.Content.X + float32(i%columns)*(cardW+8), Y: y + float32(i/columns)*60, Width: cardW, Height: 52}
+			box := ui.Rect{X: geo.Content.X + float32(i%columns)*(cardW+8), Y: y + float32(i/columns)*44, Width: cardW, Height: 36}
 			if box.Y+box.Height < geo.Viewport.Y || box.Y > geo.Viewport.Y+geo.Viewport.Height {
 				continue
 			}
@@ -161,7 +161,7 @@ func (s *State) paintDashboardPickerGroups(c *ui.Canvas, geo components.ScrollAr
 				s.paintDashboardHostChoice(c, Host{Label: s.messages.Dashboard.Missing, Address: e.selected[index]}, box, hitDashboardMissingList.At(index), true, true)
 			}
 		}
-		y += float32((n+columns-1)/columns) * 60
+		y += float32((n+columns-1)/columns) * 44
 	}
 	if len(groups) == 0 {
 		components.Empty(c, theme, geo.Viewport, components.EmptyData{Title: s.messages.KnownHostsNoMatches})

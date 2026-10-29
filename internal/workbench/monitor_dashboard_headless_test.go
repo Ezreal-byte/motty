@@ -7,6 +7,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 	"time"
 
@@ -18,6 +19,93 @@ import (
 	"motty/internal/remotestats"
 	"motty/internal/sshconn"
 )
+
+func TestDashboardNativePauseFreezesChartsAndResumeAppends(t *testing.T) {
+	s, _, _ := dashboardTestState(t)
+	s.visible = []int{0}
+	s.setLanguage(i18n.Chinese)
+	s.setAppearance(appearanceDark)
+	id := createDashboard(t, s, "生产环境")
+	p := s.dashboardPanel()
+	s.dashboard.running = map[string]bool{id: true}
+	s.dashboard.engine.Set(*p, true)
+	start := time.Now().Add(-time.Minute)
+	for n := 0; n <= 12; n++ {
+		s.dashboard.engine.Publish("host", start.Add(time.Duration(n)*5*time.Second), remotestats.Sample{CPUPercent: float64(n + 20), MemoryTotalBytes: 8 << 30, MemoryUsedBytes: 4 << 30, ReceiveBytesPerSecond: 4000, SendBytesPerSecond: 1000})
+	}
+	view, err := headless.Open(app.Config{Title: "Motty", Width: 1487, Height: 1058, Tree: Tree(), Paint: s.Paint, OnPointer: s.Pointer, OnKey: s.Key, OnShortcut: s.Shortcut, OnScroll: s.Scroll, OnResize: s.Resize}, nil, headless.Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer view.Close()
+	row := s.dashboardRow(p, "host", int(s.dashboard.body.Width))
+	x, cpu := slices.Clone(row.x), slices.Clone(row.values[0])
+	before, _ := s.dashboard.engine.Read(id, "host", 1000, 0)
+	if len(x) != 13 {
+		t.Fatalf("expected a real minute of samples, got %d", len(x))
+	}
+	if err := view.ClickLabel(s.messages.Dashboard.Stop); err != nil {
+		t.Fatal(err)
+	}
+	if err := view.Rest(); err != nil {
+		t.Fatal(err)
+	}
+	row = s.dashboardRow(s.dashboardPanel(), "host", int(s.dashboard.body.Width))
+	if !slices.Equal(x, row.x) || !slices.Equal(cpu, row.values[0]) {
+		t.Fatal("stopping collection discarded or shifted the chart")
+	}
+	stopped := 0
+	for _, label := range view.Texts() {
+		if label == s.messages.Dashboard.Stopped {
+			stopped++
+		}
+	}
+	if stopped != 1 {
+		t.Fatalf("stopped status must appear once in the upper-right status, got %d", stopped)
+	}
+	if dir := os.Getenv("MOTTY_DASHBOARD_SCREENSHOTS"); dir != "" {
+		if err := view.Screenshot(filepath.Join(dir, "dashboard-paused.png")); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := view.Resize(1100, 900); err != nil {
+		t.Fatal(err)
+	}
+	row = s.dashboardRow(s.dashboardPanel(), "host", int(s.dashboard.body.Width))
+	if !slices.Equal(x, row.x) {
+		t.Fatal("resizing a stopped page erased its timeline")
+	}
+	if err := view.ClickLabel(s.messages.Dashboard.Start); err != nil {
+		t.Fatal(err)
+	}
+	var after monitoring.Snapshot
+	for deadline := time.Now().Add(2 * time.Second); time.Now().Before(deadline); {
+		s.Wake()
+		after, _ = s.dashboard.engine.Read(id, "host", 1000, 0)
+		if after.Updated.After(before.Updated) {
+			break
+		}
+		time.Sleep(time.Millisecond)
+	}
+	if len(after.Points) < len(before.Points)+2 {
+		t.Fatal("resume did not append an observation and a pause gap")
+	}
+	for i, point := range before.Points {
+		if point.At != after.Points[i].At {
+			t.Fatal("resume rewrote earlier timestamps")
+		}
+		for j, v := range point.Values {
+			got := after.Points[i].Values[j]
+			if v != got && !(math.IsNaN(float64(v)) && math.IsNaN(float64(got))) {
+				t.Fatal("resume rewrote earlier samples")
+			}
+		}
+	}
+	if !math.IsNaN(float64(after.Points[len(before.Points)].Values[0])) {
+		t.Fatal("resume connected the paused period with a fabricated line")
+	}
+	s.Click(hitDashboardToggle)
+}
 
 func TestDashboardNativeSelectsAndHostCards(t *testing.T) {
 	s, _, dialed := dashboardTestState(t)
@@ -93,6 +181,11 @@ func TestDashboardNativeSelectsAndHostCards(t *testing.T) {
 	}
 	if view.HasText("private panel note") {
 		t.Fatal("the panel note must stay in the editor, not the page header")
+	}
+	for _, label := range []string{m.Simple, m.Detailed} {
+		if hit, ok := view.Hit(label); !ok || hit.Role != ui.RoleTab {
+			t.Fatal("view modes must use Viva Tabs")
+		}
 	}
 	for _, label := range []string{m.Title, m.Sampling, m.Retention} {
 		hit, ok := view.Hit(label)
@@ -178,7 +271,17 @@ func TestDashboardNativeHostOrderAndBulkAdd(t *testing.T) {
 	}
 	m := s.messages.Dashboard
 	click(m.Edit)
+	selectionHeight := s.dashboard.editor.bounds.Height
 	click(m.OrderTab)
+	if s.dashboard.editor.bounds.Height < selectionHeight+100 {
+		t.Fatal("order tab did not reclaim the form's vertical space")
+	}
+	if _, ok := view.Hit(m.Name); ok {
+		t.Fatal("order tab still exposes the name input")
+	}
+	if b, ok := s.dashboard.editor.order.RowBounds(dashboardOrderID(original[0])); !ok || b.X < s.dashboard.editor.bounds.X+2 {
+		t.Fatal("order outline is flush with the scroll clip")
+	}
 	shot("dashboard-edit-order")
 	first, ok := view.Hit(fmt.Sprintf(m.SortPanel, s.hosts[0].Label))
 	if !ok {
@@ -333,7 +436,7 @@ func TestDashboardNativeGroupedPickerPreservesFilteredSelection(t *testing.T) {
 	}
 	click(m.SelectedOnly)
 	card, ok := view.Hit("node-007")
-	if !ok || card.Bounds.Height != 52 || card.Bounds.Width >= 280 {
+	if !ok || card.Bounds.Height != 36 || card.Bounds.Width >= 280 {
 		t.Fatalf("expected a compact host card: %+v", card)
 	}
 	click("node-007")

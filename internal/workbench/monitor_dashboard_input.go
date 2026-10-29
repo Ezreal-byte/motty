@@ -125,6 +125,12 @@ func (s *State) dashboardKey(e ui.KeyEvent) ui.EventResult {
 	if s.modal != modalNone || s.activeSection != sectionDashboard {
 		return ui.EventResult{}
 	}
+	if e.Target == hitDashboardSimple || e.Target == hitDashboardDetailed {
+		options := s.dashboardModeTabs()
+		if next, ok := components.TabsKeyDown(e.Target, options[:], components.TabsHorizontal, components.DirectionLTR, e.Key); ok {
+			return ui.EventResult{Handled: true, Repaint: true, Focus: next, FocusVisible: true}
+		}
+	}
 	if e.Target.Scope() == hitDashboardViewList || e.Target.Scope() == hitDashboardSimpleViewList {
 		simple := e.Target.Scope() == hitDashboardSimpleViewList
 		host := uint32(item(e.Target) / 3)
