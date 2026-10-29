@@ -1320,6 +1320,7 @@ var englishTools = ToolsMessages{
 	FilesTerminalFollow:             "Terminal follows file navigation",
 	FilesTerminalFollowDescription:  "Off by default. Entering a remote folder also changes the same terminal's folder at a verified empty prompt. Requires Bash 4.4+ or zsh integration.",
 	FilesTerminalFollowSkipped:      "Terminal folder unchanged. Finish the command; if needed, press Ctrl+C at an empty prompt, then navigate again.",
+	FilesTerminalFollowUnsupported:  "Terminal folder unchanged. This shell does not report when a command starts (Bash before 4.4), so an empty prompt cannot be confirmed. Use Bash 4.4+ or zsh.",
 	FilesFollowSetup:                "Folder reporting for bash and zsh",
 	FilesFollowSetupDescription:     "Makes the prompt report its folder. Paste it into the remote shell, or its startup file.",
 	FilesFollowSetupCopy:            "Copy command",

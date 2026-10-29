@@ -48,7 +48,9 @@ another `cd` back. Both preferences use the existing shared-settings storage.
   available for forward following; automatic reverse sync fails closed when
   this session's integration cannot prove prompt readiness.
 - Bash versions older than 4.4 support automatic forward following only. Reverse
-  sync is disabled there instead of overriding a user's DEBUG trap.
+  sync is disabled there instead of overriding a user's DEBUG trap. The
+  file panel says so when a navigation is skipped for that reason (CentOS 7 ships
+  Bash 4.2).
 - To keep ordinary shell startup entirely, disable both directions and
   reconnect. Re-enabling integration for an already open ordinary shell also
   requires reconnecting. There is no command injection into a live prompt to

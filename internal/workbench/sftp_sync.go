@@ -107,7 +107,7 @@ func (state *State) syncTerminalDirectory(view *sftpView) {
 	if view.terminalSyncSkipped {
 		view.terminalSyncSkipped = false
 		if state.sftpTerminalFollow {
-			view.status = state.messages.Tools.FilesTerminalFollowSkipped
+			view.status = state.terminalFollowSkippedText(view)
 		}
 	}
 	if view.terminalPath == "" || path.Clean(view.path) != view.terminalPath {
@@ -124,8 +124,19 @@ func (state *State) syncTerminalDirectory(view *sftpView) {
 	}
 	if !ok || !state.terminalDirectoryReady(session) || session.term.promptVersion != version ||
 		!session.term.send([]byte("builtin cd -- "+shellQuote(directory)+"\r")) {
-		view.status = state.messages.Tools.FilesTerminalFollowSkipped
+		view.status = state.terminalFollowSkippedText(view)
 	}
+}
+
+// terminalFollowSkippedText says why the terminal was left where it was. A shell
+// that reports its prompt but never the start of a command (Bash before 4.4)
+// can never be proven idle, so asking the user to finish a command would send
+// them looking for something that is not there.
+func (state *State) terminalFollowSkippedText(view *sftpView) string {
+	if session, ok := state.sftpSession(view); ok && session.term != nil && session.term.folderIntegrationSeen && !session.term.commandReporting {
+		return state.messages.Tools.FilesTerminalFollowUnsupported
+	}
+	return state.messages.Tools.FilesTerminalFollowSkipped
 }
 
 func (state *State) followTerminalDirectory(session *Session) {

@@ -262,6 +262,7 @@ type ToolsMessages struct {
 	FilesTerminalFollow             string
 	FilesTerminalFollowDescription  string
 	FilesTerminalFollowSkipped      string
+	FilesTerminalFollowUnsupported  string
 	FilesFollowSetup                string
 	FilesFollowSetupDescription     string
 	FilesFollowSetupCopy            string

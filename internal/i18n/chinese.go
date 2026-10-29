@@ -1320,6 +1320,7 @@ var chineseTools = ToolsMessages{
 	FilesTerminalFollow:             "终端跟随文件栏目录",
 	FilesTerminalFollowDescription:  "默认关闭。进入远程文件夹时，仅在已验证的空提示符下同步终端目录。需要 Bash 4.4+ 或 zsh 集成。",
 	FilesTerminalFollowSkipped:      "终端目录未同步。请结束当前命令；必要时在空提示符按 Ctrl+C 后重新进入目录。",
+	FilesTerminalFollowUnsupported:  "终端目录未同步。此 Shell 不上报命令开始（Bash 4.4 以前），无法确认当前是空提示符。请使用 Bash 4.4+ 或 zsh。",
 	FilesFollowSetup:                "bash / zsh 目录上报",
 	FilesFollowSetupDescription:     "让提示符上报当前目录。粘贴到远程 shell 或其启动文件中。",
 	FilesFollowSetupCopy:            "复制命令",
