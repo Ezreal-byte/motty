@@ -388,12 +388,14 @@ const (
 	// only with the dev tag (see debug.go), but the section keeps its place so
 	// the other sections do not renumber between builds.
 	sectionDebug
+	sectionDashboard
 )
 
 // State owns the complete interactive state of the window.
 // Paint reads it synchronously and never starts work or allocates background
 // resources.
 type State struct {
+	dashboard dashboardState
 	// hostCatalog is the hosts, jump routes, keys, outbound proxy and timeouts a
 	// connection is resolved from; the headless MCP server builds one too.
 	hostCatalog
@@ -713,6 +715,7 @@ func (state *State) Close() {
 		return
 	}
 	state.closed = true
+	state.closeDashboard()
 	state.flushLocalDirectories()
 	state.closeRemoteToolsWindows()
 	state.closeFileWindows()
@@ -940,6 +943,9 @@ func (state *State) Messages() i18n.Messages {
 // not an open dialog's field. The runtime reports which hit holds keyboard
 // focus; this maps it to the text it edits.
 func (state *State) EditorFor(hit ui.ID) *text.Editor {
+	if editor := state.dashboardEditorFor(hit); editor != nil {
+		return editor
+	}
 	if _, local, ok := state.decodePaneHit(hit); ok {
 		hit = local
 	}
@@ -1091,6 +1097,9 @@ func (state *State) WindowControlsStyle() app.WindowControlsStyle {
 
 // Click applies one stable hit action.
 func (state *State) Click(id ui.ID) {
+	if state.clickDashboard(id) {
+		return
+	}
 	if state.fileNotices.click(id) {
 		return
 	}
@@ -1704,6 +1713,9 @@ func (state *State) hostForRow(id ui.ID) (Host, bool) {
 // double click on a host row connects to it.
 func (state *State) Pointer(event ui.PointerEvent) (outcome ui.EventResult) {
 	defer state.afterEvent(&outcome)
+	if result, handled := state.dashboardPointer(event); handled {
+		return result
+	}
 	if result := state.toolbarSettingsPointer(event); result.Handled {
 		return result
 	}
@@ -1928,6 +1940,9 @@ func (state *State) Key(event ui.KeyEvent) (outcome ui.EventResult) {
 
 func (state *State) key(event ui.KeyEvent) ui.EventResult {
 	if result, handled := state.terminalInputKey(event); handled {
+		return result
+	}
+	if result := state.dashboardKey(event); result.Handled {
 		return result
 	}
 	if result := state.remoteSearchKey(event); result.Handled {

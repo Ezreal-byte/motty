@@ -121,10 +121,15 @@ func monitorLabel(c *ui.Canvas, text string, b ui.Rect, size float32, color ui.C
 // The existing remote-tools clock frames are shared; only local paint timing
 // changes here. Sampling remains owned by the cancellable remote worker.
 func (state *State) paintMonitorRefresh(c *ui.Canvas, p *monitorView, b ui.Rect, live bool) {
+	state.paintIntervalClock(c, p, b, live, hitMonitorInterval, state.messages.Monitor.Interval, state.monitorMenu)
+}
+
+// Both monitoring surfaces use the same SVG clock frames and scheduling rules.
+func (state *State) paintIntervalClock(c *ui.Canvas, p *monitorView, b ui.Rect, live bool, id ui.ID, label string, expanded bool) {
 	theme := state.Theme()
 	theme.Metrics.ControlHeight = b.Height
-	components.BeginButton(c, theme, ui.ID{}, b).WithState(components.ButtonState{Hovered: c.Hovered() == hitMonitorInterval, Pressed: c.Pressed() == hitMonitorInterval, Focused: c.FocusVisible() == hitMonitorInterval}).Ghost("")
-	c.HitWithOptions(hitMonitorInterval, b, state.messages.Monitor.Interval, ui.HitOptions{Role: ui.RoleButton, Expandable: true, Expanded: state.monitorMenu, Value: p.intervalText})
+	components.BeginButton(c, theme, ui.ID{}, b).WithState(components.ButtonState{Hovered: c.Hovered() == id, Pressed: c.Pressed() == id, Focused: c.FocusVisible() == id}).Ghost("")
+	c.HitWithOptions(id, b, label, ui.HitOptions{Role: ui.RoleButton, Expandable: true, Expanded: expanded, Value: p.intervalText})
 	running := live && !p.paused && p.count > 0
 	now := c.Now()
 	if p.refreshReset || running != p.refreshRunning || p.refreshVersion != p.version {

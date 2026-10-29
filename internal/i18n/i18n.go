@@ -29,6 +29,7 @@ func (language Language) String() string {
 // language means adding one field initialization, not touching call sites.
 type Messages struct {
 	Monitor    MonitorMessages
+	Dashboard  DashboardMessages
 	FileWindow FileWindowMessages
 	SFTPWindow SFTPWindowMessages
 	Transfers  TransferCenterMessages

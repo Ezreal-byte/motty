@@ -13,6 +13,7 @@ import (
 
 	"github.com/vivaui/viva/ui"
 	"motty/internal/i18n"
+	"motty/internal/monitoring"
 	"motty/internal/sshconn"
 	layoutcore "motty/internal/workspace"
 )
@@ -27,6 +28,8 @@ const shortcutSchemaVersion = 1
 // workspace metadata to restore tabs without reconnecting. Run-local numeric
 // IDs are not saved; stable host catalog IDs are.
 type savedState struct {
+	MonitorPanels              []monitoring.Panel  `json:"monitor_panels,omitempty"`
+	MonitorActive              string              `json:"monitor_active,omitempty"`
 	Version                    int                 `json:"version"`
 	Language                   string              `json:"language,omitempty"`
 	Theme                      string              `json:"theme,omitempty"`
@@ -342,6 +345,8 @@ func writeFileAtomic(path string, data []byte) error {
 func (state *State) snapshot() savedState {
 	savedAgent, savedAgentPath := state.sshAgent.saved()
 	saved := savedState{
+		MonitorPanels:              state.dashboard.panels,
+		MonitorActive:              state.dashboard.active,
 		Version:                    stateFileVersion,
 		Language:                   state.savedLanguage(),
 		Theme:                      state.appearanceMode.saved(),
@@ -578,6 +583,7 @@ func (state *State) restoreSettings(saved savedState) {
 // restoreLocal applies what belongs to this computer: the language and look, the
 // fonts, what it does at start, the keys it has, the cloud account, the picture.
 func (state *State) restoreLocal(saved savedState) {
+	state.restoreDashboard(saved.MonitorPanels, saved.MonitorActive)
 	state.restoreSFTPLocalFavorites(saved.SFTPLocalBookmarks)
 	state.toolbars.restore(saved.Toolbars)
 	state.localShell = saved.LocalShell
@@ -683,6 +689,8 @@ func (state *State) workspaceName() string {
 		return name
 	}
 	switch state.activeSection {
+	case sectionDashboard:
+		return "monitor"
 	case sectionTerminal:
 		return "terminal"
 	case sectionKeys:
@@ -725,6 +733,8 @@ func (state *State) restoreWorkspace(workspace string) {
 		return
 	}
 	switch workspace {
+	case "monitor":
+		state.activeSection = sectionDashboard
 	case "terminal":
 		if state.activeSessionID != 0 {
 			state.activeSection = sectionTerminal

@@ -187,6 +187,8 @@ func (state *State) Paint(canvas *ui.Canvas, size ui.Size) {
 		canvas.Clip(workspace)
 		if !state.devPaintPage(canvas, workspace) {
 			switch state.activeSection {
+			case sectionDashboard:
+				state.paintDashboard(canvas, workspace)
 			case sectionKeys:
 				state.paintKeysWorkspace(canvas, workspace)
 			case sectionForwards:
@@ -211,6 +213,7 @@ func (state *State) Paint(canvas *ui.Canvas, size ui.Size) {
 	state.paintMCPClientSelect(canvas)
 	state.paintLocalShellSelect(canvas)
 	state.paintMonitorIntervalMenu(canvas)
+	state.paintDashboardMenu(canvas)
 	state.paintTransferCenter(canvas)
 	// The gallery's select is painted here, outside the workspace's clip and
 	// inside the frame's menu pass, so its popup can leave the page and keeps the
@@ -219,6 +222,8 @@ func (state *State) Paint(canvas *ui.Canvas, size ui.Size) {
 	switch state.modal {
 	case modalTerminalInput:
 		state.paintTerminalInputConfirm(canvas, viewport)
+	case modalDashboard:
+		state.paintDashboardDialog(canvas, viewport)
 	case modalNewHost:
 		state.paintHostDialog(canvas, viewport)
 	case modalDeleteHost:
@@ -665,6 +670,7 @@ func (state *State) declareNavigation(f *flex.Frame) {
 		active bool
 	}{
 		{hitHosts, iconHosts, m.NavHosts, state.activeSection == sectionHosts},
+		{hitDashboard, iconActivity, m.Dashboard.Title, state.activeSection == sectionDashboard},
 		{hitKeychain, iconKey, m.NavKeychain, state.activeSection == sectionKeys},
 		{hitProxies, iconGlobe, m.NavProxies, state.activeSection == sectionProxies},
 		{hitPortForwarding, iconForward, m.NavPortForwarding, state.activeSection == sectionForwards},
