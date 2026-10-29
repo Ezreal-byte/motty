@@ -37,8 +37,8 @@ func (s *State) dashboardPickerGroups() ([]dashboardPickerGroup, int, int) {
 		selected[id] = true
 	}
 	for _, h := range s.hosts {
-		known[h.CatalogID] = true
-		if !h.isSSH() || h.ID == localHostID {
+		known[h.CatalogID] = dashboardHostEligible(h)
+		if !dashboardHostEligible(h) {
 			continue
 		}
 		name := strings.TrimSpace(h.Group)
@@ -72,14 +72,18 @@ func (s *State) dashboardPickerGroups() ([]dashboardPickerGroup, int, int) {
 			groups = append(groups, *g)
 		}
 	}
-	missing := dashboardPickerGroup{name: s.messages.Dashboard.Missing}
+	missing := dashboardPickerGroup{name: s.messages.Dashboard.UnavailableHosts}
 	for i, id := range e.selected {
 		if known[id] {
 			continue
 		}
 		total++
 		missing.total++
-		if !e.groupFilter && (query == "" || strings.Contains(strings.ToLower(s.messages.Dashboard.Missing+" "+id), query)) {
+		searchText := s.messages.Dashboard.Missing + " " + s.messages.Dashboard.UnavailableHosts + " " + id
+		if host, exists := s.dashboardHost(id); exists {
+			searchText += " " + host.Label + " " + host.Address + " " + host.User + " " + host.Group + " " + host.Tags
+		}
+		if !e.groupFilter && (query == "" || strings.Contains(strings.ToLower(searchText), query)) {
 			missing.missing = append(missing.missing, i)
 			shown++
 		}
@@ -158,7 +162,11 @@ func (s *State) paintDashboardPickerGroups(c *ui.Canvas, geo components.ScrollAr
 				s.paintDashboardHostChoice(c, h, box, hitDashboardHostList.At(int(h.ID)), slices.Contains(e.selected, h.CatalogID), false)
 			} else {
 				index := group.missing[i-len(group.hosts)]
-				s.paintDashboardHostChoice(c, Host{Label: s.messages.Dashboard.Missing, Address: e.selected[index]}, box, hitDashboardMissingList.At(index), true, true)
+				host, exists := s.dashboardHost(e.selected[index])
+				if !exists {
+					host = Host{Label: s.messages.Dashboard.Missing, Address: e.selected[index]}
+				}
+				s.paintDashboardHostChoice(c, host, box, hitDashboardMissingList.At(index), true, true)
 			}
 		}
 		y += float32((n+columns-1)/columns) * 44

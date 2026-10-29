@@ -93,6 +93,31 @@ func TestRetentionChangesDoNotInventHistoryAndKeepMemoryBounded(t *testing.T) {
 		t.Fatal("buffer exceeds bounded capacity")
 	}
 }
+
+func TestSlowingSamplingKeepsExistingHistoryWithinRetention(t *testing.T) {
+	var e Engine
+	p := panel("p", 2)
+	e.Set(p, true)
+	start := time.Now().Add(-10 * time.Minute)
+	for n := 0; n <= 600; n += 2 {
+		e.Publish("host", start.Add(time.Duration(n)*time.Second), reading(24))
+	}
+	before := read(t, &e, "p")
+	p.Interval = 60
+	e.Set(p, true)
+	after := read(t, &e, "p")
+	if len(after.Points) != len(before.Points) || !after.Points[0].At.Equal(before.Points[0].At) {
+		t.Fatalf("slowing sampling discarded retained history: %d -> %d", len(before.Points), len(after.Points))
+	}
+}
+
+func TestPanelNormalizationKeepsUniqueStableHostOrder(t *testing.T) {
+	p := Panel{Hosts: []string{"a", "b", "a", "", "c", "b"}}
+	p.Normalize()
+	if len(p.Hosts) != 3 || p.Hosts[0] != "a" || p.Hosts[1] != "b" || p.Hosts[2] != "c" {
+		t.Fatalf("invalid normalized order: %v", p.Hosts)
+	}
+}
 func TestMissingMetricsAndChangedInterfacesRemainGaps(t *testing.T) {
 	var e Engine
 	e.Set(panel("p", 2), true)

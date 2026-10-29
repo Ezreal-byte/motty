@@ -1,7 +1,6 @@
 package workbench
 
 import (
-	"slices"
 	"strings"
 
 	"github.com/vivaui/viva/components"
@@ -15,6 +14,12 @@ func (s *State) restoreDashboard(panels []monitoring.Panel, active string) {
 		return
 	}
 	d := &s.dashboard
+	for _, running := range d.running {
+		if running {
+			return
+		}
+	}
+	previous := d.panels
 	d.panels = nil
 	d.running = nil
 	d.active = ""
@@ -26,11 +31,15 @@ func (s *State) restoreDashboard(panels []monitoring.Panel, active string) {
 		}
 		p.Normalize()
 		seen[p.ID] = true
-		p.Hosts = slices.Compact(p.Hosts)
 		d.panels = append(d.panels, p)
 		d.engine.Set(p, false)
 		if p.ID == active {
 			d.active = p.ID
+		}
+	}
+	for _, old := range previous {
+		if !seen[old.ID] {
+			d.engine.Remove(old.ID)
 		}
 	}
 	if d.active == "" && len(d.panels) > 0 {

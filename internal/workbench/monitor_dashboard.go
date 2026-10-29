@@ -103,6 +103,16 @@ type dashboardSource struct {
 	timer                *time.Timer
 }
 
+func (d *dashboardState) panelDefinitions() []monitoring.Panel {
+	panels := slices.Clone(d.panels)
+	for i := range panels {
+		panels[i].Hosts = slices.Clone(panels[i].Hosts)
+	}
+	return panels
+}
+
+func dashboardHostEligible(h Host) bool { return h.isSSH() && h.ID != localHostID }
+
 func (s *State) dashboardPanel() *monitoring.Panel {
 	for i := range s.dashboard.panels {
 		if s.dashboard.panels[i].ID == s.dashboard.active {
@@ -142,7 +152,11 @@ func (s *State) reconcileDashboard() {
 			d.engine.SetStatus(id, monitoring.Missing)
 			continue
 		}
-		if !host.isSSH() || host.ID == localHostID {
+		if !dashboardHostEligible(host) {
+			if source := d.sources[id]; source != nil {
+				s.closeDashboardSource(source)
+				delete(d.sources, id)
+			}
 			d.engine.SetStatus(id, monitoring.Unsupported)
 			continue
 		}
@@ -167,9 +181,23 @@ func (s *State) reconcileDashboard() {
 }
 
 func (s *State) connectDashboardSource(source *dashboardSource) {
+	s.dashboard.engine.BeginSource(source.session.host.CatalogID)
+	if source.cancel != nil {
+		source.cancel()
+		source.cancel = nil
+	}
+	source.collecting = 0
+	source.retryAt = 0
 	source.errors = nil
 	if source.session.conn != nil {
 		source.session.conn.Cancel()
+		source.session.conn = nil
+	}
+	if host, ok := s.dashboardHost(source.session.host.CatalogID); ok {
+		source.session.host = host
+		source.session.HostID = host.ID
+		source.session.Title = host.Label
+		source.session.Address = s.sessionAddress(host)
 	}
 	if source.timer != nil {
 		source.timer.Stop()
@@ -186,6 +214,7 @@ func (s *State) connectDashboardSource(source *dashboardSource) {
 	v.pendingSecretName = ""
 	v.pendingSecretValue = ""
 	v.endpoint = sshconn.Endpoint{Host: v.host.Address, Port: v.host.Port, User: s.login(v.host)}
+	v.role = sshconn.EndpointTarget
 	config, ok := s.sshConfigFor(v, v.host)
 	if !ok {
 		v.phase = sshconn.PhaseFailed
@@ -206,6 +235,8 @@ func (s *State) connectDashboardSource(source *dashboardSource) {
 }
 func (s *State) closeDashboardSource(source *dashboardSource) {
 	s.dashboard.engine.BeginSource(source.session.host.CatalogID)
+	source.collecting = 0
+	source.errors = nil
 	if source.cancel != nil {
 		source.cancel()
 		source.cancel = nil
@@ -231,11 +262,22 @@ func (s *State) closeDashboard() {
 
 func (s *State) pumpDashboard() {
 	for id, source := range s.dashboard.sources {
-		if _, exists := s.dashboardHost(id); !exists {
+		host, exists := s.dashboardHost(id)
+		if !exists || !dashboardHostEligible(host) {
 			s.closeDashboardSource(source)
 			delete(s.dashboard.sources, id)
-			s.dashboard.engine.SetStatus(id, monitoring.Missing)
+			status := monitoring.Missing
+			if exists {
+				status = monitoring.Unsupported
+			}
+			s.dashboard.engine.SetStatus(id, status)
 			continue
+		}
+		if s.sessionAddress(host) != source.session.Address {
+			s.closeDashboardSource(source)
+			source.connected = false
+			source.retry = 0
+			s.connectDashboardSource(source)
 		}
 		v := &source.session
 		if source.retryAt > 0 && s.now() >= source.retryAt {
@@ -523,7 +565,7 @@ func (s *State) clickDashboard(id ui.ID) bool {
 			d.editor.scroll = 0
 		case id.Scope() == hitDashboardMissingList:
 			if i := item(id); i < len(d.editor.selected) {
-				if _, ok := s.dashboardHost(d.editor.selected[i]); !ok {
+				if host, ok := s.dashboardHost(d.editor.selected[i]); !ok || !dashboardHostEligible(host) {
 					d.editor.selected = slices.Delete(d.editor.selected, i, i+1)
 				}
 			}

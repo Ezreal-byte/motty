@@ -30,7 +30,15 @@ func (p *Panel) Normalize() {
 	if !ValidRetention(p.Retention) {
 		p.Retention = 60
 	}
-	p.Hosts = slices.Clone(p.Hosts)
+	hosts := make([]string, 0, len(p.Hosts))
+	seen := make(map[string]bool, len(p.Hosts))
+	for _, id := range p.Hosts {
+		if id != "" && !seen[id] {
+			seen[id] = true
+			hosts = append(hosts, id)
+		}
+	}
+	p.Hosts = hosts
 }
 
 type Status uint8
@@ -112,7 +120,10 @@ func (e *Engine) Set(p Panel, running bool) {
 			h = &history{}
 			r.hosts[id] = h
 		}
-		limit := p.Retention*60/p.Interval*2 + 8 // observations plus explicit gaps
+		// A slower new cadence must not evict faster samples still inside the
+		// retention window. Bound by the fastest supported cadence (2s), with
+		// room for an explicit gap before each observation.
+		limit := p.Retention*60 + 8
 		if h.limit != limit {
 			old := h.ordered()
 			h.points = nil

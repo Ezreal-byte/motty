@@ -345,7 +345,7 @@ func writeFileAtomic(path string, data []byte) error {
 func (state *State) snapshot() savedState {
 	savedAgent, savedAgentPath := state.sshAgent.saved()
 	saved := savedState{
-		MonitorPanels:              state.dashboard.panels,
+		MonitorPanels:              state.dashboard.panelDefinitions(),
 		MonitorActive:              state.dashboard.active,
 		Version:                    stateFileVersion,
 		Language:                   state.savedLanguage(),

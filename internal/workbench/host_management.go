@@ -648,6 +648,7 @@ func (state *State) applyHostGroup(group string) {
 }
 
 func (state *State) hostDataChanged() {
+	state.reconcileDashboard()
 	state.sshSyncMark()
 	state.visible = nil
 	state.refreshHostGroups()

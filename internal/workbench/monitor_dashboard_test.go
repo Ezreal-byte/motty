@@ -229,6 +229,98 @@ func TestDashboardMissingHostsCanBeRemovedFromEditor(t *testing.T) {
 	}
 }
 
+func TestDashboardProtocolChangeReleasesConnectionAndCanBeRemoved(t *testing.T) {
+	s, f, _ := dashboardTestState(t)
+	id := createDashboard(t, s, "A")
+	s.Click(hitDashboardToggle)
+	waitDashboard(t, s, id)
+	s.hosts[0].Protocol = protocolRDP
+	s.hostDataChanged()
+	if len(s.dashboard.sources) != 0 || f.canceled != 1 {
+		t.Fatal("a non-SSH destination retained its old monitoring connection")
+	}
+	snap, _ := s.dashboard.engine.Read(id, "host", 100, 0)
+	if snap.Status != monitoring.Unsupported {
+		t.Fatal("protocol change did not mark the host unsupported")
+	}
+	s.openDashboardEditor(true)
+	groups, _, shown := s.dashboardPickerGroups()
+	if shown != 1 || len(groups) != 1 || len(groups[0].missing) != 1 {
+		t.Fatal("unsupported selected host is hidden from the picker")
+	}
+	s.dashboard.editor.query.Insert("web")
+	if _, _, shown := s.dashboardPickerGroups(); shown != 1 {
+		t.Fatal("unsupported selected host cannot be searched by name")
+	}
+	s.Click(hitDashboardMissingList.At(0))
+	if len(s.dashboard.editor.selected) != 0 {
+		t.Fatal("unsupported host cannot be deselected")
+	}
+}
+
+func TestDashboardSnapshotOwnsPanelDefinitions(t *testing.T) {
+	s, _, _ := dashboardTestState(t)
+	createDashboard(t, s, "A")
+	saved := s.snapshot()
+	s.dashboard.panels[0].Name = "Changed"
+	s.dashboard.panels[0].Hosts[0] = "Changed host"
+	if saved.MonitorPanels[0].Name != "A" || saved.MonitorPanels[0].Hosts[0] != "host" {
+		t.Fatal("editing live panels mutated a saved snapshot")
+	}
+}
+
+func TestDashboardReconnectUsesEditedEndpointAndRestartsCollector(t *testing.T) {
+	s, f, dialed := dashboardTestState(t)
+	id := createDashboard(t, s, "A")
+	s.Click(hitDashboardToggle)
+	waitDashboard(t, s, id)
+	s.hosts[0].Address = "192.168.1.20"
+	s.hostDataChanged()
+	source := s.dashboard.sources["host"]
+	if *dialed != 2 || f.canceled != 1 || source.session.endpoint.Host != "192.168.1.20" || source.collecting != 5 {
+		t.Fatal("edited endpoint kept the old transport or left its collector stopped")
+	}
+}
+
+func TestDashboardInvalidReconnectDoesNotRetainCancelledTransport(t *testing.T) {
+	s, _, dialed := dashboardTestState(t)
+	id := createDashboard(t, s, "A")
+	s.Click(hitDashboardToggle)
+	waitDashboard(t, s, id)
+	s.proxies = []proxyRecord{{TargetID: 1, JumpID: 999}}
+	source := s.dashboard.sources["host"]
+	source.retryAt = time.Nanosecond
+	s.connectDashboardSource(source)
+	s.pumpDashboard()
+	if source.session.conn != nil || source.collecting != 0 || source.retryAt != 0 || !source.blocked || *dialed != 1 {
+		t.Fatal("invalid route kept a cancelled transport, active collector or retry timer")
+	}
+}
+
+func TestDashboardRestoringStoppedDefinitionsRemovesOrphanHistory(t *testing.T) {
+	s, _, _ := dashboardTestState(t)
+	a := createDashboard(t, s, "A")
+	b := createDashboard(t, s, "B")
+	s.restoreDashboard([]monitoring.Panel{s.dashboard.panels[1]}, b)
+	if _, ok := s.dashboard.engine.Read(a, "host", 100, 0); ok {
+		t.Fatal("restoring removed definitions retained orphan history")
+	}
+	if _, ok := s.dashboard.engine.Read(b, "host", 100, 0); !ok {
+		t.Fatal("restoring removed a retained panel")
+	}
+}
+
+func TestDashboardLocalRefreshKeepsRunningUnavailablePanel(t *testing.T) {
+	s, _, _ := dashboardTestState(t)
+	a := createDashboard(t, s, "A")
+	s.hosts = nil
+	s.Click(hitDashboardToggle)
+	s.restoreDashboard(nil, "")
+	if len(s.dashboard.panels) != 1 || !s.dashboard.running[a] {
+		t.Fatal("local refresh stopped a running panel with missing hosts")
+	}
+}
+
 func TestDashboardWindowsCollectorReusesPowerShellAndEmbeddedDetails(t *testing.T) {
 	s, f, _ := dashboardTestState(t)
 	s.hosts[0].System = sshconn.SystemWindows
