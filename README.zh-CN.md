@@ -229,7 +229,9 @@ go run ./cmd/viva package -C ../motty --target linux --arch amd64 --format tar.g
 make run
 ```
 
-该产物带 `dev` 标签，所以原生窗口、应用内标题和托盘都显示 `Motty Dev`。
+该产物带 `dev` 标签，所以原生窗口和托盘显示 `Motty Dev`，Dock 图标右上角带一个
+红色 `DEV` 角标。窗口内的 logo 与正式版用的是同一张图，界面看起来就是发布效果，
+同时在 Dock 上一眼能认出跑的是哪个版本。
 `make dev` 会在本仓库或 `../viva` 的 Go 文件变化时重新构建并重启；监听模式需要
 `fswatch`，单次模式不需要。`tools/dev.sh --once` 与 `make run` 是同一个入口。
 

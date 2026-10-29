@@ -277,10 +277,13 @@ Build and launch one development binary with:
 make run
 ```
 
-The binary is built with `-tags dev`, so its window, in-app title and tray say
-`Motty Dev`. Use `make dev` to rebuild and restart when a Go file in this
-repository or `../viva` changes; watch mode needs `fswatch`. One-shot mode does
-not. `tools/dev.sh --once` is the same entry point as `make run`.
+The binary is built with `-tags dev`, so its window and tray say `Motty Dev`
+and its Dock icon carries a red `DEV` badge. The logo and wordmark inside the
+window are the release ones, so the interface itself looks like what ships and
+the running copy is still told apart at a glance. Use `make dev` to rebuild and
+restart when a Go file in this repository or `../viva` changes; watch mode needs
+`fswatch`. One-shot mode does not. `tools/dev.sh --once` is the same entry
+point as `make run`.
 
 The development entry shares the default data directory, hosts, settings, AI
 configuration and vault with the release build. Only the development workspace

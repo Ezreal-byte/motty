@@ -103,6 +103,11 @@ func main() {
 		if err != nil {
 			return err
 		}
+		// A development copy is told apart on its Dock icon, where every window
+		// shows it, rather than by renaming the product in the interface.
+		if buildinfo.DockBadge != "" {
+			application.SetDockBadge(buildinfo.DockBadge)
+		}
 		// Putting the icon in the status area costs about 60 ms, which would
 		// otherwise be part of how long the window takes to appear.
 		status.show(application)

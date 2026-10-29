@@ -290,6 +290,8 @@ func (h *documentTestHost) OpenWindow(config app.Config, _ *ui.Canvas, closed fu
 func (h *documentTestHost) AddStatusItem(app.StatusItemConfig) (app.StatusItemControl, error) {
 	return nil, errors.New("not used")
 }
+func (h *documentTestHost) SetDockBadge(string) {}
+
 func (h *documentTestHost) Quit() {
 	for _, w := range h.windows {
 		w.Close()
