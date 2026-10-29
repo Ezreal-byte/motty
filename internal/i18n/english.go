@@ -1915,6 +1915,8 @@ var englishAbout = AboutMessages{
 	RepoDescription:    "Source, releases and discussions on GitHub.",
 	Docs:               "Website and docs",
 	DocsDescription:    "Install, use and development guides on motty.page.",
+	Viva:               "Built with Viva",
+	VivaDescription:    "The native desktop framework behind Motty's window and input.",
 	Join:               "Join",
 	Open:               "Open",
 }

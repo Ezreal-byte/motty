@@ -230,6 +230,7 @@ func (state *State) eachSettingsEntry(add func(settingsEntry)) {
 	row(settingsAbout, about.Issues, about.IssuesDescription)
 	row(settingsAbout, about.Repo, about.RepoDescription)
 	row(settingsAbout, about.Docs, about.DocsDescription)
+	row(settingsAbout, about.Viva, about.VivaDescription)
 }
 
 // openSettingsResult leaves the search and opens the category of a result,
