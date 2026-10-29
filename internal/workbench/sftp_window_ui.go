@@ -378,9 +378,7 @@ func (w *sftpWindow) paintRow(f *flex.Frame, row *sftpRow, id ui.ID, paneWidth f
 		box.Border(1, pal.accent)
 	}
 	box.Children(func() {
-		if row.icon != nil {
-			f.Icon(*row.icon).Color(tint)
-		}
+		declareSFTPRowIcon(f, row, tint)
 		f.Text(row.entry.Name).Color(color).Ellipsis().Grow(1)
 		f.Text(row.cells[2]).FontSize(metrics.FontSizeS).Color(pal.muted).Width(62).TextEnd()
 		date := row.cells[3]

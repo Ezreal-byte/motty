@@ -31,8 +31,9 @@ type sftpRow struct {
 	sortName             string
 	selected             bool
 	cells                [5]string
-	icon                 *ui.Icon // the file-type glyph, chosen when the listing arrives
-	mono                 bool     // the glyph has no colors of its own and is tinted
+	icon                 *ui.Icon      // the file-type glyph, chosen when the listing arrives
+	mono                 bool          // the glyph has no colors of its own and is tinted
+	appIcon              *fileIconSlot // the system's icon for a local application bundle, once it has answered
 	hidden               bool
 	matchStart, matchEnd int // byte range highlighted by the current folder filter
 }

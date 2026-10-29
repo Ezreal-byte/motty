@@ -206,6 +206,10 @@ type Options struct {
 	// OpenPath opens a local document with the system's default application. Nil
 	// uses app.OpenPath.
 	OpenPath func(string) error
+	// FileIcon returns the system's icon for a local file or folder at the given
+	// pixel size, as the file panel shows an application bundle with its own icon.
+	// Nil uses app.FileIcon.
+	FileIcon func(path string, pixels int) (ui.Bitmap, error)
 	// EditPollInterval is how often a file open in the system's editor is looked
 	// at for a save. Zero means a second.
 	EditPollInterval time.Duration
@@ -289,6 +293,9 @@ func (options Options) withDefaults() Options {
 	}
 	if options.OpenPath == nil {
 		options.OpenPath = app.OpenPath
+	}
+	if options.FileIcon == nil {
+		options.FileIcon = app.FileIcon
 	}
 	if options.EditPollInterval <= 0 {
 		options.EditPollInterval = defaultEditPollInterval

@@ -284,6 +284,7 @@ func scanLocalListing(dir string, items []os.DirEntry) localListing {
 	for index := range rows {
 		rows[index].hidden = sortedHidden[index]
 	}
+	attachAppIconSlots(dir, rows)
 	return localListing{dir: dir, entries: sorted, rows: rows, coverage: coverage}
 }
 
@@ -306,7 +307,9 @@ func (state *State) applyLocalListing(view *sftpView, listing localListing, seq 
 	folder := &view.lfolder
 	place, restore := folder.acceptNavigation(listing.dir, listing.navigation)
 	folder.path = listing.dir
+	previousRows := folder.allRows
 	folder.allRows = listing.rows
+	state.loadAppIcons(view, previousRows, listing.rows)
 	folder.localCoverage = listing.coverage
 	folder.crumbs = prepareLocalCrumbs(folder.crumbs, listing.dir)
 	state.applySFTPFilter(view, folder, true)

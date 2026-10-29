@@ -369,7 +369,7 @@ func (state *State) declareSFTPRow(f *flex.Frame, row *sftpRow, id ui.ID, showDa
 	}
 	box := f.Row().Height(sftpRowHeight).Shrink(0).Items(flex.Center).HitWith(id, row.cells[1], ui.HitOptions{Role: ui.RoleButton, Selected: row.selected})
 	contents := func() {
-		f.Icon(*row.icon).Color(tint)
+		declareSFTPRowIcon(f, row, tint)
 		label := f.Row().Grow(1).Clip().Items(flex.Center).MarginSides(0, 0, 0, 8)
 		label.Children(func() {
 			if row.matchEnd > row.matchStart && row.matchEnd <= len(row.entry.Name) {
