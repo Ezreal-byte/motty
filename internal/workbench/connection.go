@@ -153,6 +153,12 @@ type Options struct {
 	// Log holds the program's recent log lines, for the diagnostics report. Nil
 	// leaves the report without any.
 	Log *diag.Log
+	// LogDir is where the program keeps its log and crash reports. The
+	// diagnostics report names it. Empty means the program keeps none.
+	LogDir string
+	// PreviousCrash is the crash report the previous run left, if it ended
+	// abnormally. The window says so once and the diagnostics report carries it.
+	PreviousCrash string
 	// SaveFile chooses a local download destination. Nil uses app.SaveFile.
 	SaveFile func(app.SaveFileOptions) (string, error)
 	// OpenFiles chooses local files for identity/config imports and uploads. Nil

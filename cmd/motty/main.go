@@ -52,14 +52,14 @@ func main() {
 	// exits. A headless test run is its own world and never meets the real one.
 	if os.Getenv("VIVA_HEADLESS") != "" {
 		if err := headlessClaim(datadir.Current().Dir); err != nil {
-			log.Fatal(err)
+			fatal(err)
 		}
 	} else {
-		primary, claim, err := claimLaunch(datadir.Current().Dir, args, func(more []string) {
+		primary, claim, err := claimLaunch(datadir.Current().Dir, handoffArguments(args, background), func(more []string) {
 			windows.launch(more)
 		})
 		if err != nil {
-			log.Fatal(err)
+			fatal(err)
 		} else if !primary {
 			explainSecondaryLaunch(os.Stderr)
 			return
@@ -67,6 +67,9 @@ func main() {
 			defer claim.Close()
 		}
 	}
+	// Only the copy that owns the data directory writes its files.
+	startLogging()
+	defer stopLogging()
 	if len(args) > 0 {
 		windows.launch(args)
 	}
@@ -107,7 +110,7 @@ func main() {
 	})
 	hub.Close()
 	if err != nil {
-		log.Fatal(err)
+		fatal(err)
 	}
 }
 
@@ -247,6 +250,7 @@ func openWorkbenchWindow(application *app.Application, status *tray, hub *workbe
 		Invalidate: invalidate, NewWindow: newWindow,
 		OpenContentWindow: application.OpenContentWindow,
 		Group:             windowGroup, Blank: place.blank, Log: recentLog,
+		LogDir: logDirectory(), PreviousCrash: crashNoticeFor(place),
 		RememberWindowFrame: place.rememberFrame,
 		TearOff: func(origin ui.Point, adopt func(*workbench.State)) error {
 			return openWorkbenchWindow(application, status, hub, newWindow, false, placement{origin: &origin, adopt: adopt, blank: true})

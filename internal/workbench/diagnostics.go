@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/vivaui/viva/app"
+	"motty/internal/crashlog"
 	"motty/internal/diag"
 	"motty/internal/sshconn"
 	"motty/internal/update"
@@ -193,6 +194,21 @@ func (state *State) diagnosticReport() string {
 		if session.term != nil {
 			screen := session.term.screen
 			report.Fact("  terminal", fmt.Sprintf("scrollback=%d ended=%v", screen.Scrollback(), session.term.ended))
+		}
+	}
+
+	if state.options.LogDir != "" {
+		report.Section("Log files")
+		report.Field("directory", state.options.LogDir)
+	}
+	if state.options.PreviousCrash != "" {
+		report.Section("Previous crash")
+		if text, err := crashlog.ReadReport(state.options.PreviousCrash); err != nil {
+			report.Fact("unreadable", err)
+		} else {
+			for _, line := range strings.Split(strings.TrimRight(text, "\n"), "\n") {
+				report.Line(line)
+			}
 		}
 	}
 

@@ -212,6 +212,16 @@ macOS builds are signed and notarized when the release has the credentials.
 Windows builds are signed when a certificate is configured. Linux packages are
 not signed. Homebrew, AUR and `.AppImage` are not available yet.
 
+### If Motty closes unexpectedly
+
+Motty keeps a log and, after an abnormal exit, a crash report in the `logs`
+folder of its data directory: `%APPDATA%\motty\logs` on Windows,
+`~/Library/Application Support/motty/logs` on macOS, `~/.config/motty/logs` on
+Linux (`motty-data\logs` beside the program in a portable copy). Attach
+`motty.log` and the newest `crash-*.log` to a bug report. When the program
+cannot start at all, it says why in a message box and writes the reason to the
+log.
+
 ## 🛠 Build from source
 
 Requirements:

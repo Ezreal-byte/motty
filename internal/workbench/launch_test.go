@@ -416,3 +416,38 @@ func TestAMissingReleaseIsSaidPlainlyNotAsAFailure(t *testing.T) {
 		t.Fatalf("text %q, available %v", state.update.text, state.update.available)
 	}
 }
+
+func TestASecondStartWithNothingToOpenBringsTheWindowForward(t *testing.T) {
+	state, world, raised := launchState(t)
+	state.Launch(nil)
+	state.Wake()
+	if *raised != 1 || len(world.configs) != 0 {
+		t.Fatalf("raised %d times, dialed %d", *raised, len(world.configs))
+	}
+}
+
+func TestAStartAtLoginDoesNotBringTheWindowForward(t *testing.T) {
+	state, _, raised := launchState(t)
+	state.Launch([]string{"--background"})
+	state.Wake()
+	if *raised != 0 {
+		t.Fatalf("the window was raised %d times", *raised)
+	}
+}
+
+func TestThePreviousRunsCrashIsToldOnceAtStart(t *testing.T) {
+	_, options := newWorld(t)
+	options.Invalidate = func() {}
+	options.PreviousCrash = "/data/logs/crash-20261029-061442.log"
+	state := newTestState(t, options)
+	if state.modal != modalStateNotice {
+		t.Fatalf("modal = %d, want the notice", state.modal)
+	}
+	state.buildStateNotice()
+	if !strings.Contains(state.stateNotice.body, "crash-20261029-061442.log") {
+		t.Fatalf("the notice does not name the report: %q", state.stateNotice.body)
+	}
+	if report := state.diagnosticReport(); !strings.Contains(report, "== Previous crash ==") {
+		t.Fatalf("the diagnostics report leaves the crash out:\n%s", report)
+	}
+}

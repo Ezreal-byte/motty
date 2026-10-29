@@ -170,6 +170,14 @@ CMD、Git Bash 等已安装的 Shell，并把每个已安装的 WSL 发行版列
 macOS 包在发布带证书时签名并公证，Windows 包在配置证书时签名；Linux 包不签名。
 目前没有 Homebrew、AUR 和 `.AppImage`。
 
+### Motty 意外退出时
+
+Motty 会在数据目录的 `logs` 文件夹里保存日志，异常退出后还会保存崩溃报告：
+Windows 在 `%APPDATA%\motty\logs`，macOS 在
+`~/Library/Application Support/motty/logs`，Linux 在 `~/.config/motty/logs`
+（便携版在程序旁的 `motty-data\logs`）。反馈问题时请附上 `motty.log` 和最新的
+`crash-*.log`。如果程序根本无法启动，它会用对话框说明原因，并把原因写进日志。
+
 ## 🛠 从源码构建
 
 要求：

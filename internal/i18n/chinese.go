@@ -1440,6 +1440,8 @@ var chineseTools = ToolsMessages{
 	DiagnosticsSaveTitle:            "保存诊断报告",
 	DiagnosticsSavedFmt:             "诊断报告已保存到 %s",
 	DiagnosticsFailedFmt:            "无法保存诊断报告:%v",
+	PreviousCrashTitle:              "Motty 上次异常退出了",
+	PreviousCrashBodyFmt:            "崩溃报告已保存到:\n%s\n\n反馈问题时,请在设置里保存诊断报告并附上,其中包含这次崩溃的信息。",
 	CatBackup:                       "备份与同步",
 	CatMCP:                          "MCP",
 	BackupGroupFile:                 "备份文件",

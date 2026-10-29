@@ -382,6 +382,8 @@ type ToolsMessages struct {
 	DiagnosticsSaveTitle            string
 	DiagnosticsSavedFmt             string
 	DiagnosticsFailedFmt            string
+	PreviousCrashTitle              string
+	PreviousCrashBodyFmt            string
 	CatBackup                       string
 	CatMCP                          string
 	BackupGroupFile                 string

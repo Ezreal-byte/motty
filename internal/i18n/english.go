@@ -1440,6 +1440,8 @@ var englishTools = ToolsMessages{
 	DiagnosticsSaveTitle:            "Save diagnostics report",
 	DiagnosticsSavedFmt:             "Saved diagnostics report to %s",
 	DiagnosticsFailedFmt:            "Could not save the diagnostics report: %v",
+	PreviousCrashTitle:              "Motty quit unexpectedly last time",
+	PreviousCrashBodyFmt:            "The crash report was saved to:\n%s\n\nIf you report the problem, save a diagnostics report in Settings and attach it; it includes this crash.",
 	CatBackup:                       "Backup & sync",
 	CatMCP:                          "MCP",
 	BackupGroupFile:                 "Backup file",

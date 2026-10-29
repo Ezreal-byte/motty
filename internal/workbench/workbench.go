@@ -813,6 +813,7 @@ func New(options Options) *State {
 	state.stateFileOutcome = report.describe()
 	state.explainStateFile(report)
 	state.explainFailedUpdate()
+	state.explainPreviousCrash()
 	state.syncVisible()
 	state.refreshHostGroups()
 	state.refreshHostSelection()
