@@ -1113,7 +1113,7 @@ var chineseTools = ToolsMessages{
 	ColorMagenta:                "紫",
 
 	SnippetsTitle:             "快捷命令",
-	SnippetsPageDescription:   "保存常用命令，从命令面板或用快捷键发送到当前终端。",
+	SnippetsPageDescription:   "保存常用命令。选中后点“发送到终端”或双击一行即可发送；也可以从命令面板或用快捷键发送。",
 	SnippetEmpty:              "还没有快捷命令",
 	SnippetEmptySub:           "保存一条常用命令，再给它设一个快捷键，一键发送到终端。",
 	SnippetCountFmt:           "%d 条快捷命令",
@@ -1123,6 +1123,8 @@ var chineseTools = ToolsMessages{
 	StatusSnippetRemovedFmt:   "已删除“%s”。",
 	SnippetAdd:                "添加命令",
 	SnippetEdit:               "编辑",
+	SnippetSend:               "发送到终端",
+	SnippetSendCurrent:        "当前",
 	SnippetDelete:             "删除",
 	SnippetDialogAddTitle:     "添加快捷命令",
 	SnippetDialogEditTitle:    "编辑快捷命令",
@@ -1141,7 +1143,7 @@ var chineseTools = ToolsMessages{
 	SnippetErrorTooMany:       "快捷命令已达上限，请先删除一条。",
 	SnippetSave:               "保存",
 	SnippetPaletteFmt:         "快捷命令：%s",
-	StatusSnippetSentFmt:      "已发送“%s”。",
+	StatusSnippetSentFmt:      "已发送“%s”到“%s”。",
 	StatusSnippetNoTerminal:   "请先打开一个终端再发送快捷命令。",
 	StatusSnippetNotConnected: "该终端尚未连接。",
 

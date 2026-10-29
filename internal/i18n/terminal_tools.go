@@ -53,6 +53,8 @@ type ToolsMessages struct {
 	StatusSnippetRemovedFmt   string
 	SnippetAdd                string
 	SnippetEdit               string
+	SnippetSend               string
+	SnippetSendCurrent        string
 	SnippetDelete             string
 	SnippetDialogAddTitle     string
 	SnippetDialogEditTitle    string

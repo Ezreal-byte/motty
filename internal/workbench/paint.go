@@ -289,6 +289,7 @@ func (state *State) Paint(canvas *ui.Canvas, size ui.Size) {
 	state.paintTabDrag(canvas, viewport)
 	state.paintTabMenu(canvas, viewport)
 	state.paintHostMenu(canvas, viewport)
+	state.paintSnippetMenu(canvas, viewport)
 	state.paintSFTPMenu(canvas, viewport)
 	state.paintHostMenus(canvas, viewport)
 	state.endMenus()

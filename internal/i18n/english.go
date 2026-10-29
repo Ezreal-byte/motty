@@ -1113,7 +1113,7 @@ var englishTools = ToolsMessages{
 	ColorMagenta:                "Magenta",
 
 	SnippetsTitle:             "Snippets",
-	SnippetsPageDescription:   "Commands you keep to send to the active terminal, from the command palette or with a shortcut.",
+	SnippetsPageDescription:   "Commands you keep to send to the active terminal. Select one and choose Send to terminal, or double-click a row; the command palette and shortcuts work too.",
 	SnippetEmpty:              "No snippets",
 	SnippetEmptySub:           "Save a command you run often, and give it a shortcut to send it with one key press.",
 	SnippetCountFmt:           "Snippets: %d",
@@ -1123,6 +1123,8 @@ var englishTools = ToolsMessages{
 	StatusSnippetRemovedFmt:   "Removed “%s”.",
 	SnippetAdd:                "Add snippet",
 	SnippetEdit:               "Edit",
+	SnippetSend:               "Send to terminal",
+	SnippetSendCurrent:        "Current",
 	SnippetDelete:             "Delete",
 	SnippetDialogAddTitle:     "Add a snippet",
 	SnippetDialogEditTitle:    "Edit snippet",
@@ -1141,7 +1143,7 @@ var englishTools = ToolsMessages{
 	SnippetErrorTooMany:       "There are already as many snippets as can be kept. Delete one first.",
 	SnippetSave:               "Save",
 	SnippetPaletteFmt:         "Snippet: %s",
-	StatusSnippetSentFmt:      "Sent “%s”.",
+	StatusSnippetSentFmt:      "Sent “%s” to “%s”.",
 	StatusSnippetNoTerminal:   "Open a terminal to send a snippet to.",
 	StatusSnippetNotConnected: "That terminal is not connected.",
 
