@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 
@@ -163,5 +164,24 @@ func TestLocalDirectoryRejectsNestedLoginAndMissingFoldersFallBack(t *testing.T)
 	}
 	if localStartupDirectory(file) != "" {
 		t.Fatal("regular file accepted as startup directory")
+	}
+}
+
+func TestLocalDirectoryHostAcceptsItsLongAndShortNames(t *testing.T) {
+	name, err := os.Hostname()
+	if err != nil || name == "" {
+		t.Skip("no hostname to compare")
+	}
+	short := name
+	if index := strings.IndexByte(name, '.'); index > 0 {
+		short = name[:index]
+	}
+	for _, host := range []string{"", "localhost", name, short, strings.ToUpper(name), short + ".example.invalid"} {
+		if !localDirectoryHost(host) {
+			t.Errorf("localDirectoryHost(%q) rejected this machine (%q)", host, name)
+		}
+	}
+	if localDirectoryHost("another-host.invalid") {
+		t.Error("localDirectoryHost accepted another machine")
 	}
 }

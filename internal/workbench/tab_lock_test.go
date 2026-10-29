@@ -121,3 +121,55 @@ func TestLockedSplitTabProtectsLastPaneButAllowsClosingOneSplit(t *testing.T) {
 		t.Fatal("closing the last split bypassed protection")
 	}
 }
+
+// A crowded strip shrinks every tab to barTabMin; a locked tab keeps 18 more so
+// its title never collides with the lock icon. This guards the reserve itself,
+// which a screenshot cannot.
+func TestLockedTabKeepsItsTitleRoomInACrowdedStrip(t *testing.T) {
+	measure := func(locked bool) float32 {
+		t.Helper()
+		state := newTestState(t, testOptions(t))
+		for range 20 {
+			openEmptyTab(state)
+		}
+		if locked {
+			if err := state.deck.SetLocked(tabsOf(state)[0], true); err != nil {
+				t.Fatal(err)
+			}
+			state.rebuildTabOptions()
+		}
+		state.Paint(&ui.Canvas{}, ui.Size{Width: 900, Height: 600})
+		return state.chrome.geometry.tabWidth
+	}
+	if got := measure(false); got != barTabMin {
+		t.Fatalf("an unlocked crowded strip uses %v wide tabs, want %v", got, barTabMin)
+	}
+	if got := measure(true); got != barTabMin+18 {
+		t.Fatalf("a locked crowded strip uses %v wide tabs, want %v", got, barTabMin+18)
+	}
+}
+
+// The lock is the tab's only visible sign of protection; assistive technology
+// has to hear it from the tab's own hint.
+func TestLockedTabAnnouncesItsProtection(t *testing.T) {
+	state := newTestState(t, testOptions(t))
+	openHost(state)
+	id := state.deck.ActiveWorkspace()
+	hit := func() ui.Hit {
+		t.Helper()
+		canvas := &ui.Canvas{}
+		state.Paint(canvas, ui.Size{Width: 1400, Height: 900})
+		found, ok := hitByID(canvas, hitTabList.At(int(id)))
+		if !ok {
+			t.Fatal("the tab is not painted")
+		}
+		return found
+	}
+	if hint := hit().Hint; hint != "" {
+		t.Fatalf("an unlocked tab announces %q", hint)
+	}
+	lockTab(t, state, id)
+	if hint := hit().Hint; hint != state.messages.TabLockedHint {
+		t.Fatalf("a locked tab announces %q, want %q", hint, state.messages.TabLockedHint)
+	}
+}

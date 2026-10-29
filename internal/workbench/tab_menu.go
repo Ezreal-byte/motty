@@ -192,7 +192,7 @@ func (state *State) closeTabs(pending tabsClose) {
 	if pending.keep != 0 {
 		state.activateWorkspace(pending.keep)
 	}
-	for _, id := range pending.ids[:pending.count] {
+	for _, id := range pending.ids {
 		state.closeWorkspaceNow(id)
 	}
 	if pending.keep != 0 && state.deck.ActiveWorkspace() != pending.keep {

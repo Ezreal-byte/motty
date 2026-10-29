@@ -87,8 +87,23 @@ func validLocalDirectory(directory string) bool {
 }
 
 func localDirectoryHost(host string) bool {
-	name, _ := os.Hostname()
-	return host == "" || strings.EqualFold(host, name) || strings.EqualFold(host, "localhost")
+	if host == "" || strings.EqualFold(host, "localhost") {
+		return true
+	}
+	name, err := os.Hostname()
+	if err != nil {
+		return false
+	}
+	return strings.EqualFold(host, name) || strings.EqualFold(shortHostName(host), shortHostName(name))
+}
+
+// shortHostName drops a domain suffix, so a shell that reports its FQDN still
+// names the same machine as a short hostname.
+func shortHostName(name string) string {
+	if index := strings.IndexByte(name, '.'); index > 0 {
+		return name[:index]
+	}
+	return name
 }
 
 // Coalesce reports from one output drain. Terminal callbacks themselves only

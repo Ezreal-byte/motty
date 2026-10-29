@@ -11,7 +11,7 @@ import (
 // tabsClose holds exactly the tabs covered by one close confirmation.
 type tabsClose struct {
 	keep   layoutcore.WorkspaceID
-	ids    [maxRestoredSessions]layoutcore.WorkspaceID
+	ids    []layoutcore.WorkspaceID
 	count  int
 	locked int
 	title  string
@@ -23,7 +23,7 @@ func (state *State) askCloseTabs(keep layoutcore.WorkspaceID, pick func(position
 	pending := tabsClose{keep: keep}
 	for position, tab := range state.workspaceTabs {
 		if pick(position) {
-			pending.ids[pending.count] = tab.ID
+			pending.ids = append(pending.ids, tab.ID)
 			pending.count++
 			if tab.Locked {
 				pending.locked++
@@ -44,7 +44,7 @@ func (state *State) askCloseLockedTab(id layoutcore.WorkspaceID) {
 	if !ok {
 		return
 	}
-	state.tabsClose = tabsClose{ids: [maxRestoredSessions]layoutcore.WorkspaceID{id}, count: 1, locked: 1, title: state.workspaceTabs[index].Title}
+	state.tabsClose = tabsClose{ids: []layoutcore.WorkspaceID{id}, count: 1, locked: 1, title: state.workspaceTabs[index].Title}
 	state.modal = modalCloseTabs
 }
 

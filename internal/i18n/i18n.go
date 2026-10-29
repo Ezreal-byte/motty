@@ -384,17 +384,19 @@ type Messages struct {
 
 	// Accessible names of the window-bar buttons and tabs. LabelTerminalFmt
 	// names a terminal and takes its address.
-	LabelGitHub                   string
-	LabelThemeToLight             string
-	LabelThemeToDark              string
-	LabelNewTab                   string
-	NewTabConnectTo               string
-	MenuCloseOtherTabs            string
-	MenuCloseTabsToRight          string
-	MenuDuplicateTab              string
-	MenuRenameTab                 string
-	MenuLockTab                   string
-	MenuUnlockTab                 string
+	LabelGitHub          string
+	LabelThemeToLight    string
+	LabelThemeToDark     string
+	LabelNewTab          string
+	NewTabConnectTo      string
+	MenuCloseOtherTabs   string
+	MenuCloseTabsToRight string
+	MenuDuplicateTab     string
+	MenuRenameTab        string
+	MenuLockTab          string
+	MenuUnlockTab        string
+	// TabLockedHint is the tab's accessible description while it is protected.
+	TabLockedHint                 string
 	CloseLockedTabTitle           string
 	CloseLockedTabDescriptionFmt  string
 	CloseLockedTabsDescriptionFmt string

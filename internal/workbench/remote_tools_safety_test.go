@@ -274,3 +274,24 @@ func TestRemoteTruncationHintRemainsReachableThroughDriverHitTest(t *testing.T) 
 		t.Fatalf("actual summary pointer target hides bounded search scope: id=%v hint=%q", id, hit.Hint)
 	}
 }
+
+func TestRemoteSnapshotStatusDoesNotBlameIdentityForAnEmptyList(t *testing.T) {
+	state := newTestState(t, testOptions(t))
+	state.remote.tab = remoteProcesses
+	state.remote.collectedAt = time.Now()
+	state.remote.procs = nil
+	state.updateRemoteSnapshotStatus()
+	if strings.Contains(state.remote.snapshotStatus, state.messages.Tools.RemoteProcessUnverifiable) {
+		t.Fatalf("an empty process list was blamed on process identity: %q", state.remote.snapshotStatus)
+	}
+}
+
+func TestRemoteLogsWaitsForAFreshSnapshot(t *testing.T) {
+	state := newTestState(t, testOptions(t))
+	state.remote.tab = remoteContainers
+	state.remote.stale = true
+	state.remote.collectedAt = time.Now()
+	if remoteMutation(hitRemoteLogs) == false {
+		t.Fatal("opening container logs bypasses the snapshot gate")
+	}
+}

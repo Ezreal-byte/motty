@@ -11,7 +11,7 @@ var hitRemoteSnapshotStatus = tree.ID(remoteToolsHits, "snapshot-status")
 
 func remoteMutation(id ui.ID) bool {
 	return id == hitRemoteTerminate || id == hitRemoteKill || id == hitRemoteNiceLower || id == hitRemoteNiceNormal || id == hitRemoteNiceHigher ||
-		id == hitRemoteStart || id == hitRemoteStop || id == hitRemoteRestart || id == hitRemoteDown || id == hitRemoteRemove || id == hitRemotePull || id == hitRemoteCreate || id == hitRemoteShell
+		id == hitRemoteStart || id == hitRemoteStop || id == hitRemoteRestart || id == hitRemoteDown || id == hitRemoteRemove || id == hitRemotePull || id == hitRemoteCreate || id == hitRemoteShell || id == hitRemoteLogs
 }
 
 // Confirmation captures the complete instance and source, never a row index or
@@ -45,7 +45,7 @@ func (state *State) updateRemoteSnapshotStatus() {
 		format = m.RemoteSnapshotStaleFmt
 	}
 	view.snapshotStatus = fmt.Sprintf(format, view.collectedAt.Format("2006-01-02 15:04:05"))
-	if view.tab == remoteProcesses && !view.stale {
+	if view.tab == remoteProcesses && !view.stale && len(view.procs) > 0 {
 		for _, process := range view.procs {
 			if process.PID > 1 && process.StartIdentity != "" {
 				return
