@@ -12,6 +12,10 @@ import (
 	"unicode/utf16"
 )
 
+// UTF-8 interface names and metadata can exceed the Linux line budget on
+// high-core-count hosts. Keep a separate bound for this single JSON record.
+const maxWindowsLineBytes = 32 << 10
+
 // PowerShell's encoded command works with both cmd.exe and PowerShell as an
 // OpenSSH default shell. No paths, host names or credentials enter the script.
 func WindowsCommand(seconds int) string {
@@ -115,7 +119,7 @@ func parseWindows(line []byte) (Result, error) {
 			}
 		}
 	}
-	if len(line) > maxLineBytes || json.Unmarshal([]byte(strings.TrimPrefix(string(line), "gop-stats-win-v1 ")), &r) != nil || r.Total == 0 || r.Free > r.Total || math.IsNaN(r.Uptime) || math.IsInf(r.Uptime, 0) || r.Uptime < 0 || len(r.Cores) > 256 || len(r.Net) > 16 || len(r.Meta.Disks) > 32 || r.Meta.Count < 0 || r.Meta.Count > 1<<20 {
+	if len(line) > maxWindowsLineBytes || json.Unmarshal([]byte(strings.TrimPrefix(string(line), "gop-stats-win-v1 ")), &r) != nil || r.Total == 0 || r.Free > r.Total || math.IsNaN(r.Uptime) || math.IsInf(r.Uptime, 0) || r.Uptime < 0 || len(r.Cores) > 256 || len(r.Net) > 16 || len(r.Meta.Disks) > 32 || r.Meta.Count < 0 || r.Meta.Count > 1<<20 {
 		return Result{}, ErrMalformed
 	}
 	s := Sample{MemoryTotalBytes: r.Total, MemoryUsedBytes: r.Total - r.Free, UptimeSeconds: r.Uptime, CPUUnavailable: r.CPU == nil, NetworkUnavailable: !r.NetworkAvailable}

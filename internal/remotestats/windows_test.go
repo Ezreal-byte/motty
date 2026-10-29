@@ -2,6 +2,7 @@ package remotestats
 
 import (
 	"context"
+	"fmt"
 	"os/exec"
 	"runtime"
 	"strings"
@@ -10,6 +11,38 @@ import (
 )
 
 const windowsFixture = `gop-stats-win-v1 {"cpu":12.5,"total":8589934592,"free":4294967296,"uptime":120,"cores":[{"id":"0,0","percent":10},{"id":"0,1","percent":15}],"networkAvailable":true,"net":[{"name":"以太网","rx":1024,"tx":2048}],"meta":{"count":2,"kernel":"Windows 10.0.26100","primaryDisk":"C:\\","disks":[{"path":"C:\\","total":107374182400,"free":53687091200}]}}`
+
+func TestLargeWindowsHostsHaveABoundedUTF8RecordBudget(t *testing.T) {
+	cores, nets, disks := []string{}, []string{}, []string{}
+	for i := 0; i < 256; i++ {
+		cores = append(cores, fmt.Sprintf(`{"id":"1048575,%d","percent":99.123456789}`, i))
+	}
+	for i := 0; i < 16; i++ {
+		nets = append(nets, fmt.Sprintf(`{"name":%q,"rx":123456789012345678,"tx":123456789012345678}`, strings.Repeat("网", 64)))
+	}
+	for i := 0; i < 32; i++ {
+		disks = append(disks, fmt.Sprintf(`{"path":%q,"total":123456789012345678,"free":12345678901234567}`, fmt.Sprintf("%c:\\", 'A'+i)))
+	}
+	line := fmt.Sprintf(`gop-stats-win-v1 {"cpu":10,"total":8589934592,"free":4294967296,"uptime":100,"cores":[%s],"networkAvailable":true,"net":[%s],"meta":{"count":256,"kernel":"Windows","disks":[%s]}}`, strings.Join(cores, ","), strings.Join(nets, ","), strings.Join(disks, ","))
+	if len(line) <= maxLineBytes || len(line) > maxWindowsLineBytes {
+		t.Fatalf("fixture does not exercise the bounded extension: %d", len(line))
+	}
+	runner := streamFunc(func(ctx context.Context, script string, limit int, consume func([]byte) bool) error {
+		if limit != maxWindowsLineBytes {
+			t.Fatalf("Windows stream budget=%d", limit)
+		}
+		return feed(line)(ctx, script, limit, consume)
+	})
+	w := StartWindows(runner, nil, 2)
+	defer w.Close()
+	result := nextResult(t, w)
+	if result.Err != nil || len(result.Sample.Cores) != 256 || len(result.Details.Networks) != 16 || len(result.Details.Disks) != 32 {
+		t.Fatalf("large host reading: %v", result.Err)
+	}
+	if _, err := parseWindows([]byte(strings.Repeat(" ", maxWindowsLineBytes+1))); err == nil {
+		t.Fatal("accepted an unbounded record")
+	}
+}
 
 func TestWindowsReadingsPreserveNativeVolumesAndProcessorGroups(t *testing.T) {
 	r, err := parseWindows([]byte(windowsFixture))

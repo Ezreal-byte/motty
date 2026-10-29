@@ -99,7 +99,11 @@ func (worker *Worker) run(first, next time.Duration) {
 		windowsRead          bool
 		startupLines         int
 	)
-	err := worker.runner.StreamCommand(ctx, worker.command, maxLineBytes, func(line []byte) bool {
+	limit := maxLineBytes
+	if strings.HasPrefix(worker.command, "powershell.exe ") {
+		limit = maxWindowsLineBytes
+	}
+	err := worker.runner.StreamCommand(ctx, worker.command, limit, func(line []byte) bool {
 		if strings.HasPrefix(string(line), "gop-stats-win-v1 ") {
 			result, err := parseWindows(line)
 			if err != nil {

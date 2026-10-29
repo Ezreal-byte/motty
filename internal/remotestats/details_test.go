@@ -11,27 +11,23 @@ import (
 )
 
 const detailsFixture = "info\t8\t0.12\t1.23\t2.34\t123456.78\t6.8.0-test\n" +
-	"primary\teth0\n" +
 	"disk\t102400\t90000\t12400\t88%\t1\t/run\n" +
 	"disk\t204800\t180000\t24800\t88%\t0\t/data/config 备份\n" +
 	"disk\t1024000\t512000\t512000\t50%\t0\t/\n" +
-	"net\teth0\t102400\t204800\n" +
-	"process\t42\t12.5\t4096\tworker with spaces\n"
+	"net\teth0\t102400\t204800\n"
 
 func TestDetailsPreservesMountNamesAndPrioritizesRealDisks(t *testing.T) {
 	d, err := parseDetails([]byte(detailsFixture))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if d.CPUCount != 8 || d.Load != [3]float64{.12, 1.23, 2.34} || d.Uptime != 123456.78 || d.PrimaryInterface != "eth0" {
+	if d.CPUCount != 8 || d.Load != [3]float64{.12, 1.23, 2.34} || d.Uptime != 123456.78 {
 		t.Fatalf("system details=%+v", d)
 	}
 	if len(d.Disks) != 3 || d.Disks[0].Path != "/" || d.Disks[1].Path != "/data/config 备份" || !d.Disks[2].Virtual || d.Disks[0].Total != 1024000<<10 {
 		t.Fatalf("disks=%+v", d.Disks)
 	}
-	if len(d.Processes) != 1 || d.Processes[0].Name != "worker with spaces" || d.Processes[0].Memory != 4<<20 {
-		t.Fatalf("processes=%+v", d.Processes)
-	}
+
 }
 
 func TestDetailsRejectsMalformedSystemAndBoundsOptionalRecords(t *testing.T) {
@@ -41,11 +37,11 @@ func TestDetailsRejectsMalformedSystemAndBoundsOptionalRecords(t *testing.T) {
 		}
 	}
 	data := detailsFixture + "disk\t18446744073709551615\t1\t1\t5%\t0\t/overflow\n" +
-		"process\t0\t1\t1\tinvalid\n" + "net\tbad\t-1\t1\n"
-	data += strings.Repeat("disk\t1024\t1\t1023\t1%\t0\t/extra\nnet\tx\t0\t0\nprocess\t1\t0\t1\tx\n", 100)
+		"net\tbad\t-1\t1\n"
+	data += strings.Repeat("disk\t1024\t1\t1023\t1%\t0\t/extra\nnet\tx\t0\t0\n", 100)
 	d, err := parseDetails([]byte(data))
-	if err != nil || len(d.Disks) != 64 || len(d.Networks) != 64 || len(d.Processes) != 5 {
-		t.Fatalf("bounded details: disks=%d networks=%d processes=%d err=%v", len(d.Disks), len(d.Networks), len(d.Processes), err)
+	if err != nil || len(d.Disks) != 64 || len(d.Networks) != 64 {
+		t.Fatalf("bounded details: disks=%d networks=%d err=%v", len(d.Disks), len(d.Networks), err)
 	}
 }
 

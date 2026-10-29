@@ -65,7 +65,7 @@ func (state *State) paintMonitor(canvas *ui.Canvas, b ui.Rect, s *Session) {
 	if p.paused {
 		pause, hint = iconPlay, m.Resume
 	}
-	state.paintMonitorRefresh(canvas, p, state.monitorMenuRect)
+	state.paintMonitorRefresh(canvas, p, state.monitorMenuRect, v.state == remoteStatsReady)
 	state.paintIconButton(canvas, hitMonitorPause, pause, ui.Rect{X: state.monitorMenuRect.X + state.monitorMenuRect.Width + 4, Y: header.Y + (header.Height-24)/2, Width: 24, Height: 24}, hint, false, iconButtonQuiet, bg)
 	state.paintMonitorNavigation(canvas, p, ui.Rect{X: b.X + 12, Y: y + 6, Width: b.Width - 24, Height: 32})
 	y += monitorControlsHeight
@@ -120,12 +120,12 @@ func monitorLabel(c *ui.Canvas, text string, b ui.Rect, size float32, color ui.C
 
 // The existing remote-tools clock frames are shared; only local paint timing
 // changes here. Sampling remains owned by the cancellable remote worker.
-func (state *State) paintMonitorRefresh(c *ui.Canvas, p *monitorView, b ui.Rect) {
+func (state *State) paintMonitorRefresh(c *ui.Canvas, p *monitorView, b ui.Rect, live bool) {
 	theme := state.Theme()
 	theme.Metrics.ControlHeight = b.Height
 	components.BeginButton(c, theme, ui.ID{}, b).WithState(components.ButtonState{Hovered: c.Hovered() == hitMonitorInterval, Pressed: c.Pressed() == hitMonitorInterval, Focused: c.FocusVisible() == hitMonitorInterval}).Ghost("")
 	c.HitWithOptions(hitMonitorInterval, b, state.messages.Monitor.Interval, ui.HitOptions{Role: ui.RoleButton, Expandable: true, Expanded: state.monitorMenu, Value: p.intervalText})
-	running := !p.paused && p.count > 0
+	running := live && !p.paused && p.count > 0
 	now := c.Now()
 	if p.refreshReset || running != p.refreshRunning || p.refreshVersion != p.version {
 		p.refreshStarted, p.refreshVersion, p.refreshRunning, p.refreshReset = now, p.version, running, false
@@ -149,7 +149,7 @@ func (state *State) paintMonitorIntervalMenu(c *ui.Canvas) {
 	if !state.monitorMenu {
 		return
 	}
-	if state.modal != modalNone || state.activeSection != sectionTerminal || !state.monitorShown(state.deck.ActiveWorkspace()) || state.monitorRect.Width <= 0 {
+	if state.modal != modalNone || state.activeSection != sectionTerminal || state.monitorMenuSession != state.activeSessionID || !state.monitorShown(state.deck.ActiveWorkspace()) || state.monitorRect.Width <= 0 {
 		state.monitorMenu = false
 		return
 	}

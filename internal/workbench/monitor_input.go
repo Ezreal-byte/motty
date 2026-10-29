@@ -14,11 +14,16 @@ func (state *State) monitorScrollArea(p *monitorView) components.ScrollArea {
 }
 
 func (state *State) monitorPointer(e ui.PointerEvent) (ui.EventResult, bool) {
+	if state.monitorResizing && (state.monitorResizeWorkspace != state.deck.ActiveWorkspace() || state.monitorResizeSession != state.activeSessionID) {
+		state.monitorResizing = false
+	}
 	if state.modal != modalNone || state.activeSection != sectionTerminal || !state.monitorShown(state.deck.ActiveWorkspace()) {
 		return ui.EventResult{}, false
 	}
 	if e.Kind == ui.PointerDown && e.Target == hitMonitorDivider && e.Button == ui.PointerButtonPrimary {
 		state.monitorResizing = true
+		state.monitorResizeWorkspace = state.deck.ActiveWorkspace()
+		state.monitorResizeSession = state.activeSessionID
 		state.monitorResizeGrab = e.X - (state.monitorRect.X - 1)
 		return ui.EventResult{Handled: true, Focus: hitMonitorDivider}, true
 	}
@@ -77,6 +82,10 @@ func (state *State) monitorKey(e ui.KeyEvent) (ui.EventResult, bool) {
 	if !state.monitorShown(state.deck.ActiveWorkspace()) {
 		return ui.EventResult{}, false
 	}
+	if state.monitorMenu && state.monitorMenuSession != state.activeSessionID {
+		state.monitorMenu = false
+		return ui.EventResult{Handled: true, Repaint: true}, true
+	}
 	if e.Target == hitMonitorDivider && !state.monitorDrawer(state.viewport) {
 		context, _ := state.deck.Context(state.deck.ActiveWorkspace())
 		width := context.MonitorWidth
@@ -109,6 +118,7 @@ func (state *State) monitorKey(e ui.KeyEvent) (ui.EventResult, bool) {
 		}
 	} else if e.Target == hitMonitorInterval && e.Key == ui.KeyDown {
 		state.monitorMenu = true
+		state.monitorMenuSession = state.activeSessionID
 		return ui.EventResult{Handled: true, Repaint: true, Focus: hitMonitorEvery1, FocusVisible: true}, true
 	}
 	if e.Target == hitMonitorOverview || e.Target == hitMonitorDiskPage || e.Target == hitMonitorNetworkPage {

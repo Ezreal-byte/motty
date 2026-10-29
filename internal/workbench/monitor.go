@@ -24,9 +24,7 @@ var (
 	hitMonitorEvery2        = tree.ID(monitorHits, "every-2")
 	hitMonitorEvery5        = tree.ID(monitorHits, "every-5")
 	hitMonitorDisks         = tree.ID(monitorHits, "more-disks")
-	hitMonitorNetworks      = tree.ID(monitorHits, "more-networks")
 	hitMonitorHardware      = tree.ID(monitorHits, "hardware")
-	hitMonitorManage        = tree.ID(monitorHits, "manage")
 	hitMonitorOverview      = tree.ID(monitorHits, "overview")
 	hitMonitorDiskPage      = tree.ID(monitorHits, "disk-page")
 	hitMonitorNetworkPage   = tree.ID(monitorHits, "network-page")
@@ -34,13 +32,25 @@ var (
 	hitMonitorCoresMore     = tree.ID(monitorHits, "cores-more")
 	hitMonitorDisksCollapse = tree.ID(monitorHits, "disks-collapse")
 	hitMonitorRetry         = tree.ID(monitorHits, "retry")
-	hitMonitorCPUChart      = tree.ID(monitorHits, "cpu-chart")
-	hitMonitorNetworkChart  = tree.ID(monitorHits, "network-chart")
 	hitMonitorScroll        = tree.ID(monitorHits, "scroll")
 	hitMonitorThumb         = tree.ID(monitorHits, "scroll-thumb")
 )
 
 const monitorWidth = layoutcore.DefaultMonitorWidth
+
+// Activating a quiet pane must not depend on its terminal producing another
+// wake-up before the visible monitor starts following it.
+func (state *State) syncMonitorTarget() {
+	if state.monitorMenuSession != state.activeSessionID {
+		state.monitorMenu = false
+	}
+	if state.monitorResizeWorkspace != state.deck.ActiveWorkspace() || state.monitorResizeSession != state.activeSessionID {
+		state.monitorResizing = false
+	}
+	if state.monitorShown(state.deck.ActiveWorkspace()) {
+		state.ensureMonitor(state.contextSession())
+	}
+}
 
 type monitorDiskText struct {
 	path, capacity, percent string
@@ -67,38 +77,38 @@ type monitorView struct {
 	dragging                                                  bool
 	grab                                                      float32
 
-	worker                                *remotestats.DetailsWorker
-	data                                  remotestats.Details
-	sample                                remotestats.Sample
-	haveDetails, detailsFailed, paused    bool
-	interval                              int
-	disksOpen, networksOpen, hardwareOpen bool
-	scroll, contentHeight                 float32
-	count                                 int
-	origin                                time.Time
-	x, cpu, memory, disk, down, up        [61]float32
-	diskIdentity, networkIdentity         string
-	charts                                [4]monitorChart
-	refreshStarted                        time.Duration
-	refreshVersion                        uint32
-	refreshRunning                        bool
-	refreshReset                          bool
-	version                               uint32
-	cpuText                               string
-	memoryText                            string
-	memoryCapacity                        string
-	availableMemory                       string
-	downText                              string
-	upText                                string
-	loadText                              string
-	coresText, historyText                string
-	uptimeText                            string
-	networkText                           string
-	intervalText                          string
-	moreDisks, moreNetworks               string
-	disks                                 []monitorDiskText
-	networks                              []monitorNetworkText
-	language                              string
+	worker                             *remotestats.DetailsWorker
+	data                               remotestats.Details
+	sample                             remotestats.Sample
+	haveDetails, detailsFailed, paused bool
+	interval                           int
+	disksOpen, hardwareOpen            bool
+	scroll, contentHeight              float32
+	count                              int
+	origin                             time.Time
+	x, cpu, memory, disk, down, up     [61]float32
+	diskIdentity, networkIdentity      string
+	charts                             [4]monitorChart
+	refreshStarted                     time.Duration
+	refreshVersion                     uint32
+	refreshRunning                     bool
+	refreshReset                       bool
+	version                            uint32
+	cpuText                            string
+	memoryText                         string
+	memoryCapacity                     string
+	availableMemory                    string
+	downText                           string
+	upText                             string
+	loadText                           string
+	coresText                          string
+	uptimeText                         string
+	networkText                        string
+	intervalText                       string
+	moreDisks                          string
+	disks                              []monitorDiskText
+	networks                           []monitorNetworkText
+	language                           string
 }
 
 // Panel width is workspace state. Narrow windows use a drawer without
@@ -231,7 +241,12 @@ func (state *State) clickMonitor(id ui.ID) bool {
 		}
 	case hitMonitorInterval:
 		state.monitorMenu = !state.monitorMenu
+		state.monitorMenuSession = s.ID
 	case hitMonitorEvery1, hitMonitorEvery2, hitMonitorEvery5:
+		if state.monitorMenuSession != s.ID {
+			state.monitorMenu = false
+			return true
+		}
 		n := 2
 		if id == hitMonitorEvery1 {
 			n = 1
@@ -253,12 +268,8 @@ func (state *State) clickMonitor(id ui.ID) bool {
 		state.formatMonitor(v)
 	case hitMonitorDisks:
 		v.panel.disksOpen = !v.panel.disksOpen
-	case hitMonitorNetworks:
-		v.panel.networksOpen = !v.panel.networksOpen
 	case hitMonitorHardware:
 		v.panel.hardwareOpen = !v.panel.hardwareOpen
-	case hitMonitorManage:
-		return false
 	case hitMonitorOverview, hitMonitorDiskPage, hitMonitorNetworkPage:
 		v.panel.page = 0
 		if id == hitMonitorDiskPage {
@@ -411,7 +422,6 @@ func (state *State) formatMonitor(v *remoteStatsView) {
 	if p.data.CPUCount > len(p.cores) {
 		p.coreMoreText = fmt.Sprintf(m.PartialCoresFmt, len(p.cores), p.data.CPUCount)
 	}
-	p.historyText = m.LastMinute
 	up := p.sample.UptimeSeconds
 	if up == 0 {
 		up = p.data.Uptime
@@ -465,7 +475,6 @@ func (state *State) formatMonitor(v *remoteStatsView) {
 		}
 		p.networks = append(p.networks, monitorNetworkText{name: n.Name, rates: down + " / " + up})
 	}
-	p.moreNetworks = fmt.Sprintf(m.MoreNetworksFmt, len(p.networks))
 }
 
 func monitorBytes(value uint64) string {

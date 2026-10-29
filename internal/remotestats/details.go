@@ -13,7 +13,7 @@ import (
 )
 
 // DetailRunner is deliberately separate from the fast streaming sampler. A
-// slow filesystem or ps must never stop CPU/memory sampling or the terminal.
+// slow filesystem must never stop CPU/memory sampling or the terminal.
 type DetailRunner interface {
 	RunCommand(context.Context, string, int) ([]byte, error)
 }
@@ -32,23 +32,15 @@ type Network struct {
 	HasRate                         bool
 }
 
-type Process struct {
-	PID    uint32
-	Name   string
-	CPU    float64
-	Memory uint64
-}
-
 type Details struct {
-	LoadUnavailable          bool
-	PrimaryDisk              string
-	CPUCount                 int
-	Load                     [3]float64
-	Uptime                   float64
-	Kernel, PrimaryInterface string
-	Disks                    []Disk
-	Networks                 []Network
-	Processes                []Process
+	LoadUnavailable bool
+	PrimaryDisk     string
+	CPUCount        int
+	Load            [3]float64
+	Uptime          float64
+	Kernel          string
+	Disks           []Disk
+	Networks        []Network
 }
 
 type DetailResult struct {
@@ -127,11 +119,6 @@ cores=$(awk '/^cpu[0-9]+ / { n++ } END { print n+0 }' /proc/stat)
 read -r load1 load5 load15 _ </proc/loadavg
 read -r uptime _ </proc/uptime
 printf 'info\t%s\t%s\t%s\t%s\t%s\t%s\n' "$cores" "$load1" "$load5" "$load15" "$uptime" "$(uname -r)"
-if [ -r /proc/net/route ]; then
-    while read -r dev destination _; do
-        if [ "$destination" = 00000000 ]; then printf 'primary\t%s\n' "$dev"; break; fi
-    done </proc/net/route
-fi
 df -Pk -l 2>/dev/null | awk 'NR>1 && $2 ~ /^[0-9]+$/ && $3 ~ /^[0-9]+$/ {
     mount=$0; for (i=0;i<5;i++) sub(/^[ \t]*[^ \t]+[ \t]+/, "", mount)
     virtual=($1=="tmpfs" || $1=="devtmpfs" || mount ~ /^\/(dev|sys|proc|run)(\/|$)/ || mount ~ /^\/snap\// || mount ~ /^\/etc\/(hosts|hostname|resolv.conf)$/)
@@ -176,10 +163,6 @@ func parseDetails(data []byte) (Details, error) {
 			}
 			d.Uptime = v
 			d.Kernel = detailText(p[6], 120)
-		case "primary":
-			if len(p) == 2 {
-				d.PrimaryInterface = detailText(p[1], 64)
-			}
 		case "disk":
 			if len(p) != 7 || len(d.Disks) >= 64 || !strings.HasPrefix(p[6], "/") {
 				continue
@@ -201,16 +184,7 @@ func parseDetails(data []byte) (Details, error) {
 			if e1 == nil && e2 == nil {
 				d.Networks = append(d.Networks, Network{Name: detailText(p[1], 64), Received: rx, Sent: tx})
 			}
-		case "process":
-			if len(p) != 5 || len(d.Processes) >= 5 {
-				continue
-			}
-			pid, e := strconv.ParseUint(p[1], 10, 32)
-			cpu, ok := detailFloat(p[2])
-			memory, mok := detailBytes(p[3])
-			if e == nil && pid > 0 && ok && mok {
-				d.Processes = append(d.Processes, Process{PID: uint32(pid), Name: detailText(p[4], 120), CPU: cpu, Memory: memory})
-			}
+
 		}
 	}
 	if d.CPUCount == 0 {

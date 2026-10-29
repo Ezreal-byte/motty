@@ -25,7 +25,7 @@ func monitorFixture(t testing.TB) (*State, *Session) {
 	s.stats = &remoteStatsView{state: remoteStatsReady}
 	p := &s.stats.panel
 	p.interval = 2
-	p.data = remotestats.Details{CPUCount: 12, Load: [3]float64{2.31, 1.84, 1.22}, Uptime: 69242400, Kernel: "4.18.0", PrimaryInterface: "eth0",
+	p.data = remotestats.Details{CPUCount: 12, Load: [3]float64{2.31, 1.84, 1.22}, Uptime: 69242400, Kernel: "4.18.0",
 		Disks: []remotestats.Disk{
 			{Path: "/", Used: 2096 * (1 << 30) / 10, Total: 2952 * (1 << 30) / 10, Percent: 71},
 			{Path: "/data", Used: 176 << 30, Total: 200 << 30, Percent: 88},
@@ -33,8 +33,7 @@ func monitorFixture(t testing.TB) (*State, *Session) {
 			{Path: "/run", Used: 3 << 20, Total: 23 << 30, Percent: 1, Virtual: true},
 			{Path: "/dev/shm", Used: 9 << 20, Total: 23 << 30, Percent: 1, Virtual: true},
 		},
-		Networks:  []remotestats.Network{{Name: "eth0", ReceivePerSecond: 204288, SendPerSecond: 159130, HasRate: true}, {Name: "docker0", ReceivePerSecond: 1200, SendPerSecond: 850, HasRate: true}},
-		Processes: []remotestats.Process{{PID: 3162212, Name: "postgres", CPU: 18.2, Memory: 32 * (1 << 30) / 10}, {PID: 2042734, Name: "node", CPU: 6.7, Memory: 412 << 20}, {PID: 2235100, Name: "sshd", CPU: 1.2, Memory: 19 << 20}, {PID: 442030, Name: "containerd", CPU: .8, Memory: 82 << 20}, {PID: 2409478, Name: "nginx", CPU: .4, Memory: 46 << 20}},
+		Networks: []remotestats.Network{{Name: "eth0", ReceivePerSecond: 204288, SendPerSecond: 159130, HasRate: true}, {Name: "docker0", ReceivePerSecond: 1200, SendPerSecond: 850, HasRate: true}},
 	}
 	p.haveDetails = true
 	for i := range 61 {
@@ -251,7 +250,7 @@ func TestMonitorRefreshAnimationPausesAndRespectsReducedMotion(t *testing.T) {
 			canvas.SetReduceMotion(reduced)
 			canvas.SetClock(func() time.Duration { return time.Second })
 			canvas.BeginFrame()
-			state.paintMonitorRefresh(&canvas, p, ui.Rect{Width: 82, Height: 26})
+			state.paintMonitorRefresh(&canvas, p, ui.Rect{Width: 82, Height: 26}, true)
 			canvas.EndFrame()
 			delay, scheduled := canvas.NextFrame()
 			if reduced || paused {
@@ -266,4 +265,64 @@ func TestMonitorRefreshAnimationPausesAndRespectsReducedMotion(t *testing.T) {
 			}
 		}
 	}
+}
+
+func TestMonitorTransientControlsDoNotFollowAnotherConnection(t *testing.T) {
+	state, session := monitorFixture(t)
+	state.Resize(ui.Size{Width: 1600, Height: 900})
+	state.Paint(&ui.Canvas{}, state.viewport)
+	state.monitorPointer(ui.PointerEvent{Kind: ui.PointerDown, Target: hitMonitorDivider, Button: ui.PointerButtonPrimary, X: state.monitorRect.X, Y: 100})
+	state.Click(hitMonitorInterval)
+	if !state.monitorMenu || !state.monitorResizing {
+		t.Fatal("controls did not start")
+	}
+	c, _ := state.deck.Context(state.deck.ActiveWorkspace())
+	beforeInterval := session.stats.panel.interval
+	state.activeSessionID++ // equivalent to retargeting a split pane during a drag
+	state.monitorPointer(ui.PointerEvent{Kind: ui.PointerMove, X: 100, Y: 100})
+	if state.monitorResizing {
+		t.Fatal("divider drag followed another connection")
+	}
+	after, _ := state.deck.Context(state.deck.ActiveWorkspace())
+	if after.MonitorWidth != c.MonitorWidth {
+		t.Fatal("stale drag changed the next pane")
+	}
+	state.monitorKey(ui.KeyEvent{Key: ui.KeyDown, Target: hitMonitorInterval})
+	if state.monitorMenu {
+		t.Fatal("refresh popup followed another connection")
+	}
+	state.activeSessionID = session.ID
+	if session.stats.panel.interval != beforeInterval {
+		t.Fatal("stale refresh selection changed a connection")
+	}
+}
+
+func TestMonitorFailureStopsTheCountdownFrames(t *testing.T) {
+	state, session := monitorFixture(t)
+	var canvas ui.Canvas
+	canvas.BeginFrame()
+	state.paintMonitorRefresh(&canvas, &session.stats.panel, ui.Rect{Width: 82, Height: 26}, false)
+	canvas.EndFrame()
+	if _, scheduled := canvas.NextFrame(); scheduled {
+		t.Fatal("failed sampling keeps animating")
+	}
+}
+
+func TestMonitorStartsForAQuietWorkspaceOnActivation(t *testing.T) {
+	state, _, fake, _ := liveSession(t)
+	fake.streamCommand = streamReadings(statsReadings...)
+	state.Paint(&ui.Canvas{}, ui.Size{Width: 1400, Height: 900})
+	id := state.deck.ActiveWorkspace()
+	c, _ := state.deck.Context(id)
+	c.MonitorOpen = true
+	if err := state.deck.SetContext(id, c); err != nil {
+		t.Fatal(err)
+	}
+	state.activeSection = sectionHosts
+	state.activateWorkspace(id)
+	session := state.contextSession()
+	if session == nil || session.stats == nil || session.stats.worker == nil {
+		t.Fatal("quiet workspace waits for unrelated terminal output to start its monitor")
+	}
+	state.closeMonitor()
 }

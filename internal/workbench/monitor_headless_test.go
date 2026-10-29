@@ -52,9 +52,7 @@ func TestMonitorNativePanelAtDifferentScales(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			if _, ok := view.Hit(state.messages.Monitor.Manage); ok {
-				t.Fatal("monitor still exposes process management")
-			}
+
 			for page, label := range []string{state.messages.Monitor.Overview, state.messages.Monitor.Disks, state.messages.Monitor.Network} {
 				if err = view.ClickLabel(label); err != nil {
 					t.Fatal(err)
@@ -130,7 +128,7 @@ func TestMonitorNativePanelAtDifferentScales(t *testing.T) {
 			// narrow window; the detached mode becomes a drawer.
 			p := &state.contextSession().stats.panel
 			p.disks[0].path = "/long/path/包含中文的目录/that-must-not-expand-the-panel/production"
-			p.disksOpen, p.networksOpen, p.hardwareOpen = true, true, true
+			p.disksOpen, p.hardwareOpen = true, true
 			state.setAppearance(appearanceDark)
 			if err = view.Resize(800, 600); err != nil {
 				t.Fatal(err)
@@ -232,7 +230,6 @@ func TestMonitorIdleHostNativeRendering(t *testing.T) {
 	p.data.CPUCount, p.data.Load = 18, [3]float64{.01, .01, 0}
 	p.data.Disks = []remotestats.Disk{{Path: "/", Used: 38 << 30, Total: 10069 * (1 << 30) / 10, Percent: 4}, {Path: "/home/motty", Used: 38 << 30, Total: 10069 * (1 << 30) / 10, Percent: 4}, {Path: "/run", Used: 1024, Total: 1 << 30, Virtual: true}}
 	p.data.Networks = nil
-	p.data.Processes = []remotestats.Process{{Name: "sshd", PID: 812, CPU: .4, Memory: 73 * (1 << 20) / 10}, {Name: "sshd", PID: 823, CPU: .2, Memory: 41 * (1 << 20) / 10}, {Name: "sshd", PID: 835, CPU: .2, Memory: 82 * (1 << 20) / 10}, {Name: "sshd", PID: 846, CPU: 0, Memory: 54 * (1 << 20) / 10}, {Name: "sshd", PID: 852, CPU: 0, Memory: 81 * (1 << 20) / 10}}
 	p.count = 0
 	for i := range 6 {
 		state.sampleMonitor(session.stats, remotestats.Sample{CPUPercent: .05, MemoryUsedBytes: 1 << 30, MemoryTotalBytes: 4 << 30, ReceiveBytesPerSecond: uint64(300 + i%3*450), SendBytesPerSecond: uint64(100 + i%4*200), NetworkInterface: "eth0", UptimeSeconds: 10800})

@@ -541,27 +541,30 @@ type State struct {
 	updateStarted bool
 	loginOn       bool
 	// The file panel's settings and the folders kept for each host.
-	sftpParallel       int
-	sftpKeepTimesOff   bool
-	sftpFollowOff      bool
-	sftpTerminalFollow bool
-	sftpPathInput      bool
-	sftpPanelAutoOpen  bool
-	monitorRect        ui.Rect
-	monitorMenu        bool
-	monitorMenuRect    ui.Rect
-	monitorResizing bool
-	monitorResizeGrab float32
-	sftpPanelSide      layoutcore.ContextSide
-	sftpBookmarks      []sftpBookmark
-	sftpLocalBookmarks []string
-	transferLeftover   []byte
-	secrets            secretsUI
-	shareConnections   shareConnectionsPolicy
-	tooltip            components.HoverTooltip
-	selectTypeahead    selectTypeahead
-	restorePending     bool // restored tabs have not yet been connected (see connectRestoredSessions)
-	terminalClipboard  terminalClipboardPolicy
+	sftpParallel           int
+	sftpKeepTimesOff       bool
+	sftpFollowOff          bool
+	sftpTerminalFollow     bool
+	sftpPathInput          bool
+	sftpPanelAutoOpen      bool
+	monitorRect            ui.Rect
+	monitorMenu            bool
+	monitorMenuRect        ui.Rect
+	monitorResizing        bool
+	monitorResizeGrab      float32
+	monitorResizeWorkspace layoutcore.WorkspaceID
+	monitorResizeSession   uint32
+	monitorMenuSession     uint32
+	sftpPanelSide          layoutcore.ContextSide
+	sftpBookmarks          []sftpBookmark
+	sftpLocalBookmarks     []string
+	transferLeftover       []byte
+	secrets                secretsUI
+	shareConnections       shareConnectionsPolicy
+	tooltip                components.HoverTooltip
+	selectTypeahead        selectTypeahead
+	restorePending         bool // restored tabs have not yet been connected (see connectRestoredSessions)
+	terminalClipboard      terminalClipboardPolicy
 
 	localDirectoryDirty bool
 	// terminalCursorSteady keeps the terminal cursor from blinking.
