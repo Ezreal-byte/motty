@@ -37,6 +37,7 @@ type savedState struct {
 	TerminalFontSize           int                 `json:"terminal_font_size,omitempty"`
 	TerminalFontFace           string              `json:"terminal_font_face,omitempty"`
 	TerminalFontFamily         string              `json:"terminal_font_family,omitempty"`
+	TerminalFontFallbacks      []string            `json:"terminal_font_fallbacks,omitempty"`
 	TerminalScrollback         int                 `json:"terminal_scrollback,omitempty"`
 	ConnectionTimeoutSeconds   int                 `json:"connection_timeout_seconds,omitempty"`
 	ConnectionKeepAliveSeconds int                 `json:"connection_keepalive_seconds,omitempty"`
@@ -347,8 +348,9 @@ func (state *State) snapshot() savedState {
 		SSHAgent:                   savedAgent,
 		SSHAgentPath:               savedAgentPath,
 		TerminalFontSize:           int(state.terminalFontSize),
-		TerminalFontFace:           terminalFontFaceString(state.terminalFontFace),
+		TerminalFontFace:           terminalFontFaceString(state.fonts.classic),
 		TerminalFontFamily:         state.fonts.family,
+		TerminalFontFallbacks:      slices.Clone(state.fonts.fallbacks),
 		TerminalScrollback:         state.terminalScrollback,
 		ConnectionTimeoutSeconds:   int(state.connectionTimeout / time.Second),
 		ConnectionKeepAliveSeconds: int(state.connectionKeepAlive / time.Second),
@@ -592,14 +594,14 @@ func (state *State) restoreLocal(saved savedState) {
 	state.syncNativeAppearance()
 	state.setAppearance(state.resolveAppearance())
 	state.setTerminalFontSize(float32(saved.TerminalFontSize))
-	state.setTerminalFontFace(terminalFontFaceFromString(saved.TerminalFontFace))
-	state.fonts.family = ""
-	if family := strings.TrimSpace(saved.TerminalFontFamily); family != "" {
-		if face := ui.MonoFamily(family); face != ui.MonoSystem {
-			state.fonts.family = family
-			state.setTerminalFontFace(face)
-		}
+	state.fonts.family, state.fonts.classic = "", terminalFontFaceFromString(saved.TerminalFontFace) == ui.MonoClassic
+	if family := strings.TrimSpace(saved.TerminalFontFamily); family != "" && ui.MonoFamily(family) != ui.MonoSystem {
+		state.fonts.family, state.fonts.classic = family, false
 	}
+	// Kept as saved, whatever this computer has installed: a copy carried to another
+	// computer comes back with the choice it was given.
+	state.fonts.fallbacks = cleanFallbackFonts(saved.TerminalFontFallbacks, state.fonts.family)
+	state.applyTerminalFace()
 	state.restoreConnect = restoreConnectPolicyFromString(saved.RestoreConnect)
 	state.shareConnections = shareConnectionsPolicyFromString(saved.ShareConnections)
 	state.ai.panelWidth = saved.AIPanelWidth

@@ -81,7 +81,7 @@ func (state *State) setTerminalFontSize(value float32) bool {
 }
 
 func (state *State) setTerminalFontFace(face ui.MonoFace) bool {
-	if face > ui.MonoClassic && ui.MonoFamilyName(face) == "" {
+	if face > ui.MonoClassic && ui.MonoFamilyName(face) == "" && len(ui.MonoFallbacks(face)) == 0 && !ui.MonoIsClassic(face) {
 		face = ui.MonoSystem
 	}
 	if state.terminalFontFace == face {
@@ -93,8 +93,8 @@ func (state *State) setTerminalFontFace(face ui.MonoFace) bool {
 	return true
 }
 
-func terminalFontFaceString(face ui.MonoFace) string {
-	if face == ui.MonoClassic {
+func terminalFontFaceString(classic bool) string {
+	if classic {
 		return "classic"
 	}
 	return "system" // a named family is kept beside it, in its own field

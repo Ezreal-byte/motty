@@ -104,7 +104,13 @@ func (state *State) clickTerminalTools(id ui.ID) bool {
 	case id == hitSettingsProxyConfigure:
 		state.openOutboundProxyDialog()
 	case id == hitSettingsFontPick:
-		state.openFontPicker()
+		state.openFontPicker(false)
+	case id == hitSettingsFallbackAdd:
+		state.openFontPicker(true)
+	case id == hitSettingsFallbackClear:
+		if state.clearFallbackFonts() {
+			state.save()
+		}
 	case id == hitImportSessions:
 		state.modal = modalImportSessions
 	case id == hitSettingsAutofillAdd:

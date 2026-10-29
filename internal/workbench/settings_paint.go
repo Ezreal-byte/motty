@@ -297,6 +297,7 @@ func (state *State) paintTerminalSettings(page *settingsPage) {
 				components.ButtonAction{ID: hitSettingsFontSizeUp, Label: "+", Variant: components.ButtonOutline})
 			page.actionRow(messages.SettingsTerminalFontFamily, state.fontDescription(), false,
 				components.ButtonAction{ID: hitSettingsFontPick, Label: state.messages.Tools.FontChoose, Variant: components.ButtonOutline})
+			page.actionRow(state.messages.Tools.FontFallbackRow, state.fallbackDescription(), false, state.fallbackActions()...)
 			page.row(state.messages.Tools.PaddingRow, "", padding[:], selectedPadding)
 			page.row(state.messages.Tools.GutterRow, state.messages.Tools.GutterDescription, gutter[:], selectedGutter)
 			page.toggleRow(state.messages.Tools.CursorRow, state.messages.Tools.CursorDescription, !state.terminalCursorSteady, hitSettingsCursorToggle)

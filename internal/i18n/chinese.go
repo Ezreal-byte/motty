@@ -1191,6 +1191,13 @@ var chineseTools = ToolsMessages{
 	FontPickerSample:        "The quick brown fox 敏捷的棕色狐狸 0123",
 	FontPickerSampleSymbols: "0123456789 {}[]() <> -> == != ~ $ # | iIl1 oO0",
 
+	FontFallbackRow:         "备用字体",
+	FontFallbackEmpty:       "终端字体缺少的字符（如中文）由系统选择字体绘制。添加备用字体后，按顺序依次尝试。",
+	FontFallbackFmt:         "按顺序：%s。上面的字体缺少某个字符时依次使用。",
+	FontFallbackAdd:         "添加",
+	FontFallbackClear:       "清除",
+	FontFallbackPickerTitle: "备用字体",
+
 	PasteImageRow:         "向服务器粘贴图片",
 	PasteImageDescription: "在 SSH 终端粘贴时，若剪贴板里只有图片而没有文本，就把图片上传到服务器的 ~/.cache/motty/paste 并输入它的路径，方便 Claude Code 等程序读取。文件保留一周。",
 	PasteImageUploading:   "正在上传剪贴板里的图片…",

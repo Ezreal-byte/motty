@@ -113,6 +113,14 @@ type ToolsMessages struct {
 	FontPickerSample        string
 	FontPickerSampleSymbols string
 
+	// The fonts that draw what the terminal's font lacks.
+	FontFallbackRow         string
+	FontFallbackEmpty       string
+	FontFallbackFmt         string
+	FontFallbackAdd         string
+	FontFallbackClear       string
+	FontFallbackPickerTitle string
+
 	// Notifications.
 	NotifyRow         string
 	NotifyDescription string
