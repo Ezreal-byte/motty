@@ -80,6 +80,8 @@ type terminal struct {
 	blink                 cursorBlink
 	wheelX                float32 // horizontal wheel travel not yet worth a whole cell
 	wheelY                float32 // vertical wheel travel not yet worth a whole cell
+	barDragging           bool    // the scrollbar thumb is held
+	barGrab               float32 // where on the thumb it was taken
 
 	// label is the accessible name of the terminal, rebuilt only when the
 	// language or the address it is made from changes.
@@ -1134,7 +1136,7 @@ func (state *State) Scroll(event ui.ScrollEvent) ui.EventResult {
 		event.Target = local
 		return state.scroll(event)
 	}
-	if session := state.terminalSession(event.Target); session != nil {
+	if session := state.terminalOrBarSession(event.Target); session != nil {
 		_, origin, viewport, embedded := state.paneEventGeometry(session.ID, event.Viewport)
 		if embedded {
 			event.X -= origin.X
@@ -1153,7 +1155,7 @@ func (state *State) scroll(event ui.ScrollEvent) ui.EventResult {
 		return state.scrollHosts(event)
 	}
 	session, ok := state.sessionByIDPointer(state.activeSessionID)
-	if hovered := state.terminalSession(event.Target); hovered != nil {
+	if hovered := state.terminalOrBarSession(event.Target); hovered != nil {
 		session, ok = hovered, true
 	}
 	if !ok || state.activeSection != sectionTerminal || state.modal != modalNone || session.term == nil || state.cellWidth <= 0 || state.cellHeight <= 0 || state.showsProgress(session) {

@@ -46,6 +46,8 @@ type savedState struct {
 	ShareConnections           string              `json:"share_connections,omitempty"`
 	TerminalClipboard          string              `json:"terminal_clipboard,omitempty"`
 	TerminalCursorSteady       bool                `json:"terminal_cursor_steady,omitempty"`
+	TerminalCopyOnSelect       bool                `json:"terminal_copy_on_select,omitempty"`
+	TerminalRightClickPaste    bool                `json:"terminal_right_click_paste,omitempty"`
 	AIPanelWidth               float32             `json:"ai_panel_width,omitempty"`
 	WindowX                    int                 `json:"window_x,omitempty"`
 	WindowY                    int                 `json:"window_y,omitempty"`
@@ -359,6 +361,8 @@ func (state *State) snapshot() savedState {
 		ShareConnections:           state.shareConnections.String(),
 		TerminalClipboard:          state.terminalClipboard.String(),
 		TerminalCursorSteady:       state.terminalCursorSteady,
+		TerminalCopyOnSelect:       state.terminalCopyOnSelect,
+		TerminalRightClickPaste:    state.terminalRightClickPaste,
 		AIPanelWidth:               state.ai.panelWidth,
 		TerminalSchemeDark:         state.terminalSchemes[appearanceDark],
 		TerminalSchemeLight:        state.terminalSchemes[appearanceLight],
@@ -630,6 +634,8 @@ func (state *State) restoreShared(saved savedState) {
 	state.connectionReconnect = reconnectPolicyFromString(saved.ConnectionReconnect)
 	state.terminalClipboard = terminalClipboardPolicyFromString(saved.TerminalClipboard)
 	state.terminalCursorSteady = saved.TerminalCursorSteady
+	state.terminalCopyOnSelect = saved.TerminalCopyOnSelect
+	state.terminalRightClickPaste = saved.TerminalRightClickPaste
 	if saved.TerminalSchemeDark == "" && saved.TerminalSchemeLight == "" && saved.TerminalScheme != "" {
 		state.terminalSchemes[appearanceDark], state.terminalSchemes[appearanceLight] = migrateTerminalScheme(saved.TerminalScheme)
 	} else {

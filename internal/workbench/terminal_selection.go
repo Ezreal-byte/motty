@@ -88,7 +88,13 @@ func (state *State) terminalPointer(session *Session, event ui.PointerEvent) ui.
 	case ui.PointerDown:
 		if event.Button == ui.PointerButtonSecondary {
 			// A program that asked for the mouse already had this press; what
-			// reaches here is the terminal's own, so it gets the menu.
+			// reaches here is the terminal's own. It pastes when the user chose
+			// that, and Shift keeps the menu one press away.
+			if state.terminalRightClickPaste && event.Modifiers&ui.ModifierShift == 0 {
+				state.terminalMenu.open = false
+				state.pasteIntoTerminal(session)
+				return ui.EventResult{Handled: true, Repaint: true}
+			}
 			state.openTerminalMenu(session)
 			state.offerActionsAt(session, position)
 			return ui.EventResult{Handled: true, Repaint: true}
@@ -101,7 +107,11 @@ func (state *State) terminalPointer(session *Session, event ui.PointerEvent) ui.
 			terminal.links.clear()
 			start, end := terminal.screen.WordBounds(position)
 			selection.selectRange(start, end)
-			return ui.EventResult{Handled: true, Repaint: true}
+			result := ui.EventResult{Handled: true, Repaint: true}
+			if state.terminalCopyOnSelect {
+				result.ClipboardText = terminal.screen.SelectedText(selection.anchor, selection.focus)
+			}
+			return result
 		}
 		linkChanged := terminal.links.clear()
 		if linksEnabled && event.Button == ui.PointerButtonPrimary {
@@ -155,7 +165,11 @@ func (state *State) terminalPointer(session *Session, event ui.PointerEvent) ui.
 		if open && terminal.openLink != nil {
 			terminal.openLink(target)
 		}
-		return ui.EventResult{Handled: true, Repaint: changed}
+		result := ui.EventResult{Handled: true, Repaint: changed}
+		if state.terminalCopyOnSelect && selection.selected {
+			result.ClipboardText = terminal.screen.SelectedText(selection.anchor, selection.focus)
+		}
+		return result
 	}
 	return ui.EventResult{}
 }

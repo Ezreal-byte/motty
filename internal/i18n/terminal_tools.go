@@ -84,22 +84,27 @@ type ToolsMessages struct {
 	CatSecurity   string
 
 	// Terminal zoom and padding.
-	ZoomIn            string
-	ZoomOut           string
-	ZoomReset         string
-	StatusFontSizeFmt string
-	PaddingRow        string
-	PaddingCompact    string
-	PaddingNormal     string
-	PaddingRoomy      string
-	GutterRow         string
-	GutterDescription string
-	GutterOff         string
-	GutterNumbers     string
-	GutterTime        string
-	GutterBoth        string
-	CursorRow         string
-	CursorDescription string
+	ZoomIn                     string
+	ZoomOut                    string
+	ZoomReset                  string
+	StatusFontSizeFmt          string
+	PaddingRow                 string
+	PaddingCompact             string
+	PaddingNormal              string
+	PaddingRoomy               string
+	GutterRow                  string
+	GutterDescription          string
+	GutterOff                  string
+	GutterNumbers              string
+	GutterTime                 string
+	GutterBoth                 string
+	CursorRow                  string
+	CursorDescription          string
+	ScrollbarLabel             string
+	CopyOnSelectRow            string
+	CopyOnSelectDescription    string
+	RightClickPasteRow         string
+	RightClickPasteDescription string
 
 	// The terminal's font.
 	FontChoose              string

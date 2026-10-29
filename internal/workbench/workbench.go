@@ -215,6 +215,8 @@ var (
 	hitSettingsReconnectForever = tree.ID(settingsHits, "settings-reconnect-forever")
 	hitSettingsClipboardBlock   = tree.ID(settingsHits, "settings-clipboard-block")
 	hitSettingsCursorToggle     = tree.ID(settingsHits, "settings-cursor-blink")
+	hitSettingsCopyOnSelect     = tree.ID(settingsHits, "settings-copy-on-select")
+	hitSettingsRightClickPaste  = tree.ID(settingsHits, "settings-right-click-paste")
 	hitSettingsClipboardAsk     = tree.ID(settingsHits, "settings-clipboard-ask")
 	hitSettingsClipboardAllow   = tree.ID(settingsHits, "settings-clipboard-allow")
 	hitSettingsRestoreActive    = tree.ID(settingsHits, "settings-restore-active")
@@ -572,6 +574,10 @@ type State struct {
 	localDirectoryDirty bool
 	// terminalCursorSteady keeps the terminal cursor from blinking.
 	terminalCursorSteady bool
+	// terminalCopyOnSelect copies a selection the moment the mouse finishes it,
+	// and terminalRightClickPaste makes a right click paste instead of opening
+	// the terminal menu.
+	terminalCopyOnSelect, terminalRightClickPaste bool
 
 	// settingsScroll is how far the settings page is scrolled, in pixels, and
 	// settingsContent how tall it was when last painted.
@@ -1790,7 +1796,7 @@ func (state *State) Pointer(event ui.PointerEvent) (outcome ui.EventResult) {
 		}
 		return result
 	}
-	if session := state.terminalSession(event.Target); session != nil {
+	if session := state.terminalOrBarSession(event.Target); session != nil {
 		_, origin, viewport, embedded := state.paneEventGeometry(session.ID, event.Viewport)
 		if embedded {
 			event.X -= origin.X
@@ -1831,6 +1837,9 @@ func (state *State) pointer(event ui.PointerEvent) ui.EventResult {
 		return result
 	}
 	if result, handled := state.terminalFindPointer(event); handled {
+		return result
+	}
+	if result, handled := state.terminalScrollbarPointer(event); handled {
 		return result
 	}
 	if session := state.terminalSession(event.Target); session != nil && state.modal == modalNone && state.activeSection == sectionTerminal {

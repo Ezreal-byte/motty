@@ -93,6 +93,12 @@ func (state *State) clickTerminalTools(id ui.ID) bool {
 	case id == hitSettingsCursorToggle:
 		state.terminalCursorSteady = !state.terminalCursorSteady
 		state.save()
+	case id == hitSettingsCopyOnSelect:
+		state.terminalCopyOnSelect = !state.terminalCopyOnSelect
+		state.save()
+	case id == hitSettingsRightClickPaste:
+		state.terminalRightClickPaste = !state.terminalRightClickPaste
+		state.save()
 	case id == hitSettingsNotifyToggle:
 		if state.setNotifications(state.notifyOff) {
 			state.save()

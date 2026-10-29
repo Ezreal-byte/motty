@@ -240,3 +240,63 @@ func TestShiftWheelBypassesMouseReportingForScrollback(t *testing.T) {
 		t.Fatalf("result=%+v input=%q offset=%d", result, shell.typed(), session.term.screen.ViewOffset())
 	}
 }
+
+func TestCopyOnSelectCopiesWhenTheMouseLetsGo(t *testing.T) {
+	state, session, geometry := selectionState()
+	session.term.write([]byte("alpha beta\r\n"))
+	hit := hitTerminalList.At(int(session.ID))
+	startX, startY := cellPoint(geometry, 0, 0, state.cellWidth, state.cellHeight)
+	endX, endY := cellPoint(geometry, 0, 4, state.cellWidth, state.cellHeight)
+	drag := func() ui.EventResult {
+		state.Pointer(ui.PointerEvent{Kind: ui.PointerDown, Button: ui.PointerButtonPrimary, Target: hit, X: startX, Y: startY, Viewport: state.viewport})
+		state.Pointer(ui.PointerEvent{Kind: ui.PointerMove, Button: ui.PointerButtonPrimary, Target: hit, Captured: true, X: endX, Y: endY, Viewport: state.viewport})
+		return state.Pointer(ui.PointerEvent{Kind: ui.PointerUp, Button: ui.PointerButtonPrimary, Target: hit, Captured: true, X: endX, Y: endY, Viewport: state.viewport})
+	}
+
+	if result := drag(); result.ClipboardText != "" {
+		t.Fatalf("a selection was copied without the setting: %q", result.ClipboardText)
+	}
+	state.terminalCopyOnSelect = true
+	if result := drag(); result.ClipboardText != "alpha" {
+		t.Fatalf("selected text copied as %q", result.ClipboardText)
+	}
+	x, y := cellPoint(geometry, 0, 7, state.cellWidth, state.cellHeight)
+	result := state.Pointer(ui.PointerEvent{Kind: ui.PointerDown, Button: ui.PointerButtonPrimary, ClickCount: 2, Target: hit, X: x, Y: y, Viewport: state.viewport})
+	if result.ClipboardText != "beta" {
+		t.Fatalf("a double-clicked word copied as %q", result.ClipboardText)
+	}
+	// A click that selects nothing leaves the clipboard alone.
+	state.Pointer(ui.PointerEvent{Kind: ui.PointerDown, Button: ui.PointerButtonPrimary, Target: hit, X: startX, Y: startY, Viewport: state.viewport})
+	result = state.Pointer(ui.PointerEvent{Kind: ui.PointerUp, Button: ui.PointerButtonPrimary, Target: hit, Captured: true, X: startX, Y: startY, Viewport: state.viewport})
+	if result.ClipboardText != "" {
+		t.Fatalf("a plain click copied %q", result.ClipboardText)
+	}
+}
+
+func TestRightClickPastesOnlyWhenChosenAndShiftKeepsTheMenu(t *testing.T) {
+	state, session, geometry := selectionState()
+	shell := &fakeShell{done: make(chan struct{})}
+	session.term.shell = shell
+	state.options.ClipboardText = func() (string, error) { return "ls -la", nil }
+	hit := hitTerminalList.At(int(session.ID))
+	x, y := cellPoint(geometry, 0, 3, state.cellWidth, state.cellHeight)
+	rightClick := func(modifiers ui.Modifiers) {
+		state.Pointer(ui.PointerEvent{Kind: ui.PointerDown, Button: ui.PointerButtonSecondary, Modifiers: modifiers, Target: hit, X: x, Y: y, Viewport: state.viewport})
+	}
+
+	rightClick(0)
+	if !state.terminalMenu.open || len(shell.input) != 0 {
+		t.Fatalf("by default a right click opens the menu: open=%v input=%q", state.terminalMenu.open, shell.input)
+	}
+	state.terminalMenu.open = false
+
+	state.terminalRightClickPaste = true
+	rightClick(0)
+	if state.terminalMenu.open || string(shell.input) != "ls -la" {
+		t.Fatalf("right click did not paste: open=%v input=%q", state.terminalMenu.open, shell.input)
+	}
+	rightClick(ui.ModifierShift)
+	if !state.terminalMenu.open {
+		t.Fatal("Shift+right click no longer reaches the menu")
+	}
+}

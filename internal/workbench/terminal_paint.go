@@ -244,6 +244,7 @@ func (state *State) declareInactiveBar(f *flex.Frame, width float32, title, stat
 // nothing.
 func (state *State) paintGrid(canvas *ui.Canvas, session *Session, geometry terminalGeometry) {
 	state.paintGridWithID(canvas, session, geometry, hitTerminalList.At(int(session.ID)), false)
+	state.paintTerminalScrollbar(canvas, session, geometry)
 }
 
 func (state *State) paintGridWithID(canvas *ui.Canvas, session *Session, geometry terminalGeometry, id ui.ID, sensitive bool) {
