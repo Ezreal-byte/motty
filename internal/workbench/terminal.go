@@ -68,6 +68,7 @@ type terminal struct {
 	shellOpened           time.Duration    // when the shell was asked for, to give a silent one up
 	opening               chan shellResult // a shell being opened in the background, until pump collects it
 	followPath            string           // latest shell directory awaiting a safe attached file panel
+	reportedDirectory     term.Cwd         // last report accepted from this shell, rather than a running program
 	promptReady           bool
 	promptStarted         bool
 	promptDirty           bool
@@ -263,8 +264,8 @@ func (state *State) configureTerminal(session *Session) {
 	session.term.screen.SetNotify(func(note term.Notification) {
 		state.terminalNotification(sessionID, note)
 	})
-	session.term.screen.SetCwdChange(func(cwd term.Cwd) {
-		state.terminalDirectory(sessionID, cwd)
+	session.term.screen.SetCwdReport(func(cwd term.Cwd) {
+		state.recordTerminalDirectory(sessionID, cwd, false)
 	})
 	session.term.screen.SetPromptStart(func() {
 		if current, ok := state.sessionByIDPointer(sessionID); ok && current.term != nil {
@@ -298,6 +299,7 @@ func (t *terminal) resetFolderSync() {
 	t.screen.SetPromptToken(t.folderToken)
 	t.promptReady, t.promptStarted, t.promptDirty = false, false, false
 	t.folderIntegrationSeen, t.commandReporting = false, false
+	t.reportedDirectory = term.Cwd{}
 	t.submittedLines, t.followPath = 0, ""
 	t.promptVersion++
 }

@@ -13,6 +13,12 @@ import (
 // Consume only the latest one, once, rather than losing it or snapping back on
 // every frame after the user has deliberately browsed somewhere else.
 func (state *State) terminalDirectory(sessionID uint32, cwd term.Cwd) {
+	state.recordTerminalDirectory(sessionID, cwd, true)
+}
+
+// Explicit panel opening replays the latest directory, whereas prompt reports
+// are deduplicated so they do not undo manual browsing in an open panel.
+func (state *State) recordTerminalDirectory(sessionID uint32, cwd term.Cwd, replay bool) {
 	session, ok := state.sessionByIDPointer(sessionID)
 	if !ok || session.term == nil || session.containerCommand != "" {
 		return
@@ -34,6 +40,13 @@ func (state *State) terminalDirectory(sessionID uint32, cwd term.Cwd) {
 		// POSIX SFTP paths. Keep remote following's existing path contract.
 		return
 	}
+	// Deduplicate accepted reports, rather than the terminal's raw reports. A
+	// repeated prompt must not undo manual browsing, but its first trusted
+	// report still counts after a running program reported the same path.
+	if !replay && cwd == session.term.reportedDirectory {
+		return
+	}
+	session.term.reportedDirectory = cwd
 	if !session.canBrowseFiles() || state.sftpFollowOff {
 		return
 	}

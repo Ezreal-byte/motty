@@ -1,6 +1,7 @@
 package workbench
 
 import (
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -10,6 +11,45 @@ import (
 
 	"motty/internal/term"
 )
+
+func TestLocalDirectoryAcceptsTrustedRepeatAfterIgnoringProgramReport(t *testing.T) {
+	state := newTestState(t, testOptions(t))
+	state.sftpFollowOff = false
+	state.restoreSessions([]savedSession{{Local: true}}, 1)
+	session := &state.sessions[0]
+	session.term = newTerminal(80, 24)
+	state.configureTerminal(session)
+	first, next := t.TempDir(), t.TempDir()
+	report := func(directory string) string {
+		if runtime.GOOS == "windows" {
+			return "\x1b]9;9;" + directory + "\a"
+		}
+		return "\x1b]7;" + (&url.URL{Scheme: "file", Path: directory}).String() + "\a"
+	}
+	prompt := func(directory string) string {
+		return "\x1b]133;A;motty=" + session.term.folderToken + "\a" + report(directory) + "\x1b]133;B;motty=" + session.term.folderToken + "\a"
+	}
+	session.term.screen.Write([]byte(prompt(first)))
+	session.term.noteShellInput([]byte("command\r"))
+	session.term.screen.Write([]byte(report(next)))
+	if session.localDirectory != first {
+		t.Fatal("the running program replaced the startup directory")
+	}
+	// The real prompt can report the same path the program just reported. Its
+	// report must not be lost to terminal-level duplicate suppression.
+	session.term.screen.Write([]byte(prompt(next)))
+	if session.localDirectory != next {
+		t.Fatalf("trusted repeat left directory at %q, want %q", session.localDirectory, next)
+	}
+	if session.term.followPath != next {
+		t.Fatal("the trusted repeat did not update the attached files panel target")
+	}
+	session.term.followPath = "" // the report was consumed, then the panel was browsed manually
+	session.term.screen.Write([]byte(prompt(next)))
+	if session.term.followPath != "" {
+		t.Fatal("an unchanged prompt tried to undo manual file browsing")
+	}
+}
 
 func TestLocalDirectoryRestoredShellReallyStartsInEachFolder(t *testing.T) {
 	program := "bash"
@@ -23,6 +63,14 @@ func TestLocalDirectoryRestoredShellReallyStartsInEachFolder(t *testing.T) {
 	state := newTestState(t, testOptions(t))
 	state.localShell, state.sftpFollowOff = program, true
 	dirs := []string{t.TempDir(), t.TempDir()}
+	for i := range dirs {
+		// macOS's /var temporary paths may be aliases of /private/var. A new
+		// shell is allowed to report the physical spelling of its startup path.
+		dirs[i], err = filepath.EvalSymlinks(dirs[i])
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
 	state.restoreSessions([]savedSession{{Local: true, LocalDirectory: dirs[0]}, {Local: true, LocalDirectory: dirs[1]}}, 1)
 	state.ensureWorkspaceDeck()
 	for i := range state.sessions {

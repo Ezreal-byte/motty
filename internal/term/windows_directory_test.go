@@ -2,6 +2,20 @@ package term
 
 import "testing"
 
+func TestDirectoryReportObserverPreservesRepeatsAndChangeDeduplication(t *testing.T) {
+	for _, stream := range []string{"\x1b]7;file:///same/directory\a", "\x1b]9;9;C:\\same\\directory\a"} {
+		terminal := New(80, 24, 0)
+		reports, changes := 0, 0
+		terminal.SetCwdReport(func(Cwd) { reports++ })
+		terminal.SetCwdChange(func(Cwd) { changes++ })
+		terminal.Write([]byte(stream + stream))
+		terminal.Write([]byte("\x1b]7;not-a-file-uri\a\x1b]9;9;relative\a"))
+		if reports != 2 || changes != 1 {
+			t.Fatalf("reports=%d, changes=%d; want 2 valid reports, 1 change", reports, changes)
+		}
+	}
+}
+
 func TestWindowsDirectoryReportsAreDataAndNotNotifications(t *testing.T) {
 	terminal := New(80, 24, 0)
 	var reports []Cwd

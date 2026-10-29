@@ -25,6 +25,12 @@ type Cwd struct {
 // must not block.
 func (t *Terminal) SetCwdChange(fn func(Cwd)) { t.cwdFn = fn }
 
+// SetCwdReport receives every valid report, including repeats. Owners that
+// validate a report against shell prompt markers must observe the trusted
+// repeat after an identical report from a running program was ignored. Like
+// SetCwdChange, this runs during Write and must not block.
+func (t *Terminal) SetCwdReport(fn func(Cwd)) { t.cwdReportFn = fn }
+
 // SetPromptReady receives OSC 133 B, the end of a shell prompt. Like CwdChange,
 // it runs during Write on the owner's thread and must not block.
 func (t *Terminal) SetPromptReady(fn func()) { t.promptReadyFn = fn }
@@ -52,13 +58,10 @@ func (t *Terminal) WorkingDirectory() (Cwd, bool) { return t.cwd, t.cwd.Path != 
 // osc7 reads a working-directory report.
 func (t *Terminal) osc7(text []byte) {
 	cwd, ok := parseCwd(string(text))
-	if !ok || cwd == t.cwd {
+	if !ok {
 		return
 	}
-	t.cwd = cwd
-	if t.cwdFn != nil {
-		t.cwdFn(cwd)
-	}
+	t.reportCwd(cwd)
 }
 
 // OSC 9;9 is the native-path directory report used by Windows Terminal and
@@ -73,12 +76,17 @@ func (t *Terminal) oscWindowsDirectory(value string) {
 	if (!drive && !unc) || len(value) > maxCwd || strings.IndexFunc(value, func(r rune) bool { return r < 0x20 || r == 0x7f }) >= 0 {
 		return
 	}
-	cwd := Cwd{Path: value}
-	if cwd != t.cwd {
-		t.cwd = cwd
-		if t.cwdFn != nil {
-			t.cwdFn(cwd)
-		}
+	t.reportCwd(Cwd{Path: value})
+}
+
+func (t *Terminal) reportCwd(cwd Cwd) {
+	changed := cwd != t.cwd
+	t.cwd = cwd
+	if t.cwdReportFn != nil {
+		t.cwdReportFn(cwd)
+	}
+	if changed && t.cwdFn != nil {
+		t.cwdFn(cwd)
 	}
 }
 
