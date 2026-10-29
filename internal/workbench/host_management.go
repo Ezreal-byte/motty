@@ -8,6 +8,7 @@ import (
 	"github.com/vivaui/viva/text"
 	"github.com/vivaui/viva/ui"
 
+	"motty/internal/keyidentity"
 	"motty/internal/sshconn"
 	"motty/internal/vault"
 )
@@ -184,6 +185,7 @@ func (state *State) openEditHostID(id uint32) {
 	state.hostDialogID = host.ID
 	state.dialogError = ""
 	state.modal = modalNewHost
+	state.prefillHostSecrets()
 }
 
 func (state *State) openCopyHost() {
@@ -286,7 +288,13 @@ func (state *State) submitHostDialog() {
 		state.dialogError = failure
 		return
 	}
+	passphraseChanges, failure := state.hostPassphraseChanges()
+	if failure != "" {
+		state.dialogError = failure
+		return
+	}
 	changes := append(passwordChanges, proxyChanges...)
+	changes = append(changes, passphraseChanges...)
 	if len(changes) > 0 {
 		vaultFile := state.secrets.vault
 		if vaultFile == nil {
@@ -302,7 +310,7 @@ func (state *State) submitHostDialog() {
 			return
 		}
 	}
-	state.editor.password = text.Editor{}
+	state.editor.password, state.editor.passphrase = text.Editor{}, text.Editor{}
 	state.editor.proxyPassword = ""
 	// A copy or a new host is closed to agents unless the switch was turned on in
 	// this very dialog.
@@ -481,6 +489,32 @@ func (state *State) hostDialogPasswordChanges(host Host, source *Host) (note str
 		changes = append(changes, vault.Change{Name: origin, Delete: true})
 	}
 	return "", changes, ""
+}
+
+// hostPassphraseChanges plans the passphrase typed for the key the host is
+// pinned to. It is kept under the key, as the Keychain page keeps it, so every
+// host that uses the key and the page itself see the same one. A passphrase that
+// does not open the key is refused here, as there: it would only fail at the
+// next connection.
+func (state *State) hostPassphraseChanges() (changes []vault.Change, failure string) {
+	typed := state.editor.passphrase.String()
+	if typed == "" || !state.hostAsksKeyPassphrase() {
+		return nil, ""
+	}
+	identity, ok := state.identityForFingerprint(state.editor.identity)
+	if !ok {
+		return nil, ""
+	}
+	if state.secrets.vault == nil {
+		return nil, state.messages.VaultUnavailable
+	}
+	secret := []byte(typed)
+	_, err := keyidentity.Load(identity.Path, secret)
+	clear(secret)
+	if err != nil {
+		return nil, state.messages.KeyPassphraseWrong
+	}
+	return []vault.Change{{Name: passphraseSecretName(identity.Path), Value: typed}}, ""
 }
 
 func (state *State) appendStatusNote(note string) {

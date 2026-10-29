@@ -152,6 +152,8 @@ type Messages struct {
 	PasswordSave                           string
 	KeyPassphraseSave                      string
 	PasswordSavedRefused                   string
+	ShowSecret                             string
+	HideSecret                             string
 	SettingsGroupSecurity                  string
 	SettingsVault                          string
 	SettingsVaultDescriptionFmt            string

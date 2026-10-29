@@ -40,6 +40,9 @@ type secretsUI struct {
 	changing                             bool
 	// after is what to do once the vault is unlocked from Settings.
 	after func()
+	// back brings back the dialog the unlock was asked from when the unlock is
+	// dismissed, so asking to see a saved password does not cost the edits.
+	back func()
 	// actions is where Settings lays out its buttons, so painting them keeps no
 	// slice of its own.
 	actions [3]components.ButtonAction
@@ -270,9 +273,15 @@ func (state *State) clickVaultUnlock(id ui.ID) {
 	case hitVaultUnlockSubmit:
 		state.submitVaultUnlock()
 	case hitVaultUnlockCancel, hitVaultUnlockClose, hitVaultUnlockDismiss:
-		state.secrets.declined = state.secrets.after == nil
+		state.secrets.declined = state.secrets.after == nil && state.secrets.back == nil
 		state.secrets.after = nil
+		back := state.secrets.back
+		state.secrets.back = nil
 		state.closeModal()
+		if back != nil {
+			back()
+			return
+		}
 		state.showNextPrompt()
 	}
 }
@@ -293,7 +302,7 @@ func (state *State) submitVaultUnlock() {
 		state.scheduleSync()
 	}
 	after := state.secrets.after
-	state.secrets.after = nil
+	state.secrets.after, state.secrets.back = nil, nil
 	state.closeModal()
 	if after != nil {
 		after()
@@ -319,7 +328,7 @@ func (state *State) paintVaultUnlockDialog(canvas *ui.Canvas, viewport ui.Rect) 
 	content := components.BeginField(canvas, theme, field.Rect()).Paint(m.VaultUnlockLabel, "", "")
 	value := state.secrets.unlock.String()
 	focused := canvas.Focused() == hitVaultUnlockField
-	components.PaintInput(canvas, theme, content, components.InputSnapshot{
+	state.paintSecretInput(canvas, content, components.InputSnapshot{
 		ID: hitVaultUnlockField, Label: m.VaultUnlockLabel, Value: value, Secure: true,
 		Focused: focused, PlatformEditing: focused && value != "", Invalid: state.secrets.dialogError != "",
 	})
@@ -405,7 +414,7 @@ func (state *State) paintMasterPasswordDialog(canvas *ui.Canvas, viewport ui.Rec
 	for index, entry := range entries {
 		content := components.BeginField(canvas, theme, fields[index].Rect()).Paint(entry.label, "", "")
 		focused := canvas.Focused() == entry.id
-		components.PaintInput(canvas, theme, content, components.InputSnapshot{
+		state.paintSecretInput(canvas, content, components.InputSnapshot{
 			ID: entry.id, Label: entry.label, Value: entry.value, Secure: true,
 			Focused: focused, PlatformEditing: focused && entry.value != "", Invalid: state.secrets.dialogError != "",
 		})

@@ -512,7 +512,7 @@ func (state *State) paintAutofillDialog(canvas *ui.Canvas, viewport ui.Rect) {
 	field := func(box flex.Box, id ui.ID, label, placeholder, value string, secret bool) {
 		content := components.BeginField(canvas, theme, box.Rect()).Paint(label, "", "")
 		focused := canvas.Focused() == id
-		components.PaintInput(canvas, theme, content, components.InputSnapshot{
+		state.paintSecretInput(canvas, content, components.InputSnapshot{
 			ID: id, Label: label, Value: value, Placeholder: placeholder, Secure: secret,
 			Focused: focused, PlatformEditing: focused && value != "", Invalid: form.dialogError != "",
 		})

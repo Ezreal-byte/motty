@@ -153,6 +153,7 @@ func TestEditHostKeepsOrReplacesItsSavedPassword(t *testing.T) {
 	}
 
 	clickHostAction(state, hitEditHost)
+	state.editor.password = text.Editor{}
 	typeInto(state, hitDialogPassword, "replacement")
 	state.Click(hitDialogSubmit)
 	if value, found, err := state.secrets.vault.Get(prodPasswordName); err != nil || !found || value != "replacement" {
@@ -183,6 +184,7 @@ func TestEditHostMovesItsSavedPasswordToAnEditedEndpoint(t *testing.T) {
 	clickHostAction(state, hitEditHost)
 	state.editor.address = text.Editor{}
 	typeInto(state, hitDialogAddress, "final.example.com")
+	state.editor.password = text.Editor{}
 	typeInto(state, hitDialogPassword, "replacement")
 	state.Click(hitDialogSubmit)
 	if value, found, err := state.secrets.vault.Get("password:deploy@final.example.com:22"); err != nil || !found || value != "replacement" {
@@ -418,6 +420,7 @@ func TestEditingASharedPasswordChangesIt(t *testing.T) {
 	direct, _ := addSharedVNCHosts(t, state)
 	state.selectedHostID = direct.ID
 	state.Click(hitEditHost)
+	state.editor.password = text.Editor{}
 	typeInto(state, hitDialogPassword, "new desk secret")
 	state.Click(hitDialogSubmit)
 	if value, _, _ := state.secrets.vault.Get(deskPasswordName); state.modal != modalNone || value != "new desk secret" {

@@ -146,6 +146,8 @@ var EnglishMessages = Messages{
 	PasswordSave:                           "Save password",
 	KeyPassphraseSave:                      "Save passphrase",
 	PasswordSavedRefused:                   "The saved password was refused and has been forgotten.",
+	ShowSecret:                             "Show password",
+	HideSecret:                             "Hide password",
 	SettingsGroupSecurity:                  "Saved passwords",
 	SettingsVault:                          "Saved passwords",
 	SettingsVaultDescriptionFmt:            "%d saved. They are encrypted; the key is kept in your system's keychain.",

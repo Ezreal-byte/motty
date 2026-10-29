@@ -73,6 +73,7 @@ var (
 	hitDialogAddress           = tree.ID(shellHits, "dialog-address")
 	hitDialogUser              = tree.ID(shellHits, "dialog-user")
 	hitDialogPassword          = tree.ID(shellHits, "dialog-password")
+	hitDialogPassphrase        = tree.ID(shellHits, "dialog-passphrase")
 	hitDialogGroup             = tree.ID(shellHits, "dialog-group")
 	hitDialogPort              = tree.ID(shellHits, "dialog-port")
 	hitDialogTags              = tree.ID(shellHits, "dialog-tags")
@@ -400,10 +401,12 @@ type State struct {
 	fileWindows       fileWindowManager
 	fileNotices       fileNotices
 	inputConfirmation terminalInputConfirmation
-	sftpWindows       map[uint32]*sftpWindow
-	remoteWindows     []*remoteToolsWindow
-	remoteWindow      *remoteToolsWindow // set only on a native tool window's isolated presenter
-	closed            bool
+	// reveal is which password fields show their text rather than bullets.
+	reveal        secretReveal
+	sftpWindows   map[uint32]*sftpWindow
+	remoteWindows []*remoteToolsWindow
+	remoteWindow  *remoteToolsWindow // set only on a native tool window's isolated presenter
+	closed        bool
 	// saveBlocked is set when the state file came from a newer build: nothing is
 	// ever written over it. stateNotice is the dialog that tells the user why a
 	// state file was not loaded as it was.
@@ -1094,6 +1097,9 @@ func (state *State) Click(id ui.ID) {
 	if state.fileNotices.click(id) {
 		return
 	}
+	if state.clickSecretReveal(id) {
+		return
+	}
 	defer state.runLaunches()
 	defer state.sshSyncCheck()
 	if session, local, ok := state.decodePaneHit(id); ok {
@@ -1566,7 +1572,7 @@ func (state *State) clickHostDialog(id ui.ID) {
 	}
 	switch id {
 	case hitDialogDismiss, hitDialogClose, hitDialogCancel:
-		state.editor.password = text.Editor{}
+		state.editor.password, state.editor.passphrase = text.Editor{}, text.Editor{}
 		state.modal = modalNone
 		state.dialogError = ""
 		state.status = state.messages.StatusEditCanceled
@@ -1878,7 +1884,7 @@ func isHostTagsTarget(id ui.ID) bool {
 // isDialogField reports whether a hit is one of the New Host dialog's text fields.
 func isDialogField(id ui.ID) bool {
 	switch id {
-	case hitDialogLabel, hitDialogAddress, hitDialogUser, hitDialogPassword, hitDialogGroup, hitDialogPort, hitDialogTags:
+	case hitDialogLabel, hitDialogAddress, hitDialogUser, hitDialogPassword, hitDialogPassphrase, hitDialogGroup, hitDialogPort, hitDialogTags:
 		return true
 	}
 	return false
@@ -1895,6 +1901,8 @@ func fieldForDialogHit(id ui.ID) hostField {
 		return fieldUser
 	case hitDialogPassword:
 		return fieldPassword
+	case hitDialogPassphrase:
+		return fieldPassphrase
 	case hitDialogGroup:
 		return fieldGroup
 	case hitDialogTags:

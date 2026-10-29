@@ -502,7 +502,7 @@ func (state *State) paintOutboundProxyDialog(canvas *ui.Canvas, viewport ui.Rect
 		content := components.BeginField(canvas, theme, slots[index].Rect()).Paint(entry.label, "", "")
 		value := entry.editor.String()
 		focused := canvas.Focused() == entry.id
-		components.PaintInput(canvas, theme, content, components.InputSnapshot{
+		state.paintSecretInput(canvas, content, components.InputSnapshot{
 			ID: entry.id, Label: entry.label, Value: value, Placeholder: entry.placeholder, Secure: entry.secure,
 			Focused: focused, PlatformEditing: focused && value != "", Disabled: disabled && entry.id != hitOutboundProxyBypass,
 		})

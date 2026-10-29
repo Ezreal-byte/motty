@@ -602,7 +602,7 @@ func (state *State) aiFormField(canvas *ui.Canvas, id ui.ID, title, placeholder,
 	content := components.BeginField(canvas, theme, bounds).Paint(title, hint, "")
 	value := editor.String()
 	focused := canvas.Focused() == id
-	components.PaintInput(canvas, theme, content, components.InputSnapshot{
+	state.paintSecretInput(canvas, content, components.InputSnapshot{
 		ID: id, Label: title, Value: value, Placeholder: placeholder, Secure: secure,
 		Focused: focused, PlatformEditing: focused && value != "",
 	})

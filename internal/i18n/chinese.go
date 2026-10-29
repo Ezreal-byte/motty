@@ -146,6 +146,8 @@ var ChineseMessages = Messages{
 	PasswordSave:                           "保存密码",
 	KeyPassphraseSave:                      "保存口令",
 	PasswordSavedRefused:                   "已保存的密码被服务器拒绝,已忘记。",
+	ShowSecret:                             "显示密码",
+	HideSecret:                             "隐藏密码",
 	SettingsGroupSecurity:                  "已保存的密码",
 	SettingsVault:                          "已保存的密码",
 	SettingsVaultDescriptionFmt:            "已保存 %d 个。它们已加密,密钥保存在系统钥匙串中。",
