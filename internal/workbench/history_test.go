@@ -242,3 +242,33 @@ func TestHistoryPickerDeleteForgetsTheSelectedCommand(t *testing.T) {
 		}
 	}
 }
+
+// The space between two rows still belongs to the list: a pointer crossing it
+// must stay on a row, or the highlight drops back to the keyboard's choice for
+// the moment it takes to cross.
+func TestHistoryPickerRowsTouchSoCrossingThemKeepsTheHover(t *testing.T) {
+	h := pickerWorld(t)
+	state := h.state
+	state.openHistory(&state.sessions[0])
+	var canvas ui.Canvas
+	driver, err := app.NewDriver(app.Config{Title: "history", Width: 1400, Height: 900, Tree: Tree(), Paint: state.Paint, OnKey: state.Key}, &canvas)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer driver.Close()
+	first, ok := hitByID(&canvas, hitHistoryItems.At(0))
+	if !ok {
+		t.Fatal("no first history row")
+	}
+	second, ok := hitByID(&canvas, hitHistoryItems.At(1))
+	if !ok {
+		t.Fatal("no second history row")
+	}
+	x := first.Bounds.X + first.Bounds.Width/2
+	for y := first.Bounds.Y + first.Bounds.Height; y <= second.Bounds.Y; y += 0.25 {
+		id, ok := driver.HitTest(x, y)
+		if _, isRow := id.In(hitHistoryItems); !ok || !isRow {
+			t.Fatalf("pointer at y=%v between rows %v and %v hits %v (ok=%v), want a history row", y, first.Bounds, second.Bounds, id, ok)
+		}
+	}
+}
