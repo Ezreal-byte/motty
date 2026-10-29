@@ -8,7 +8,7 @@ const (
 	maxRows            = 500
 	maxMarks           = 32   // combining marks kept per line
 	maxTitle           = 1024 // bytes of window title
-	maxOSC             = 4096 // bytes of one OSC string; longer ones are ignored whole
+	maxOSC             = 4096 // bytes of one OSC string; longer ones are ignored whole (but see oscPrefixLimits)
 	maxHyperlinkTarget = 2048 // bytes retained for one OSC 8 target
 	maxHyperlinks      = 8192 // live target slots per terminal; oldest tokens expire after this
 )
