@@ -66,6 +66,11 @@ type aiRowView struct {
 	// An assistant message is Markdown: parsed once, laid out by Viva.
 	doc markdown.Document
 	md  components.MarkdownView
+	// User messages and tool cards use plain-text source maps for the same
+	// selection contract. Their slots are transient geometry of the last paint.
+	plain       [aiTextPartCount]aiPlainTextView
+	textSlots   [aiTextPartCount]flex.Box
+	textSlotSet [aiTextPartCount]bool
 
 	detail  string // the command or path a tool card shows
 	excerpt string // the first line of a tool's output
@@ -298,13 +303,14 @@ func (state *State) aiBuild(canvas *ui.Canvas, view *aiRowView, item *aiItem, wi
 		textData: unsafe.StringData(item.text), textLen: len(item.text),
 		resData: unsafe.StringData(item.result), resLen: len(item.result),
 		argData: unsafe.StringData(item.call.Arguments), argLen: len(item.call.Arguments),
-		expanded: view.expanded, top: view.top, lines: view.lines[:0], doc: view.doc, md: view.md,
+		expanded: view.expanded, top: view.top, lines: view.lines[:0], doc: view.doc, md: view.md, plain: view.plain,
 	}
 	switch item.kind {
 	case aiUser:
 		inner := max(width*0.9-2*aiUserPadX, 40)
-		count := state.aiWrap(canvas, view, item.text, aiBodySize, inner)
-		view.height = 2*aiUserPadY + float32(count)*aiBodyLine
+		view.plain[aiTextPrimary].layoutBody(canvas, item.text, aiBodySize, aiBodyLine, inner, aiMaxLines)
+		view.lines = view.plain[aiTextPrimary].appendLines(view.lines)
+		view.height = 2*aiUserPadY + float32(len(view.lines))*aiBodyLine
 	case aiTargetChange:
 		view.detail = fmt.Sprintf(state.messages.AIPanel.TargetSwitchedFmt, item.text)
 		view.height = 30
@@ -336,10 +342,14 @@ func aiBlockHeight(count int, cellHeight, pad float32) float32 {
 func (state *State) aiLayoutTool(view *aiRowView, item *aiItem, width, cell, cellHeight float32) {
 	view.detail = aiToolDetail(item)
 	view.excerpt = aiExcerpt(item.result)
+	command, output := &view.plain[aiTextPrimary], &view.plain[aiTextOutput]
+	command.reset("")
+	output.reset("")
 	cols := max(int((width-2*aiToolPad-12)/cell), 8)
 	height := 2*aiToolPadY + aiToolHeader
 	if view.detail != "" {
-		view.lines, _ = aiMonoWrap(view.lines, view.detail, cols, aiMaxDetail)
+		command.layoutMono(view.detail, cols, aiMaxDetail, cell, cellHeight)
+		view.lines = command.appendLines(view.lines)
 		view.commandLines = len(view.lines)
 		height += aiBlockHeight(view.commandLines, cellHeight, aiBoxPad) + aiToolAfterCmd
 	}
@@ -354,13 +364,12 @@ func (state *State) aiLayoutTool(view *aiRowView, item *aiItem, width, cell, cel
 				}
 				shown = shown[:cut]
 			}
-			first := len(view.lines)
-			var more bool
-			view.lines, more = aiMonoWrap(view.lines, shown, cols, aiMaxOutput)
+			more := output.layoutMono(shown, cols, aiMaxOutput, cell, cellHeight)
 			if more || len(shown) < len(item.result) {
-				view.lines = append(view.lines, "…")
+				output.appendSynthetic("…")
 			}
-			height += aiBlockHeight(len(view.lines)-first, cellHeight, aiBoxPad) + aiToolAfterOut
+			view.lines = output.appendLines(view.lines)
+			height += aiBlockHeight(len(output.lines), cellHeight, aiBoxPad) + aiToolAfterOut
 		}
 	}
 	view.height = height
@@ -524,7 +533,7 @@ func (state *State) paintAIBody(canvas *ui.Canvas, bounds ui.Rect) {
 	list := body.list.Rect()
 	panel.list = list
 	panel.listing = panel.history
-	if row := panel.textSelect.row; row >= 0 && (row >= len(ai.items) || ai.items[row].kind != aiAssistant) {
+	if row := panel.textSelect.row; row >= len(ai.items) {
 		panel.clearAITextSelection()
 	}
 	switch {
@@ -760,36 +769,42 @@ func (state *State) paintAIMessages(canvas *ui.Canvas, list ui.Rect) {
 		}
 		lastAnswer := index == len(state.ai.items)-1 && item.kind == aiAssistant
 		if !view.current(item, rowW, cell, title) || view.actions != lastAnswer {
-			// A selection indexes the rendered text, so it survives a rebuild only
-			// when the new rendering still begins with the old one. Comparing the
-			// Markdown sources instead would keep it across a structure change (an
-			// unclosed backtick closing, say) and point it at other characters.
-			// The old text is read only while this row holds the selection.
+			// A selection indexes source text, so it survives a rebuild only when
+			// the new block still begins with the old one.
 			keepSelection := panel.textSelect.row == index
 			var rendered string
 			if keepSelection {
-				rendered = view.md.SelectedText(components.MarkdownSelection{Focus: view.md.TextLen()})
+				if layout := view.textLayout(panel.textSelect.part); layout != nil {
+					rendered = layout.SelectedText(components.MarkdownSelection{Focus: layout.TextLen()})
+				}
 			}
 			state.aiBuild(canvas, view, item, rowW, cell, cellHeight, title)
 			view.actions = lastAnswer
 			if lastAnswer {
 				view.height += aiAnswerAction
 			}
-			if keepSelection && (item.kind != aiAssistant ||
-				!strings.HasPrefix(view.md.SelectedText(components.MarkdownSelection{Focus: view.md.TextLen()}), rendered)) {
-				panel.clearAITextSelection()
+			if keepSelection {
+				layout := view.textLayout(panel.textSelect.part)
+				if layout == nil || !strings.HasPrefix(layout.SelectedText(components.MarkdownSelection{Focus: layout.TextLen()}), rendered) {
+					panel.clearAITextSelection()
+				}
 			}
 		}
 		if panel.textSelect.row == index && panel.textSelect.sel.Anchor != panel.textSelect.sel.Focus {
 			// Clamp each end without ordering them: Anchor must stay where the
 			// drag began, or dragging upward would move it on every repaint.
-			length := view.md.TextLen()
-			anchor := min(max(panel.textSelect.sel.Anchor, 0), length)
-			focus := min(max(panel.textSelect.sel.Focus, 0), length)
-			if anchor == focus {
+			layout := view.textLayout(panel.textSelect.part)
+			if layout == nil {
 				panel.clearAITextSelection()
 			} else {
-				panel.textSelect.sel = components.MarkdownSelection{Anchor: anchor, Focus: focus}
+				length := layout.TextLen()
+				anchor := min(max(panel.textSelect.sel.Anchor, 0), length)
+				focus := min(max(panel.textSelect.sel.Focus, 0), length)
+				if anchor == focus {
+					panel.clearAITextSelection()
+				} else {
+					panel.textSelect.sel = components.MarkdownSelection{Anchor: anchor, Focus: focus}
+				}
 			}
 		}
 		view.top = y
@@ -839,6 +854,7 @@ func (state *State) paintAIMessages(canvas *ui.Canvas, list ui.Rect) {
 		r := state.aiFlex.row.Begin(canvas, state.Theme(), slot.Rect())
 		body := state.declareAIRow(r, index, view, item)
 		r.End()
+		state.paintAIPlainTextSelections(canvas, list, view, index)
 		switch {
 		case item.kind == aiAssistant:
 			state.paintAIAssistant(canvas, body.Rect(), list, view, index)
@@ -882,11 +898,19 @@ func (state *State) declareAIRow(f *flex.Frame, index int, view *aiRowView, item
 	pal, m := state.pal, state.messages.AIPanel
 	row := f.Column()
 	var body flex.Box
+	view.textSlotSet = [aiTextPartCount]bool{}
 	switch item.kind {
 	case aiUser:
 		row.Items(flex.End).Children(func() {
 			f.Column().MaxWidth(view.width).PadSides(aiUserPadY, aiUserPadX, aiUserPadY, aiUserPadX).Background(pal.accentSoft).Radius(radius.popup).Children(func() {
-				aiTextLines(f, view.lines, aiBodySize, aiBodyLine, pal.text)
+				text := f.Column().Children(func() {
+					aiTextLines(f, view.lines, aiBodySize, aiBodyLine, pal.text)
+				})
+				view.textSlots[aiTextPrimary] = text
+				view.textSlotSet[aiTextPrimary] = true
+				if index < aiMaxRowHits {
+					text.HitWith(hitAIAnswerText.At(index), item.text, ui.HitOptions{Role: ui.RoleGroup, SkipTab: true})
+				}
 			})
 		})
 	case aiTargetChange:
@@ -981,7 +1005,14 @@ func (state *State) declareAIRow(f *flex.Frame, index int, view *aiRowView, item
 			})
 			if view.commandLines > 0 {
 				f.Column().Pad(aiBoxPad).MarginSides(0, 0, aiToolAfterCmd, 0).Background(pal.terminal).Radius(radius.item).Children(func() {
-					state.aiMonoLines(f, view.lines[:view.commandLines], pal.text)
+					text := f.Column().Children(func() {
+						state.aiMonoLines(f, view.lines[:view.commandLines], pal.text)
+					})
+					view.textSlots[aiTextPrimary] = text
+					view.textSlotSet[aiTextPrimary] = true
+					if index < aiMaxRowHits {
+						text.HitWith(hitAIAnswerText.At(index), view.detail, ui.HitOptions{Role: ui.RoleGroup, SkipTab: true})
+					}
 				})
 			}
 			if item.result == "" {
@@ -1006,7 +1037,14 @@ func (state *State) declareAIRow(f *flex.Frame, index int, view *aiRowView, item
 			}
 			if view.expanded {
 				f.Column().Pad(aiBoxPad).MarginSides(0, 0, aiToolAfterOut, 0).Background(pal.terminal).Radius(radius.item).Children(func() {
-					state.aiMonoLines(f, view.lines[view.commandLines:], pal.muted)
+					text := f.Column().Children(func() {
+						state.aiMonoLines(f, view.lines[view.commandLines:], pal.muted)
+					})
+					view.textSlots[aiTextOutput] = text
+					view.textSlotSet[aiTextOutput] = true
+					if index < aiMaxRowHits {
+						text.HitWith(hitAIToolOutputText.At(index), view.plain[aiTextOutput].source, ui.HitOptions{Role: ui.RoleGroup, SkipTab: true})
+					}
 				})
 			}
 		})
@@ -1015,6 +1053,25 @@ func (state *State) declareAIRow(f *flex.Frame, index int, view *aiRowView, item
 		return body
 	}
 	return row
+}
+
+// paintAIPlainTextSelections records the text geometry flex just produced and
+// paints the selected user or tool block. Selection uses the assistant's color.
+func (state *State) paintAIPlainTextSelections(canvas *ui.Canvas, list ui.Rect, view *aiRowView, index int) {
+	panel := &state.ai.panel
+	for part := range aiTextPartCount {
+		if view.textSlotSet[part] {
+			view.plain[part].canvas = canvas
+			view.plain[part].rect = view.textSlots[part].Rect()
+		}
+	}
+	if panel.textSelect.row != index || panel.textSelect.sel.Anchor == panel.textSelect.sel.Focus ||
+		panel.textSelect.part >= aiTextPartCount || !view.textSlotSet[panel.textSelect.part] {
+		return
+	}
+	canvas.Clip(list)
+	defer canvas.Unclip()
+	view.plain[panel.textSelect.part].paintSelection(canvas, panel.textSelect.sel, withAlpha(state.pal.text, 0.25))
 }
 
 // paintAIAssistant paints an assistant message, which is Markdown, in the room
