@@ -99,6 +99,15 @@ type AIPanelMessages struct {
 	RiskHigh     string
 	RiskCritical string
 
+	// The approval scope chip in the message box and the menu behind it: what
+	// each scope lets run without asking, in this conversation only. The chip
+	// carries its scope's name alone; the hint says what the name controls.
+	AutoScopeHint       string
+	AutoScopeBusy       string // why the chip waits while work is running
+	AutoScopeLowDesc    string
+	AutoScopeMediumDesc string
+	AutoScopeHighDesc   string
+
 	ApprovalTitle       string
 	ApprovalMoreFmt     string // takes how many more are waiting
 	ConfirmFmt          string

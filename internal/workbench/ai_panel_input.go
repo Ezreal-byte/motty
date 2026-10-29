@@ -313,13 +313,16 @@ func (state *State) paintAIBottom(canvas *ui.Canvas, body *aiBody) {
 	case canvas.Pressed() == hitAISend, canvas.Hovered() == hitAISend:
 		fill = pal.accentHot
 	}
-	var chip flex.Box
+	var chip, scopeChip flex.Box
 	f := state.aiFlex.send.Begin(canvas, theme, box)
 	f.Column().Fill().Justify(flex.End).Children(func() {
 		f.Row().Height(aiSendSize+8).PadSides(0, 12, 6, 12).Gap(5).Items(flex.Center).Children(func() {
 			state.declareAIModePill(f)
 			if hasModel {
 				chip = state.declareAIModelChip(f)
+				if ai.mode == agent.ModeAgent {
+					scopeChip = state.declareAIAutoScopeChip(f, running || len(ai.approvals) > 0)
+				}
 			}
 			f.Spacer()
 			f.Stack().Size(aiSendSize, aiSendSize).Shrink(0).Children(func() {
@@ -344,6 +347,10 @@ func (state *State) paintAIBottom(canvas *ui.Canvas, body *aiBody) {
 	f.End()
 	if hasModel {
 		panel.chip = chip.Rect()
+		panel.scopeChip = ui.Rect{}
+		if ai.mode == agent.ModeAgent {
+			panel.scopeChip = scopeChip.Rect()
+		}
 	}
 }
 
@@ -378,16 +385,77 @@ func (state *State) declareAIModelChip(f *flex.Frame) flex.Box {
 		fill = pal.surfaceHot
 	}
 	label := state.ai.settings.defaultModel
-	return f.Row().Height(aiSendSize-4).PadX(9).Gap(5).Items(flex.Center).Background(fill).Radius((aiSendSize-4)/2).
+	return f.Row().Height(aiSendSize-4).PadX(9).Gap(5).Shrink(1).MinWidth(56).Items(flex.Center).Background(fill).Radius((aiSendSize-4)/2).
 		HitWith(hitAIModelChip, fmt.Sprintf(state.messages.AIPanel.ModelChooseFmt, label), ui.HitOptions{Role: ui.RoleButton, Expanded: state.ai.panel.modelMenu}).Children(func() {
 		chipIcon, known := state.aiDefaultProviderIcon()
 		if !known {
 			chipIcon = lucideIcons[iconSliders]
 		}
 		f.Icon(chipIcon).Size(13, 13).Color(pal.muted).Shrink(0)
-		f.Text(label).FontSize(metrics.FontSizeS).Weight(ui.WeightMedium).Color(pal.muted).Ellipsis()
+		f.Text(label).FontSize(metrics.FontSizeS).Weight(ui.WeightMedium).Color(pal.muted).Ellipsis().Shrink(1)
 		f.Icon(lucideIcons[iconChevronDown]).Size(12, 12).Color(pal.muted).Shrink(0).MarginSides(0, 0, 0, 2)
 	})
+}
+
+// declareAIAutoScopeChip declares the pill in the message box that names the
+// approval scope of this conversation and opens the scopes to pick from. The chip
+// carries the scope name alone: a prefix such as "Auto:" reads as a second,
+// unexplained word, and the hint and the menu say what the name controls. Only
+// Agent mode runs commands, so only it shows the chip; a request already running
+// or waiting for an answer keeps the scope it started with, which is why locked
+// disables the chip but still names it.
+func (state *State) declareAIAutoScopeChip(f *flex.Frame, locked bool) flex.Box {
+	pal, m := state.pal, state.messages.AIPanel
+	level := state.aiAutoUpTo()
+	label := state.aiScopeName(level)
+	foreground, icon := pal.muted, iconCircleCheck
+	if level >= risk.High {
+		foreground, icon = pal.warning, iconAlert
+	}
+	fill := pal.surfaceSoft
+	if f.Canvas().Pressed() == hitAIAutoScope || f.Canvas().Hovered() == hitAIAutoScope || state.ai.panel.autoMenu {
+		fill = pal.surfaceHot
+	}
+	hint := m.AutoScopeHint
+	if locked {
+		hint = m.AutoScopeBusy
+	}
+	return f.Row().Height(aiSendSize-4).PadX(9).Gap(4).Shrink(0).Items(flex.Center).Background(fill).Radius((aiSendSize-4)/2).
+		HitWith(hitAIAutoScope, label, ui.HitOptions{Role: ui.RoleButton, Hint: hint, Disabled: locked, Expanded: state.ai.panel.autoMenu}).Children(func() {
+		f.Icon(lucideIcons[icon]).Size(12, 12).Color(foreground).Shrink(0)
+		f.Text(label).FontSize(metrics.FontSizeS).Weight(ui.WeightMedium).Color(foreground).Ellipsis()
+		f.Icon(lucideIcons[iconChevronDown]).Size(12, 12).Color(pal.muted).Shrink(0).MarginSides(0, 0, 0, 2)
+	})
+}
+
+// aiScope is one row of the approval chip's menu.
+type aiScope struct {
+	level       risk.Level
+	name        string
+	description string
+}
+
+// aiScopes lists what the chip offers, riskiest last, with what each scope lets
+// run without asking. Critical is never among them: it always asks for the typed
+// word, whatever the scope.
+func (state *State) aiScopes() [3]aiScope {
+	m := state.messages.AIPanel
+	return [3]aiScope{
+		{level: risk.Low, name: m.RiskLow, description: m.AutoScopeLowDesc},
+		{level: risk.Medium, name: m.RiskMedium, description: m.AutoScopeMediumDesc},
+		{level: risk.High, name: m.RiskHigh, description: m.AutoScopeHighDesc},
+	}
+}
+
+// aiScopeName is the chip's word for a level, from the same list the menu shows.
+func (state *State) aiScopeName(level risk.Level) string {
+	scopes := state.aiScopes()
+	for _, scope := range scopes {
+		if scope.level == level {
+			return scope.name
+		}
+	}
+	return scopes[len(scopes)-1].name
 }
 
 // aiDefaultProviderIcon is the mark of the provider new questions go to.
@@ -535,6 +603,50 @@ func (state *State) paintAIModelMenu(canvas *ui.Canvas) {
 	menu = components.BeginDropdownMenu(canvas, theme, models, options)
 	for index, model := range open.models {
 		menu.AddItem(components.DropdownMenuItem{ID: hitAIModels.At(index), Label: model.name, Kind: components.DropdownMenuRadio, Selected: model.current})
+	}
+	menu.End()
+}
+
+// paintAIAutoScopeMenu is the approval chip's menu, above it: the scopes and what
+// each lets run without asking. It is a context menu because every row carries a
+// description, which the animated dropdown menu has no room for; the cost is that
+// it appears at once instead of growing out of the chip.
+func (state *State) paintAIAutoScopeMenu(canvas *ui.Canvas) {
+	panel := &state.ai.panel
+	if !panel.autoMenu || state.ai.mode == agent.ModeAsk {
+		return
+	}
+	if _, hasModel := state.aiModelText(); !hasModel {
+		return
+	}
+	theme := state.Theme()
+	scopes := state.aiScopes()
+	items := make([]components.ContextMenuItem, 0, len(scopes))
+	var width, height float32
+	for _, scope := range scopes {
+		item := components.ContextMenuItem{
+			ID: hitAIAutoScopeLevels.At(int(scope.level)), Label: scope.name, Description: scope.description,
+			Kind: components.ContextMenuRadio, Selected: state.aiAutoUpTo() == scope.level,
+			Value: scope.name, Hint: scope.description,
+		}
+		items = append(items, item)
+		width = max(width, components.ContextMenuItemWidth(canvas, theme, item))
+		height += components.ContextMenuItemHeight(theme, item, 0)
+	}
+	height += 8 // the surface's padding above and below the rows
+	bounds := state.aiMenuRect(canvas, width, height, func(popup flex.Box) { popup.Above(panel.scopeChip, 6, flex.Start) })
+	menu := components.BeginContextMenu(canvas, theme, bounds, components.ContextMenuOptions{
+		Layer: dialogLayer, Scope: hitAIAutoScopeDismiss, DismissID: hitAIAutoScopeDismiss,
+		Viewport: panel.window, Scroll: &panel.autoScroll,
+	})
+	for _, item := range items {
+		menu.AddItem(item)
+	}
+	// A menu opened with the pointer has no keyboard focus of its own yet: give
+	// the scope the first row, which is also where the arrow keys start. Once a
+	// row holds focus, painting must not take it back.
+	if focused := canvas.Focused(); focused.Scope() != hitAIAutoScopeLevels {
+		canvas.SetInitialFocus(hitAIAutoScopeLevels.At(0))
 	}
 	menu.End()
 }

@@ -25,26 +25,28 @@ import (
 var aiPanelHits = tree.Feature("ai-panel")
 
 var (
-	hitAIToggle          = tree.ID(aiPanelHits, "ai-toggle")
-	hitAIClose           = tree.ID(aiPanelHits, "ai-close")
-	hitAINew             = tree.ID(aiPanelHits, "ai-new")
-	hitAIHistory         = tree.ID(aiPanelHits, "ai-history")
-	hitAIMode            = tree.ID(aiPanelHits, "ai-mode")
-	hitAISetup           = tree.ID(aiPanelHits, "ai-setup")
-	hitAISend            = tree.ID(aiPanelHits, "ai-send")
-	hitAIInput           = tree.ID(aiPanelHits, "ai-input")
-	hitAIConfirm         = tree.ID(aiPanelHits, "ai-confirm")
-	hitAIApprove         = tree.ID(aiPanelHits, "ai-approve")
-	hitAIDecline         = tree.ID(aiPanelHits, "ai-decline")
-	hitAIToEnd           = tree.ID(aiPanelHits, "ai-to-end")
-	hitAIDrawerDismiss   = tree.ID(aiPanelHits, "ai-drawer-dismiss")
-	hitAIModelChip       = tree.ID(aiPanelHits, "ai-model-chip")
-	hitAIDivider         = tree.ID(aiPanelHits, "ai-divider")
-	hitAIComposerGrip    = tree.ID(aiPanelHits, "ai-composer-grip")
-	hitAIModelDismiss    = tree.ID(aiPanelHits, "ai-model-dismiss")
-	hitAIModelSubDismiss = tree.ID(aiPanelHits, "ai-model-submenu-dismiss")
-	hitAIModelList       = tree.ID(aiPanelHits, "ai-model-list") // names the models menu for its entrance and exit; it is not a control
-	hitAIModelBar        = tree.ID(aiPanelHits, "ai-model-scroll-bar")
+	hitAIToggle           = tree.ID(aiPanelHits, "ai-toggle")
+	hitAIClose            = tree.ID(aiPanelHits, "ai-close")
+	hitAINew              = tree.ID(aiPanelHits, "ai-new")
+	hitAIHistory          = tree.ID(aiPanelHits, "ai-history")
+	hitAIMode             = tree.ID(aiPanelHits, "ai-mode")
+	hitAISetup            = tree.ID(aiPanelHits, "ai-setup")
+	hitAISend             = tree.ID(aiPanelHits, "ai-send")
+	hitAIInput            = tree.ID(aiPanelHits, "ai-input")
+	hitAIConfirm          = tree.ID(aiPanelHits, "ai-confirm")
+	hitAIApprove          = tree.ID(aiPanelHits, "ai-approve")
+	hitAIDecline          = tree.ID(aiPanelHits, "ai-decline")
+	hitAIToEnd            = tree.ID(aiPanelHits, "ai-to-end")
+	hitAIDrawerDismiss    = tree.ID(aiPanelHits, "ai-drawer-dismiss")
+	hitAIModelChip        = tree.ID(aiPanelHits, "ai-model-chip")
+	hitAIDivider          = tree.ID(aiPanelHits, "ai-divider")
+	hitAIComposerGrip     = tree.ID(aiPanelHits, "ai-composer-grip")
+	hitAIModelDismiss     = tree.ID(aiPanelHits, "ai-model-dismiss")
+	hitAIModelSubDismiss  = tree.ID(aiPanelHits, "ai-model-submenu-dismiss")
+	hitAIAutoScope        = tree.ID(aiPanelHits, "ai-auto-scope")
+	hitAIAutoScopeDismiss = tree.ID(aiPanelHits, "ai-auto-scope-dismiss")
+	hitAIModelList        = tree.ID(aiPanelHits, "ai-model-list") // names the models menu for its entrance and exit; it is not a control
+	hitAIModelBar         = tree.ID(aiPanelHits, "ai-model-scroll-bar")
 )
 
 const (
@@ -58,23 +60,24 @@ const (
 )
 
 var (
-	hitAIExamples       = tree.Sub(aiPanelHits, tree.Name("ai-examples"))       // the example prompts
-	hitAIHistoryOpen    = tree.Sub(aiPanelHits, tree.Name("ai-history-open"))   // saved conversations, to open
-	hitAIHistoryDelete  = tree.Sub(aiPanelHits, tree.Name("ai-history-delete")) // and to delete
-	hitAIHistoryRename  = tree.Sub(aiPanelHits, tree.Name("ai-history-rename")) // and to rename
-	hitAIRenameDismiss  = tree.ID(aiPanelHits, "ai-rename-dismiss")
-	hitAIRenameClose    = tree.ID(aiPanelHits, "ai-rename-close")
-	hitAIRenameCancel   = tree.ID(aiPanelHits, "ai-rename-cancel")
-	hitAIRenameSubmit   = tree.ID(aiPanelHits, "ai-rename-submit")
-	hitAIRenameField    = tree.ID(aiPanelHits, "ai-rename-field")
-	hitAIRows           = tree.Sub(aiPanelHits, tree.Name("ai-rows"))            // collapsible rows of the conversation
-	hitAICopies         = tree.Sub(aiPanelHits, tree.Name("ai-copies"))          // copy buttons of code blocks
-	hitAIAnswerText     = tree.Sub(aiPanelHits, tree.Name("ai-answer-text"))     // selectable body of each answer
-	hitAICopyAnswer     = tree.ID(aiPanelHits, "ai-copy-answer")                 // copy the last answer
-	hitAILinks          = tree.Sub(aiPanelHits, tree.Name("ai-links"))           // links in the assistant's answers
-	hitAIMentions       = tree.Sub(aiPanelHits, tree.Name("ai-mentions"))        // sessions an @ can name
-	hitAIModels         = tree.Sub(aiPanelHits, tree.Name("ai-models"))          // the models of the provider the chip menu has open
-	hitAIModelProviders = tree.Sub(aiPanelHits, tree.Name("ai-model-providers")) // the providers the chip menu lists
+	hitAIExamples        = tree.Sub(aiPanelHits, tree.Name("ai-examples"))       // the example prompts
+	hitAIHistoryOpen     = tree.Sub(aiPanelHits, tree.Name("ai-history-open"))   // saved conversations, to open
+	hitAIHistoryDelete   = tree.Sub(aiPanelHits, tree.Name("ai-history-delete")) // and to delete
+	hitAIHistoryRename   = tree.Sub(aiPanelHits, tree.Name("ai-history-rename")) // and to rename
+	hitAIRenameDismiss   = tree.ID(aiPanelHits, "ai-rename-dismiss")
+	hitAIRenameClose     = tree.ID(aiPanelHits, "ai-rename-close")
+	hitAIRenameCancel    = tree.ID(aiPanelHits, "ai-rename-cancel")
+	hitAIRenameSubmit    = tree.ID(aiPanelHits, "ai-rename-submit")
+	hitAIRenameField     = tree.ID(aiPanelHits, "ai-rename-field")
+	hitAIRows            = tree.Sub(aiPanelHits, tree.Name("ai-rows"))              // collapsible rows of the conversation
+	hitAICopies          = tree.Sub(aiPanelHits, tree.Name("ai-copies"))            // copy buttons of code blocks
+	hitAIAnswerText      = tree.Sub(aiPanelHits, tree.Name("ai-answer-text"))       // selectable body of each answer
+	hitAICopyAnswer      = tree.ID(aiPanelHits, "ai-copy-answer")                   // copy the last answer
+	hitAILinks           = tree.Sub(aiPanelHits, tree.Name("ai-links"))             // links in the assistant's answers
+	hitAIMentions        = tree.Sub(aiPanelHits, tree.Name("ai-mentions"))          // sessions an @ can name
+	hitAIModels          = tree.Sub(aiPanelHits, tree.Name("ai-models"))            // the models of the provider the chip menu has open
+	hitAIModelProviders  = tree.Sub(aiPanelHits, tree.Name("ai-model-providers"))   // the providers the chip menu lists
+	hitAIAutoScopeLevels = tree.Sub(aiPanelHits, tree.Name("ai-auto-scope-levels")) // the scopes the approval chip offers
 )
 
 // The terminal menu's two assistant items.
@@ -228,6 +231,12 @@ type aiPanel struct {
 	chip           ui.Rect
 	approvalLay    aiApprovalLayout
 
+	// The approval scope chip and the menu it opens. The scope itself belongs to
+	// the conversation (ai.autoUpTo); this is only its view state.
+	autoMenu   bool
+	autoScroll components.MenuScroll
+	scopeChip  ui.Rect // where the chip was painted, for the menu to hang above
+
 	// mentions is what the @ before the caret can name, from the last layout.
 	mentionBuf       [maxMentionSuggestions]mentionName
 	mentions         []mentionName
@@ -342,6 +351,7 @@ func (state *State) setAIPanelOpen(open bool) {
 		ai.panel.targetOpen = false
 		ai.panel.history = false
 		ai.panel.modelMenu = false
+		ai.panel.autoMenu = false
 		ai.panel.clearAITextSelection()
 	}
 	state.aiPanelSync()
@@ -395,6 +405,7 @@ func (state *State) aiPanelClick(id ui.ID) bool {
 		if ai.run == nil {
 			panel.targetOpen = !panel.targetOpen
 			panel.modelMenu = false
+			panel.autoMenu = false
 		}
 	case id == hitAITargetDismiss:
 		panel.targetOpen = false
@@ -432,6 +443,7 @@ func (state *State) aiPanelClick(id ui.ID) bool {
 		}
 	case id == hitAIModelChip:
 		panel.targetOpen = false
+		panel.autoMenu = false
 		panel.modelMenu = !panel.modelMenu
 		panel.modelTypeahead.Reset()
 		panel.modelHover.Reset()
@@ -452,6 +464,20 @@ func (state *State) aiPanelClick(id ui.ID) bool {
 		panel.modelSubmenu = panel.modelSubmenu.Close()
 	case id == hitAIModelSubDismiss:
 		panel.modelSubmenu = panel.modelSubmenu.Close()
+	case id == hitAIAutoScope:
+		if !state.aiScopeLocked() {
+			panel.targetOpen = false
+			panel.modelMenu = false
+			panel.autoMenu = !panel.autoMenu
+			panel.autoScroll = components.MenuScroll{}
+		}
+	case id == hitAIAutoScopeDismiss:
+		panel.autoMenu = false
+	case id.Scope() == hitAIAutoScopeLevels:
+		if index, ok := id.In(hitAIAutoScopeLevels); ok && index < len(state.aiScopes()) {
+			state.aiSetAutoUpTo(state.aiScopes()[index].level)
+			panel.autoMenu = false
+		}
 	case id.Scope() == hitAIModels:
 		if index, ok := id.In(hitAIModels); ok {
 			state.aiChooseModel(index)
@@ -720,6 +746,9 @@ func (state *State) aiDrag(event ui.PointerEvent) ui.EventResult {
 // rest of the panel is swallowed: it must not scroll the terminal behind it.
 func (state *State) aiPanelScroll(event ui.ScrollEvent) (ui.EventResult, bool) {
 	panel := &state.ai.panel
+	if panel.autoMenu {
+		return ui.EventResult{Handled: true, Repaint: panel.autoScroll.Wheel(event)}, true
+	}
 	if panel.modelMenu && pointInRect(event.X, event.Y, panel.modelsRect) {
 		return ui.EventResult{Handled: true, Repaint: panel.modelList.Wheel(event)}, true
 	}
@@ -757,6 +786,52 @@ func (state *State) aiPanelScrollBy(step float32) ui.EventResult {
 	return ui.EventResult{Handled: true, Repaint: ai.scroll.Offset() != before}
 }
 
+// aiAutoScopeKey moves through and closes the approval chip's menu. A scope that
+// is fixed for the running request is not opened again: its rows would report a
+// choice the request does not take.
+func (state *State) aiAutoScopeKey(event ui.KeyEvent) (ui.EventResult, bool) {
+	panel := &state.ai.panel
+	onChip := event.Target == hitAIAutoScope
+	onRow := event.Target.Scope() == hitAIAutoScopeLevels
+	if !panel.autoMenu {
+		if !onChip || event.Repeat || (event.Key != ui.KeyDown && event.Key != ui.KeyUp) || state.aiScopeLocked() {
+			return ui.EventResult{}, false
+		}
+		panel.targetOpen = false
+		panel.modelMenu = false
+		panel.autoMenu = true
+		panel.autoScroll = components.MenuScroll{}
+		return ui.EventResult{Handled: true, Repaint: true, Focus: hitAIAutoScopeLevels.At(0), FocusVisible: true}, true
+	}
+	if !onChip && !onRow {
+		return ui.EventResult{}, false
+	}
+	backToChip := ui.EventResult{Handled: true, Repaint: true, Focus: hitAIAutoScope, FocusVisible: true}
+	switch event.Key {
+	case ui.KeyEscape:
+		panel.autoMenu = false
+		return backToChip, true
+	case ui.KeyEnter, ui.KeySpace:
+		if event.Repeat || !onRow {
+			return ui.EventResult{Handled: true, Repaint: true}, true
+		}
+		if index, ok := event.Target.In(hitAIAutoScopeLevels); ok && index < len(state.aiScopes()) {
+			state.aiSetAutoUpTo(state.aiScopes()[index].level)
+			panel.autoMenu = false
+		}
+		return backToChip, true
+	case ui.KeyUp, ui.KeyDown, ui.KeyHome, ui.KeyEnd, ui.KeyPageUp, ui.KeyPageDown:
+		if event.Repeat {
+			return ui.EventResult{Handled: true, Repaint: true}, true
+		}
+		if id, ok := panel.autoScroll.Navigate(event.Key, event.Target, true); ok {
+			return ui.EventResult{Handled: true, Repaint: true, Focus: id, FocusVisible: true}, true
+		}
+		return ui.EventResult{}, false
+	}
+	return ui.EventResult{}, false
+}
+
 func (state *State) aiPanelKey(event ui.KeyEvent) (ui.EventResult, bool) {
 	if state.modal != modalNone || !inAIPanel(event.Target) || event.Target == hitAIToggle {
 		return ui.EventResult{}, false
@@ -765,6 +840,9 @@ func (state *State) aiPanelKey(event ui.KeyEvent) (ui.EventResult, bool) {
 	panel := &ai.panel
 	if event.Target.Scope() == hitAIExamples && (event.Key == ui.KeyEnter || event.Key == ui.KeySpace) && !event.Repeat {
 		return ui.EventResult{Focus: hitAIInput, Repaint: true}, true
+	}
+	if result, handled := state.aiAutoScopeKey(event); handled {
+		return result, true
 	}
 	handled := ui.EventResult{Handled: true, Repaint: true}
 	if event.Target == hitAITarget && ai.run == nil && !panel.targetOpen && (event.Key == ui.KeyDown || event.Key == ui.KeyUp) {

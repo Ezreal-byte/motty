@@ -119,6 +119,11 @@ type aiState struct {
 
 	open bool
 	mode agent.Mode
+	// autoUpTo is the highest risk this conversation runs without asking, when
+	// the user picked a scope from the chip. Nil follows settings.autoUpTo. The
+	// pick belongs to the conversation and is never stored: a restart or a new
+	// conversation goes back to the setting.
+	autoUpTo *risk.Level
 	// retry says the next aiSend continues the existing history, whose last
 	// message is the user question, instead of adding a second user bubble. An
 	// Ask-mode escalation sets it when the user approves the switch.
@@ -394,10 +399,42 @@ func (state *State) aiProvider(provider store.Provider) llm.Provider {
 func (state *State) aiGate(mode gate.Mode) gate.Gate {
 	return gate.Gate{
 		Backend:  state.ai.backend,
-		Policy:   risk.Policy{Enabled: true, AutoUpTo: state.ai.settings.autoUpTo},
+		Policy:   risk.Policy{Enabled: true, AutoUpTo: state.aiAutoUpTo()},
 		Mode:     mode,
 		Approver: state.aiApprover,
 	}
+}
+
+// aiAutoUpTo is the highest risk this conversation runs without asking: the
+// scope picked from the chip, or the setting when none was picked.
+func (state *State) aiAutoUpTo() risk.Level {
+	if picked := state.ai.autoUpTo; picked != nil {
+		return *picked
+	}
+	return state.ai.settings.autoUpTo
+}
+
+// aiSetAutoUpTo picks the scope of this conversation. Picking the setting's own
+// scope clears the pick instead of pinning a duplicate, so the chip goes back to
+// following the setting. A scope that is fixed for a running request refuses the
+// pick here, so no caller can change it behind the request's back.
+func (state *State) aiSetAutoUpTo(level risk.Level) {
+	if state.aiScopeLocked() {
+		return
+	}
+	if level == state.ai.settings.autoUpTo {
+		state.ai.autoUpTo = nil
+		return
+	}
+	picked := level
+	state.ai.autoUpTo = &picked
+}
+
+// aiScopeLocked reports whether this conversation's scope must stay as it is: a
+// request in flight was started under it, and an approval waiting for an answer
+// belongs to one.
+func (state *State) aiScopeLocked() bool {
+	return state.ai.run != nil || len(state.ai.approvals) > 0
 }
 
 // aiApprover is called from the agent's goroutine. It shows the question in the
@@ -578,6 +615,7 @@ func (state *State) aiNoSessionNote(references ...gate.SessionInfo) string {
 // may run.
 func (state *State) setAIMode(mode agent.Mode) {
 	state.dropEscalationApprovals()
+	state.ai.panel.autoMenu = false
 	if state.ai.mode == mode {
 		return
 	}
@@ -684,6 +722,7 @@ func (state *State) aiSend() {
 	ctx, cancel := context.WithCancel(context.Background())
 	run := &aiRun{cancel: cancel, open: -1, providerID: provider.ID, target: target, targetKey: targetKey}
 	ai.run = run
+	ai.panel.autoMenu = false // the scope is fixed while the request runs
 	if backend.defaultDone != nil && len(backend.bindings) == 1 {
 		go state.aiWatchTarget(ctx, run, backend.defaultDone)
 	}
@@ -926,8 +965,10 @@ func (state *State) aiNewConversation() {
 	}
 	ai.target, ai.targetSet = gate.SessionInfo{}, false
 	ai.panel.targetOpen = false
+	ai.panel.autoMenu = false
 	ai.items, ai.history, ai.conv, ai.notice = nil, nil, 0, ""
 	ai.approvals = nil
+	ai.autoUpTo = nil // a new conversation starts from the setting
 	ai.retry = false
 	ai.answerOnly = false
 	ai.lastUsage, ai.totalUsage = llm.Usage{}, llm.Usage{}
@@ -952,6 +993,8 @@ func (state *State) aiOpenConversation(id int64) {
 	// request must select its default or explicitly name its reference sessions.
 	ai.target, ai.targetSet = gate.SessionInfo{}, true
 	ai.panel.targetOpen = false
+	ai.panel.autoMenu = false
+	ai.autoUpTo = nil // another conversation's scope does not follow this one
 	ai.notice = ""
 	ai.retry, ai.answerOnly = false, false
 	state.dropEscalationApprovals()
