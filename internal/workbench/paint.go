@@ -1980,6 +1980,13 @@ func (state *State) paintPasswordDialog(canvas *ui.Canvas, viewport ui.Rect) {
 	layout := dialog.Begin(m.PasswordTitle, state.passwordDescription)
 	fields, save := state.layoutPasswordFields(canvas, layout.Body)
 	hint := m.PasswordHint
+	switch {
+	case state.secrets.canSave:
+	case state.secrets.needsMaster:
+		hint = m.PasswordHintNoStore
+	default:
+		hint = m.PasswordHintUnsaved
+	}
 	if len(state.passwordQuestions) > 1 {
 		// One hint under every field would run into the label below it; the
 		// labels and the buttons are enough to explain a multi-field round.

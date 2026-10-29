@@ -161,7 +161,7 @@ CMD、Git Bash 等已安装的 Shell。此配置仅保存在本机，对新建�
 | 平台 | 包 |
 | --- | --- |
 | macOS（arm64、amd64） | `.dmg`、`.zip` |
-| Windows（amd64、arm64） | 安装程序 |
+| Windows（amd64、arm64） | 安装程序、便携版 zip（数据保存在 `motty.exe` 旁的 `motty-data`） |
 | Linux（amd64、arm64） | `.deb`、`.tar.gz` |
 
 macOS 包在发布带证书时签名并公证，Windows 包在配置证书时签名；Linux 包不签名。

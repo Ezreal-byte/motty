@@ -31,6 +31,9 @@ type secretsUI struct {
 	// canSave is whether the open password or passphrase dialog offers to save,
 	// worked out when it opened, and save whether the box is ticked.
 	canSave, save bool
+	// needsMaster is set with canSave clear when the only thing missing is a
+	// master password: the system has no store to keep the key in.
+	needsMaster bool
 
 	unlock, newPassword, confirmPassword text.Editor
 	dialogError                          string
@@ -195,7 +198,7 @@ func (state *State) forgetRefusedSecret(session *Session, name string) bool {
 // offerToSave works out whether the dialog that is opening can save what is
 // typed into it, and starts with the box clear.
 func (state *State) offerToSave() {
-	state.secrets.save = false
+	state.secrets.save, state.secrets.needsMaster = false, false
 	vaultFile := state.secrets.vault
 	switch {
 	case vaultFile == nil:
@@ -207,6 +210,7 @@ func (state *State) offerToSave() {
 	default:
 		err := vaultFile.Prepare()
 		state.secrets.canSave = err == nil
+		state.secrets.needsMaster = errors.Is(err, vault.ErrUnavailable)
 	}
 }
 

@@ -7,6 +7,7 @@ import (
 
 	"github.com/vivaui/viva/app"
 	"github.com/vivaui/viva/ui"
+	"motty/internal/datadir"
 	"motty/internal/workbench"
 )
 
@@ -55,7 +56,7 @@ func (h *minSizeHost) Quit() {
 // restored below it must open at the minimum instead of the saved size.
 func TestMainWindowKeepsItsMinimumAndCorrectsARestoredTinyFrame(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv(dataDirVariable, dir)
+	t.Setenv(datadir.Variable, dir)
 	host := &minSizeHost{}
 	app.UseApplicationRunner(func(start func(app.Host) error) error { return start(host) })
 	t.Cleanup(func() { host.Quit(); app.UseApplicationRunner(nil) })

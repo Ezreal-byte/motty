@@ -323,6 +323,8 @@ func expectedAssets(version string) []string {
 		"motty-" + version + "-linux-amd64.tar.gz",
 		"motty-" + version + "-windows-arm64-setup.exe",
 		"motty-" + version + "-windows-amd64-setup.exe",
+		"motty-" + version + "-windows-arm64.zip",
+		"motty-" + version + "-windows-amd64.zip",
 		"motty_" + version + "_arm64.deb",
 		"motty_" + version + "_amd64.deb",
 	}
@@ -385,8 +387,9 @@ func checkAssets(expected []string, assets []githubAsset, checksums map[string]s
 	} else if hex.EncodeToString(sum[:]) != want {
 		problems = append(problems, "SIGNATURES does not match its SHA256SUMS entry")
 	}
-	if len(checksums) != 11 {
-		problems = append(problems, fmt.Sprintf("SHA256SUMS lists %d files, want 11", len(checksums)))
+	// SHA256SUMS lists every asset of the matrix but itself.
+	if len(checksums) != len(expected)-1 {
+		problems = append(problems, fmt.Sprintf("SHA256SUMS lists %d files, want %d", len(checksums), len(expected)-1))
 	}
 	return problems
 }

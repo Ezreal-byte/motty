@@ -10,6 +10,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	"motty/internal/datadir"
 	"motty/internal/workbench"
 )
 
@@ -20,7 +21,7 @@ import (
 // about itself goes to stderr.
 func runMCPServe(args []string) int {
 	flags := flag.NewFlagSet("mcp-serve", flag.ContinueOnError)
-	dir := flags.String("data-dir", os.Getenv(dataDirVariable), "Motty configuration directory")
+	dir := flags.String("data-dir", datadir.Current().Dir, "Motty configuration directory")
 	if err := flags.Parse(args); err != nil {
 		return 2
 	}
@@ -33,6 +34,7 @@ func runMCPServe(args []string) int {
 	err := workbench.ServeAgentMCP(ctx, os.Stdin, os.Stdout, workbench.AgentOptions{
 		KnownHostsPath: knownHostsPath(*dir),
 		AIDatabasePath: aiDatabasePath(*dir),
+		Keystore:       keystoreFor(*dir),
 		Log:            os.Stderr,
 	})
 	if err != nil && ctx.Err() == nil {

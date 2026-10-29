@@ -10,10 +10,26 @@ Cloudflare R2.
 | Platform | Packages |
 | --- | --- |
 | macOS (arm64, amd64) | `.dmg` |
-| Windows (amd64, arm64) | `.exe` installer |
+| Windows (amd64, arm64) | `.exe` installer, portable `.zip` |
 | Linux (amd64, arm64) | `.deb`, `.tar.gz` |
 
 Each release also carries a `SHA256SUMS` file.
+
+## Portable copy on Windows
+
+The portable `.zip` holds `motty.exe` and a `motty-data` folder. Unpack it anywhere,
+including a USB drive. While `motty-data` sits next to `motty.exe`, Motty keeps its
+hosts, settings, known hosts and saved passwords there, and leaves nothing else on the
+computer. Copy or move the two together to take your setup with you.
+
+- Saved passwords are protected by a master password alone, not by Windows
+  Credential Manager, so they stay readable on another computer. Set one in
+  Settings, Security, before saving a password.
+- A portable copy does not update itself. To update, replace `motty.exe` with the one in
+  the new zip and keep `motty-data`.
+- Without the `motty-data` folder, or when the folder is read-only, Motty runs as an
+  ordinary copy and uses its usual location.
+- Starting at login, if you turn it on, registers the program's path with Windows.
 
 ## Signing
 

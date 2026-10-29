@@ -415,6 +415,8 @@ var EnglishMessages = Messages{
 	PasswordDescription:   "Sign in as %s",
 	PasswordLabel:         "Password",
 	PasswordHint:          "Enter submits. It is saved only if you tick the box below.",
+	PasswordHintUnsaved:   "Enter submits.",
+	PasswordHintNoStore:   "Enter submits. To save passwords, set a master password in Settings.",
 	PasswordRetry:         "Permission denied. Try again.",
 	StatusConnectedFmt:    "Connected · ",
 	StatusConnectFailed:   "Connection failed · ",

@@ -10,7 +10,7 @@
 # step simply does not sign.
 #
 # The tag is the approval: *Checksums* refuses the release unless it is exactly
-# the twelve assets, its SHA256SUMS matches the files, every signature verifies
+# the fourteen assets, its SHA256SUMS matches the files, every signature verifies
 # against the key compiled into the app, and the notes name the Viva frame that
 # was built. *Publish* then copies the packages to the mirror, publishes that
 # verified draft, and flips the update feed last, so nothing public ever points

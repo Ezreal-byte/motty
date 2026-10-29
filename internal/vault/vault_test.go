@@ -720,3 +720,29 @@ func FuzzOpenNeverPanicsOnAnyFile(f *testing.F) {
 		vault.Get("a")
 	})
 }
+
+// A portable copy keeps no key in the system's store, so the file must open on
+// another computer from the master password alone.
+func TestAVaultWithNoKeystoreIsKeptByTheMasterPasswordAlone(t *testing.T) {
+	vault, path := openVault(t, NoKeystore{})
+	if err := vault.Set("a", "alpha"); !errors.Is(err, ErrUnavailable) {
+		t.Fatalf("Set before a master password = %v", err)
+	}
+	if err := vault.SetMasterPassword("correct horse"); err != nil {
+		t.Fatal(err)
+	}
+	if err := vault.Set("a", "alpha"); err != nil {
+		t.Fatal(err)
+	}
+
+	elsewhere, err := Open(path, &memoryKeystore{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := elsewhere.Unlock("correct horse"); err != nil {
+		t.Fatal(err)
+	}
+	if got, found, err := elsewhere.Get("a"); err != nil || !found || got != "alpha" {
+		t.Fatalf("on another computer = %q, %v, %v", got, found, err)
+	}
+}

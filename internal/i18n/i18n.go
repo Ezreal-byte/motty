@@ -460,6 +460,8 @@ type Messages struct {
 	PasswordDescription            string
 	PasswordLabel                  string
 	PasswordHint                   string
+	PasswordHintUnsaved            string
+	PasswordHintNoStore            string
 	PasswordRetry                  string
 	StatusConnectedFmt             string
 	StatusConnectFailed            string

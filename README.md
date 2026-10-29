@@ -201,7 +201,7 @@ Download the package for your platform from the
 | Platform | Packages |
 | --- | --- |
 | macOS (arm64, amd64) | `.dmg`, `.zip` |
-| Windows (amd64, arm64) | `.exe` installer |
+| Windows (amd64, arm64) | `.exe` installer, portable `.zip` (data kept in `motty-data` beside `motty.exe`) |
 | Linux (amd64, arm64) | `.deb`, `.tar.gz` |
 
 macOS builds are signed and notarized when the release has the credentials.

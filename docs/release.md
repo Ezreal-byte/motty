@@ -77,7 +77,7 @@ The tag is a promise that the artifacts are right, so the *Checksums* job proves
 it before *Publish* runs. `tools/release.sh --sums TAG --expect-viva SHA` stops
 the release unless
 
-- the draft holds exactly the twelve assets of the matrix and nothing else;
+- the draft holds exactly the fourteen assets of the matrix and nothing else;
 - `SHA256SUMS` lists every package and matches the uploaded bytes;
 - `SIGNATURES` has one line per package and each signature verifies against the
   key compiled into the app, bound to that file name and version;
@@ -319,7 +319,7 @@ Every release carries the packages below for every platform and architecture:
 | Platform | arm64 | amd64 |
 | --- | --- | --- |
 | macOS | `.dmg`, `.zip` | `.dmg`, `.zip` |
-| Windows | `.exe` installer | `.exe` installer |
+| Windows | `.exe` installer, portable `.zip` | `.exe` installer, portable `.zip` |
 | Linux | `.deb`, `.tar.gz` | `.deb`, `.tar.gz` |
 
 The macOS `.zip` holds the same signed bundle; it is what the
@@ -327,8 +327,14 @@ in-app updater downloads, so a release without it would leave macOS unable to
 update in place. `viva package` staples the ticket to the `.dmg`, not to a
 bundle it also zips, so the zip's first launch checks the signature online.
 
+The Windows `.zip` is the portable copy, made by `tools/portablezip` from the same
+signed program the installer carries: `motty.exe` beside a `motty-data` folder, which
+is what switches Motty to keeping its data next to itself (`internal/datadir`). It is
+not offered to the in-app updater, which only replaces installations it owns; a
+portable copy sends the user to the download page.
+
 A signed release also carries `SIGNATURES`, the minisign signature of every
-package. That is 12 release assets: the packages above, `SHA256SUMS` and
+package. That is 14 release assets: the packages above, `SHA256SUMS` and
 `SIGNATURES`.
 
 `tools/release.sh` refuses to upload when one of those is missing, so a run with

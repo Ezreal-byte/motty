@@ -70,6 +70,17 @@ type Keystore interface {
 	Delete(service, account string) error
 }
 
+// NoKeystore is the Keystore of a program that must leave nothing in the
+// system's store, such as a portable copy that travels between computers: a key
+// kept on one of them would not open the file on another. Every secret is then
+// kept under a master password, and the vault says so (ErrUnavailable) until one
+// is set.
+type NoKeystore struct{}
+
+func (NoKeystore) Store(string, string, []byte) error  { return ErrKeystoreUnavailable }
+func (NoKeystore) Load(string, string) ([]byte, error) { return nil, ErrKeystoreUnavailable }
+func (NoKeystore) Delete(string, string) error         { return nil }
+
 // kdfParams are the Argon2id costs the wrapped key was made with. They are in the
 // file, so a later release can raise the defaults and still open old vaults.
 type kdfParams struct {

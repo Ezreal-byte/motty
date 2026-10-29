@@ -81,6 +81,11 @@ also expects the loopback SSH fixture on port 2222 and a built `/tmp/motty-head`
 because headless startup refuses the default directory. That file isolation is
 not system-secret isolation and does not make real credentials safe to test.
 
+`e2e/portable_e2e.py` runs a portable copy: the headless build is copied beside a
+`motty-data` folder and started without `MOTTY_DATA_DIR`. It checks that the data
+stays in that folder, that the vault needs a master password, and that a restart
+unlocks it. Set `MOTTY_E2E_PORT` when the loopback SSH fixture is not on 2222.
+
 `e2e/run_agent_mcp_e2e.sh` runs everything for `motty mcp-serve` (the MCP server
 that needs no window) by itself: it builds, starts a fixture, drives the window side
 (`agent_mcp_setup_e2e.txt`, `agent_mcp_activity_e2e.txt`) and the real `motty

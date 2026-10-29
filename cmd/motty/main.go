@@ -13,8 +13,10 @@ import (
 	"github.com/vivaui/viva/app"
 	"github.com/vivaui/viva/ui"
 	"motty/internal/buildinfo"
+	"motty/internal/datadir"
 	"motty/internal/diag"
 	"motty/internal/selfupdate"
+	"motty/internal/vault"
 	"motty/internal/workbench"
 )
 
@@ -49,11 +51,11 @@ func main() {
 	// A second launch hands what it was asked to open to the copy that runs, and
 	// exits. A headless test run is its own world and never meets the real one.
 	if os.Getenv("VIVA_HEADLESS") != "" {
-		if err := headlessClaim(os.Getenv(dataDirVariable)); err != nil {
+		if err := headlessClaim(datadir.Current().Dir); err != nil {
 			log.Fatal(err)
 		}
 	} else {
-		primary, claim, err := claimLaunch(os.Getenv(dataDirVariable), args, func(more []string) {
+		primary, claim, err := claimLaunch(datadir.Current().Dir, args, func(more []string) {
 			windows.launch(more)
 		})
 		if err != nil {
@@ -68,7 +70,7 @@ func main() {
 	if len(args) > 0 {
 		windows.launch(args)
 	}
-	hub := workbench.NewAIHub(aiDatabasePath(os.Getenv(dataDirVariable)))
+	hub := workbench.NewAIHub(aiDatabasePath(datadir.Current().Dir))
 	err := app.RunApplication(func(application *app.Application) error {
 		application.OnQuitRequest(windows.quitWithDocuments)
 		status := newTray(application)
@@ -149,12 +151,18 @@ func (status *tray) show(application *app.Application) {
 // what lets it keep running when its last window closes.
 func (status *tray) hasStatusArea() bool { return status != nil && status.item != nil }
 
-// refresh brings the icon's tooltip up to date with the sessions that are open.
-// It runs on the event-loop thread.
-// dataDirVariable names the environment variable that moves everything the
-// application keeps (hosts, settings, known hosts) to another directory, so a
-// build under test never touches the user's own data.
-const dataDirVariable = "MOTTY_DATA_DIR"
+// keystore is where the saved-passwords vault of the data directory keeps its
+// key: the system's own store, which is nil here, except in a portable copy.
+// That one travels between computers and must leave nothing behind on them, so
+// its vault is kept by a master password alone.
+func keystore() vault.Keystore { return keystoreFor(datadir.Current().Dir) }
+
+func keystoreFor(dir string) vault.Keystore {
+	if location := datadir.Current(); location.Portable && dir == location.Dir {
+		return vault.NoKeystore{}
+	}
+	return nil
+}
 
 // languageVariable names the environment variable that stands in for the
 // system's language ("en", "zh-CN"), so a script or a test run gets the same
@@ -187,6 +195,8 @@ func aiDatabasePath(dir string) string {
 	return filepath.Join(dir, "ai.db")
 }
 
+// refresh brings the icon's tooltip up to date with the sessions that are open.
+// It runs on the event-loop thread.
 func (status *tray) refresh() {
 	if !status.hasStatusArea() {
 		return
@@ -242,7 +252,8 @@ func openWorkbenchWindow(application *app.Application, status *tray, hub *workbe
 			return openWorkbenchWindow(application, status, hub, newWindow, false, placement{origin: &origin, adopt: adopt, blank: true})
 		},
 		CloseWindow:        func() { requestClose(func() { mainWindow.Close() }) },
-		KnownHostsPath:     knownHostsPath(os.Getenv(dataDirVariable)),
+		KnownHostsPath:     knownHostsPath(datadir.Current().Dir),
+		Keystore:           keystore(),
 		PreferredLanguages: preferredLanguages,
 		Raise:              func() { mainWindow.Show() },
 		StartAtLogin:       loginStart(),
@@ -364,7 +375,7 @@ func openWorkbenchWindow(application *app.Application, status *tray, hub *workbe
 // updater replaces the program with a newer release, or is nil when there is
 // nowhere to keep downloads.
 func updater() workbench.Updater {
-	dir := updatesDir(os.Getenv(dataDirVariable))
+	dir := updatesDir(datadir.Current().Dir)
 	if dir == "" {
 		return nil
 	}

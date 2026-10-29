@@ -11,7 +11,7 @@
 #
 # --sums is the last step of a release, and the gate in front of publishing it:
 # it signs the whole matrix, writes SHA256SUMS, and then refuses the release
-# unless it carries exactly the twelve assets of the matrix, SHA256SUMS matches
+# unless it carries exactly the fourteen assets of the matrix, SHA256SUMS matches
 # the files, every signature verifies against the key compiled into the app, the
 # title is "Motty <tag>", the release is still a draft, and its notes name the
 # expected Viva commit. --verify runs the same checks on a release without
@@ -91,7 +91,7 @@ sums_packages() { if [ -f SIGNATURES ]; then sums motty* SIGNATURES; else sums m
 
 manifest_version() { sed -n 's/^version *= *"\([^"]*\)".*/\1/p' "$here/viva.toml" | head -1; }
 
-# The matrix of a release: ten packages and two manifests. Keep this in one
+# The matrix of a release: twelve packages and two manifests. Keep this in one
 # place; --sums verifies a release against it and the build jobs check the
 # platforms they were asked for.
 release_assets() {
@@ -104,6 +104,8 @@ release_assets() {
 	motty-$1-linux-amd64.tar.gz
 	motty-$1-windows-arm64-setup.exe
 	motty-$1-windows-amd64-setup.exe
+	motty-$1-windows-arm64.zip
+	motty-$1-windows-amd64.zip
 	motty_$1_arm64.deb
 	motty_$1_amd64.deb
 	SHA256SUMS
@@ -303,6 +305,8 @@ build_package() {
 	# Windows executable is signed here, before the check reads its bytes.
 	[ "$target" != windows ] || "$work/viva-cli" sign --target windows --program "$program" || return
 	go run ./tools/checkbuild -program "$program" -revision "$commit" -time "$commit_time" -target "$target" -arch "$arch" || return
+	# The portable copy holds these same signed bytes (see internal/datadir).
+	[ "$target" != windows ] || go run ./tools/portablezip -program "$program" -time "$commit_time" -o "$out/motty-$version-windows-$arch.zip" || return
 	"$work/viva-cli" package --target "$target" --arch "$arch" --program "$program" "$@"
 }
 package() { build_package "$@" 2>&1 | sed 's/^/   /'; }
@@ -326,6 +330,8 @@ if want windows; then
 		if [ -n "$installer" ] && [ "$arch" = amd64 ]; then
 			cp "$installer" "$out/"
 			echo "   Windows amd64 installer copied from $installer"
+			# The zip is made from a program built here, whatever made the installer.
+			package windows "$arch" --format zip -o "$work/unused-zip-$arch"
 		elif package windows "$arch" --format nsis -o "$out" 2>&1 | tee "$work/nsis-$arch.log"; then
 			echo "   Windows $arch installer built"
 		else
@@ -357,6 +363,8 @@ if [ "$strict" = 1 ]; then
 	if want windows; then
 		have 'motty-*-windows-amd64-setup.exe'
 		have 'motty-*-windows-arm64-setup.exe'
+		have 'motty-*-windows-amd64.zip'
+		have 'motty-*-windows-arm64.zip'
 	fi
 	[ "$missing" = 0 ] || { echo "refusing to upload an incomplete release" >&2; exit 1; }
 fi

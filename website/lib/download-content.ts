@@ -47,16 +47,25 @@ const kinds: Record<FileKind, { ext: string; en: string; zh: string }> = {
   targz: { ext: '.tar.gz', en: 'Tarball', zh: '压缩包' },
 };
 
+const portable = { en: 'Portable zip', zh: '便携版 Zip' };
+
 /** One line per package a release can contain, in the order the page shows it. */
-const catalog: { key: string; platform: Platform; kind: FileKind; arch: 'arm64' | 'amd64' }[] = [
+const catalog: {
+  key: string;
+  platform: Platform;
+  kind: FileKind;
+  arch: 'arm64' | 'amd64';
+  /** Replaces the kind's name when the file is more specific than its format. */
+  label?: { en: string; zh: string };
+}[] = [
   { key: 'motty-darwin-arm64.dmg', platform: 'macos', kind: 'dmg', arch: 'arm64' },
   { key: 'motty-darwin-amd64.dmg', platform: 'macos', kind: 'dmg', arch: 'amd64' },
   { key: 'motty-darwin-arm64.zip', platform: 'macos', kind: 'zip', arch: 'arm64' },
   { key: 'motty-darwin-amd64.zip', platform: 'macos', kind: 'zip', arch: 'amd64' },
   { key: 'motty-windows-amd64-setup.exe', platform: 'windows', kind: 'exe', arch: 'amd64' },
   { key: 'motty-windows-arm64-setup.exe', platform: 'windows', kind: 'exe', arch: 'arm64' },
-  { key: 'motty-windows-amd64.zip', platform: 'windows', kind: 'zip', arch: 'amd64' },
-  { key: 'motty-windows-arm64.zip', platform: 'windows', kind: 'zip', arch: 'arm64' },
+  { key: 'motty-windows-amd64.zip', platform: 'windows', kind: 'zip', arch: 'amd64', label: portable },
+  { key: 'motty-windows-arm64.zip', platform: 'windows', kind: 'zip', arch: 'arm64', label: portable },
   { key: 'motty_amd64.deb', platform: 'linux', kind: 'deb', arch: 'amd64' },
   { key: 'motty_arm64.deb', platform: 'linux', kind: 'deb', arch: 'arm64' },
   { key: 'motty-linux-amd64.tar.gz', platform: 'linux', kind: 'targz', arch: 'amd64' },
@@ -120,7 +129,7 @@ export async function downloadGroups(lang: 'en' | 'zh'): Promise<DownloadGroup[]
     const kind = kinds[entry.kind];
     const file: DownloadFile = {
       key: entry.key,
-      label: kind[lang],
+      label: entry.label?.[lang] ?? kind[lang],
       ext: kind.ext,
       kind: archLabel(entry.platform, entry.arch),
     };

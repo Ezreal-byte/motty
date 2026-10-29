@@ -415,6 +415,8 @@ var ChineseMessages = Messages{
 	PasswordDescription:   "以 %s 登录",
 	PasswordLabel:         "密码",
 	PasswordHint:          "按回车提交。仅在勾选下方选项时才会保存。",
+	PasswordHintUnsaved:   "按回车提交。",
+	PasswordHintNoStore:   "按回车提交。要保存密码,请先在设置中设置主密码。",
 	PasswordRetry:         "密码错误,请重试。",
 	StatusConnectedFmt:    "已连接 · ",
 	StatusConnectFailed:   "连接失败 · ",
