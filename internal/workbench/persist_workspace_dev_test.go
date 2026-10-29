@@ -425,8 +425,8 @@ func TestDevelopmentWorkspaceIsStoredOnlyInLocalValues(t *testing.T) {
 			t.Fatalf("development workspace became a shared record: %s", key)
 		}
 	}
-	if configFormat != 7 || stateFileVersion != 4 {
-		t.Fatalf("workspace routing changed the existing formats: config=%d state=%d", configFormat, stateFileVersion)
+	if configFormat != 8 || stateFileVersion != 4 {
+		t.Fatalf("unexpected formats: config=%d state=%d", configFormat, stateFileVersion)
 	}
 }
 

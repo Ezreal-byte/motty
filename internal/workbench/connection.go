@@ -587,6 +587,12 @@ func (state *State) Wake() {
 		state.pumpDesktop(session)
 		state.pump(session)
 		state.followTerminalDirectory(session)
+		if session.ID == state.activeSessionID && state.activeSection == sectionTerminal && state.monitorShown(state.deck.ActiveWorkspace()) {
+			state.ensureMonitor(session)
+		} else if session.stats != nil && session.stats.panel.worker != nil {
+			session.stats.panel.worker.Close()
+			session.stats.panel.worker = nil
+		}
 		if session.term != nil {
 			session.term.find.refreshIfChanged(session.term.screen, state.messages, findNow)
 		}

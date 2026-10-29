@@ -69,6 +69,7 @@ func (state *State) SplitPane(target, session uint32, axis layoutcore.Axis, plac
 	}
 	state.syncActiveSession()
 	state.activeSection = sectionTerminal
+	state.syncMonitorTarget()
 	return nil
 }
 
@@ -90,6 +91,7 @@ func (state *State) MovePane(session, target uint32, axis layoutcore.Axis, ratio
 	}
 	state.syncActiveSession()
 	state.activeSection = sectionTerminal
+	state.syncMonitorTarget()
 	return nil
 }
 
@@ -171,6 +173,7 @@ func (state *State) activatePane(workspaceID layoutcore.WorkspaceID, paneID layo
 	}
 	state.syncActiveSession()
 	state.activeSection = sectionTerminal
+	state.syncMonitorTarget()
 	if previous != paneID && state.viewport.Width > 0 && state.viewport.Height > 0 {
 		state.fitWorkspaceTerminals(workspaceID)
 		state.fitSFTP(state.viewport)
@@ -184,6 +187,7 @@ func (state *State) activateWorkspace(id layoutcore.WorkspaceID) bool {
 	}
 	state.syncActiveSession()
 	state.activeSection = sectionTerminal
+	state.syncMonitorTarget()
 	return true
 }
 

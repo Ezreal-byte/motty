@@ -1102,6 +1102,9 @@ func (state *State) Scroll(event ui.ScrollEvent) ui.EventResult {
 	if result, handled := state.aiScroll(event); handled {
 		return result
 	}
+	if result, handled := state.scrollMonitor(event); handled {
+		return result
+	}
 	// A wheel over a control of the files panel belongs to the panel's list. It
 	// must not be treated as a pane event: that would shift its coordinates by a
 	// pane's origin.

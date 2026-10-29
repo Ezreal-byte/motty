@@ -21,6 +21,9 @@ const (
 	DefaultContextWidth = float32(340)
 	MinContextWidth     = float32(280)
 	MaxContextWidth     = float32(480)
+	DefaultMonitorWidth = float32(320)
+	MinMonitorWidth     = float32(280)
+	MaxMonitorWidth     = float32(640)
 )
 
 // ContextKind identifies the one shared panel attached to a workspace.
@@ -46,10 +49,12 @@ const (
 // ContextState is workspace-owned panel presentation state. Session-specific
 // content remains with the session selected by ActivePane.
 type ContextState struct {
-	Kind  ContextKind
-	Open  bool
-	Width float32
-	Side  ContextSide
+	MonitorOpen  bool    // independent monitor, alongside the shared context panel
+	MonitorWidth float32 // zero uses DefaultMonitorWidth
+	Kind         ContextKind
+	Open         bool
+	Width        float32
+	Side         ContextSide
 }
 
 var (
@@ -535,12 +540,21 @@ func normalizeContext(context ContextState) ContextState {
 	if context.Width == 0 {
 		context.Width = DefaultContextWidth
 	}
+	// Migrate the experimental shared monitor to an independent panel. Files
+	// retain their own defaults on a cold restore, without an extra tab header.
+	if context.Kind == ContextMonitor {
+		context.MonitorOpen = context.MonitorOpen || context.Open
+		context.Kind, context.Open = ContextSFTP, false
+	}
 	return context
 }
 
 func validateContext(context ContextState) error {
 	if context.Kind > ContextSessionDetails || context.Side > ContextRight || context.Open && context.Kind == ContextNone ||
 		context.Width != context.Width || context.Width != 0 && (context.Width < MinContextWidth || context.Width > MaxContextWidth) {
+		return ErrInvalidLayout
+	}
+	if context.MonitorWidth != context.MonitorWidth || context.MonitorWidth != 0 && (context.MonitorWidth < MinMonitorWidth || context.MonitorWidth > MaxMonitorWidth) {
 		return ErrInvalidLayout
 	}
 	return nil

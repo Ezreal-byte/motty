@@ -61,7 +61,7 @@ func (deck *Deck) Import(dto WorkspaceDTO, sessions map[SessionID]SessionID, ind
 	deck.nextWorkspace++
 	workspace := workspaceRecord{
 		id: deck.nextWorkspace, title: dto.Title, locked: dto.Locked, layout: restored, revision: 1,
-		context: normalizeContext(ContextState{Kind: dto.Context.Kind, Open: dto.Context.Open, Width: dto.Context.Width, Side: dto.Context.Side}),
+		context: normalizeContext(ContextState{Kind: dto.Context.Kind, Open: dto.Context.Open, Width: dto.Context.Width, Side: dto.Context.Side, MonitorOpen: dto.Context.MonitorOpen, MonitorWidth: dto.Context.MonitorWidth}),
 	}
 	for _, pane := range dto.Panes {
 		entry := Pane{ID: paneIDs[pane.ID]}

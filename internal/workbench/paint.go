@@ -180,6 +180,7 @@ func (state *State) Paint(canvas *ui.Canvas, size ui.Size) {
 	state.beginMenus()
 	if terminal {
 		state.paintWorkspacePanes(canvas, size)
+		state.paintIndependentMonitor(canvas, size)
 		state.paintAIPanel(canvas, size)
 	} else {
 		workspace := workspaceSlot.Rect().Inset(ui.All(workspaceBorder))
@@ -209,6 +210,7 @@ func (state *State) Paint(canvas *ui.Canvas, size ui.Size) {
 	state.paintAITargetSelect(canvas)
 	state.paintMCPClientSelect(canvas)
 	state.paintLocalShellSelect(canvas)
+	state.paintMonitorIntervalMenu(canvas)
 	state.paintTransferCenter(canvas)
 	// The gallery's select is painted here, outside the workspace's clip and
 	// inside the frame's menu pass, so its popup can leave the page and keeps the

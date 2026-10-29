@@ -25,10 +25,12 @@ type WorkspaceDTO struct {
 
 // ContextStateDTO persists one workspace's shared panel presentation.
 type ContextStateDTO struct {
-	Kind  ContextKind `json:"kind,omitempty"`
-	Open  bool        `json:"open,omitempty"`
-	Width float32     `json:"width,omitempty"`
-	Side  ContextSide `json:"side,omitempty"`
+	MonitorOpen  bool        `json:"monitor_open,omitempty"`
+	MonitorWidth float32     `json:"monitor_width,omitempty"`
+	Kind         ContextKind `json:"kind,omitempty"`
+	Open         bool        `json:"open,omitempty"`
+	Width        float32     `json:"width,omitempty"`
+	Side         ContextSide `json:"side,omitempty"`
 }
 
 // PaneDTO stores one stable pane and its optional session association.
@@ -50,7 +52,7 @@ func (deck *Deck) DTO() DeckDTO {
 		entry := WorkspaceDTO{
 			ID: workspace.id, Title: workspace.title, Locked: workspace.locked, ActivePane: workspace.activePane,
 			Layout:  workspace.layout.DTO(),
-			Context: ContextStateDTO{Kind: workspace.context.Kind, Open: workspace.context.Open, Width: normalizeContext(workspace.context).Width, Side: workspace.context.Side},
+			Context: ContextStateDTO{Kind: workspace.context.Kind, Open: workspace.context.Open, Width: normalizeContext(workspace.context).Width, Side: workspace.context.Side, MonitorOpen: workspace.context.MonitorOpen, MonitorWidth: workspace.context.MonitorWidth},
 		}
 		visual := workspace.layout.Sessions(nil)
 		entry.Panes = make([]PaneDTO, 0, len(visual))
@@ -80,7 +82,7 @@ func RestoreDeck(dto DeckDTO) (Deck, error) {
 		workspace := workspaceRecord{
 			id: entry.ID, title: entry.Title, locked: entry.Locked, activePane: entry.ActivePane, layout: layout,
 			panes:    make([]Pane, len(entry.Panes)),
-			context:  normalizeContext(ContextState{Kind: entry.Context.Kind, Open: entry.Context.Open, Width: entry.Context.Width, Side: entry.Context.Side}),
+			context:  normalizeContext(ContextState{Kind: entry.Context.Kind, Open: entry.Context.Open, Width: entry.Context.Width, Side: entry.Context.Side, MonitorOpen: entry.Context.MonitorOpen, MonitorWidth: entry.Context.MonitorWidth}),
 			revision: 1,
 		}
 		for paneIndex, pane := range entry.Panes {
