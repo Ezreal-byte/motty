@@ -2,12 +2,36 @@ package workbench
 
 import (
 	"fmt"
+	"reflect"
 	"strings"
 	"testing"
 
 	"github.com/vivaui/viva/ui"
 	"motty/internal/term"
 )
+
+func TestClippedWideHistoryRowMatchesFreshCache(t *testing.T) {
+	for _, prefix := range []string{"", "\x1b[44m"} {
+		t.Run(prefix, func(t *testing.T) {
+			screen := term.New(8, 2, 20)
+			screen.Write([]byte(prefix + "abc\u754cXYZ\r\nnext"))
+			screen.Resize(4, 2)
+			var cache rowCache
+			cache.begin()
+			cache.row(screen.Row(0), 4, -1, &darkPalette, false)
+			screen.Write([]byte("\r\nx"))
+			screen.Scroll(1)
+			cache.begin()
+			cached := cache.row(screen.Row(0), 4, -1, &darkPalette, false)
+			var fresh rowCache
+			fresh.begin()
+			rebuilt := fresh.row(screen.Row(0), 4, -1, &darkPalette, false)
+			if cached.text != rebuilt.text || !reflect.DeepEqual(cached.runs, rebuilt.runs) || !reflect.DeepEqual(cached.spans, rebuilt.spans) {
+				t.Fatalf("cache disagrees with fresh rendering: cached=%+v fresh=%+v", cached, rebuilt)
+			}
+		})
+	}
+}
 
 // build prepares row 0 of a screen holding input.
 func build(t testing.TB, input string, cursor int) *rowEntry {

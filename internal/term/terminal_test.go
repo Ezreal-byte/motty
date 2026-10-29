@@ -821,8 +821,9 @@ func TestResizeShrinkingKeepsTheCursorLineAndPushesHistory(t *testing.T) {
 	}
 }
 
-func TestResizeColumnsTruncateAndPad(t *testing.T) {
+func TestResizeAlternateColumnsTruncateAndPad(t *testing.T) {
 	term := newTerm(10, 3)
+	feed(term, "\x1b[?1049h\x1b[H")
 	feed(term, "abcdefghij\x1b[1;10H")
 	term.Resize(4, 3)
 	expectText(t, term, "abcd")

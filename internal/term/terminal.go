@@ -22,11 +22,11 @@ const DefaultScrollback = 5000
 // full line count.
 const (
 	defaultHistoryBytes = 16 << 20
-	historyLineOverhead = 96 // the line struct, its slice headers and allocator slack
-	historyCellBytes    = 16 // Cell
-	historyMarkBytes    = 8  // Mark
-	historyLinkBytes    = 4  // one uint32 element of a line's hyperlink slice
-	historyLinkOverhead = 24 // that slice's header and allocation
+	historyLineOverhead = 112 // the line struct, its slice headers and allocator slack
+	historyCellBytes    = 16  // Cell
+	historyMarkBytes    = 8   // Mark
+	historyLinkBytes    = 4   // one uint32 element of a line's hyperlink slice
+	historyLinkOverhead = 24  // that slice's header and allocation
 )
 
 // CursorStyle is the cursor shape an application asked for with DECSCUSR.
@@ -349,10 +349,21 @@ func (t *Terminal) Row(i int) Row {
 	if len(cells) > t.cols {
 		cells = cells[:t.cols]
 	}
+	markColumns := len(cells)
+	if markColumns > 0 && cells[markColumns-1].Attr&WideHead != 0 {
+		markColumns--
+		if background := cells[markColumns].BG; background != 0 {
+			// Keep the boundary's background without changing retained history.
+			cells = append([]Cell(nil), cells...)
+			cells[markColumns] = Cell{BG: background}
+		} else {
+			cells = cells[:markColumns]
+		}
+	}
 	marks := l.marks
 	// Marks are sorted by column; those past a cut belong to cells that are
 	// no longer shown.
-	for len(marks) > 0 && int(marks[len(marks)-1].Col) >= len(cells) {
+	for len(marks) > 0 && int(marks[len(marks)-1].Col) >= markColumns {
 		marks = marks[:len(marks)-1]
 	}
 	return Row{Cells: cells, Marks: marks, ID: l.id, Version: l.version, Wrapped: l.wrapped, Written: l.at}
@@ -498,6 +509,7 @@ func (t *Terminal) recycle(l *line) *line {
 	}
 	l.marks = l.marks[:0]
 	l.hyperlinks = nil
+	l.clipped = nil
 	l.wrapped = false
 	l.at = 0
 	t.nextID++
@@ -514,6 +526,7 @@ func (t *Terminal) pushHistory(l *line) {
 	if t.histMax == 0 {
 		return
 	}
+	l = l.unclipped()
 	used := len(l.cells)
 	for used > 0 && l.cells[used-1] == (Cell{}) && l.hyperlinkAt(used-1) == 0 {
 		used--
@@ -534,6 +547,7 @@ func (t *Terminal) pushHistory(l *line) {
 		dst.cells = make([]Cell, used)
 	}
 	dst.cells = dst.cells[:used]
+	dst.clipped = nil
 	copy(dst.cells, l.cells[:used])
 	dst.marks = append(dst.marks[:0], l.marks...)
 	if used > 0 && l.hyperlinks != nil {
@@ -566,21 +580,13 @@ func (t *Terminal) popHistory() *line {
 	if t.histCount == 0 {
 		t.histHead = 0
 	}
-	l := &line{cells: make([]Cell, t.cols), wrapped: h.wrapped, id: h.id, version: h.version, at: h.at}
-	copy(l.cells, h.cells)
+	l := &line{cells: append([]Cell(nil), h.cells...), marks: append([]Mark(nil), h.marks...),
+		wrapped: h.wrapped, id: h.id, version: h.version, at: h.at}
 	if h.hyperlinks != nil {
-		links := make([]uint32, t.cols)
-		copy(links, *h.hyperlinks)
+		links := append([]uint32(nil), (*h.hyperlinks)...)
 		l.hyperlinks = &links
 	}
-	for _, m := range h.marks {
-		if int(m.Col) < t.cols {
-			l.marks = append(l.marks, m)
-		}
-	}
-	if l.cells[t.cols-1].Attr&WideHead != 0 { // the tail was cut off by a narrower terminal
-		l.orphan(t.cols - 1)
-	}
+	t.fitMainCols(l)
 	t.view = min(t.view, t.histCount)
 	return l
 }
@@ -644,7 +650,8 @@ func (t *Terminal) rotate(top, bottom, n int, up, toHistory bool) {
 	t.version++
 }
 
-// Resize changes the grid size. It truncates or pads; it does not reflow.
+// Resize changes the grid size without reflow. Untouched main-screen rows keep
+// clipped content for a later widening; the alternate screen truncates or pads.
 // Shrinking pushes the lines above the cursor into the history, growing pulls
 // them back, so a shell that redraws its prompt keeps its place.
 func (t *Terminal) Resize(cols, rows int) {
@@ -678,7 +685,11 @@ func (t *Terminal) Resize(cols, rows int) {
 // column count). cursorY, when set, is the cursor row to keep on screen.
 func (t *Terminal) resizeLines(s *screen, rows int, cursorY *int, useHistory bool) {
 	for _, l := range s.lines {
-		t.fitCols(l)
+		if useHistory {
+			t.fitMainCols(l)
+		} else {
+			t.fitCols(l)
+		}
 	}
 	switch {
 	case rows < len(s.lines):

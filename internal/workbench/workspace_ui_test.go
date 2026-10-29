@@ -2,6 +2,7 @@ package workbench
 
 import (
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/vivaui/viva/app"
@@ -9,6 +10,68 @@ import (
 	"motty/internal/sshconn"
 	layoutcore "motty/internal/workspace"
 )
+
+func TestClosingSplitRestoresPopulatedTerminal(t *testing.T) {
+	for _, test := range []struct {
+		name  string
+		axis  layoutcore.Axis
+		empty bool
+	}{
+		{"right session", layoutcore.Horizontal, false},
+		{"down session", layoutcore.Vertical, false},
+		{"right empty", layoutcore.Horizontal, true},
+		{"down empty", layoutcore.Vertical, true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			state := newTestState(t, testOptions(t))
+			openHost(state)
+			state.cellWidth, state.cellHeight = 8, 16
+			size := ui.Size{Width: 1200, Height: 800}
+			state.Resize(size)
+			originalID := state.sessions[0].ID
+			terminal := state.sessions[0].term
+			shell := &fakeShell{done: make(chan struct{})}
+			terminal.shell, terminal.live = shell, true
+			terminal.screen.Write([]byte(strings.Repeat("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz--RIGHT-EDGE-END\r\n", 80) + "prompt> "))
+			before := string(terminal.screen.AppendRetainedText(nil))
+			cols, rows := terminal.screen.Size()
+			if test.empty {
+				if !state.splitActivePane(test.axis) {
+					t.Fatal("split did not open")
+				}
+			} else if test.axis == layoutcore.Horizontal {
+				state.Click(hitPaneSplitHorizontal)
+			} else {
+				state.Click(hitPaneSplitVertical)
+			}
+			if len(state.Panes(nil)) != 2 {
+				t.Fatal("split did not produce two panes")
+			}
+			state.Click(hitPaneClose)
+			if len(state.Panes(nil)) != 1 || state.activeSessionID != originalID {
+				t.Fatal("closing the new pane did not restore the original session")
+			}
+			if c, r := terminal.screen.Size(); c != cols || r != rows {
+				t.Fatalf("terminal stayed at %dx%d, want %dx%d", c, r, cols, rows)
+			}
+			shell.mu.Lock()
+			lastResize := shell.resizes[len(shell.resizes)-1]
+			shell.mu.Unlock()
+			if lastResize != [2]int{cols, rows} {
+				t.Fatalf("shell stayed at %v, want %dx%d", lastResize, cols, rows)
+			}
+			if after := string(terminal.screen.AppendRetainedText(nil)); after != before {
+				t.Fatal("split/close permanently changed existing output")
+			}
+			var canvas ui.Canvas
+			state.Paint(&canvas, size)
+			hit, ok := hitByID(&canvas, hitTerminalList.At(int(originalID)))
+			if !ok || hit.Bounds.Width != 1200 {
+				t.Fatalf("restored terminal hit = %+v", hit)
+			}
+		})
+	}
+}
 
 func TestManagementUsesSidebarAndTerminalUsesFullWorkspace(t *testing.T) {
 	state := newTestState(t, testOptions(t))

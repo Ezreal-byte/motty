@@ -1442,6 +1442,8 @@ func (state *State) closeActivePane() {
 	_, _ = state.deck.ClosePane(workspaceID, paneID)
 	state.syncActiveSession()
 	state.refreshWorkspaceViews()
+	state.fitWorkspaceTerminals(workspaceID)
+	state.fitSFTP(state.viewport)
 	state.save()
 }
 
