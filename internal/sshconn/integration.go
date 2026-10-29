@@ -111,6 +111,11 @@ MOTTY_ENV
 for _motty_file in .zprofile .zshrc .zlogin; do
 cat > "$_motty_dir/$_motty_file" <<'MOTTY_START'
 ZDOTDIR=$_motty_user_zdotdir
+# /etc/zshrc can derive HISTFILE from the private ZDOTDIR. Repair that default
+# before the user's startup files choose their own history path.
+if [[ ${HISTFILE-} == "$_motty_runtime/.zsh_history" ]]; then
+    HISTFILE=$ZDOTDIR/.zsh_history
+fi
 MOTTY_START
 printf '[[ -r "$ZDOTDIR/%s" ]] && source "$ZDOTDIR/%s"\n' "$_motty_file" "$_motty_file" >> "$_motty_dir/$_motty_file"
 if [ "$_motty_file" != .zlogin ]; then

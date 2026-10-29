@@ -187,6 +187,139 @@ func TestIntegrationReportsRealShellDirectoriesWithoutChangingProfiles(t *testin
 	}
 }
 
+func TestIntegrationZshHistorySurvivesSessions(t *testing.T) {
+	program, err := exec.LookPath("zsh")
+	if err != nil {
+		t.Skipf("zsh unavailable: %v", err)
+	}
+	for _, test := range []struct{ name, location, rc, login string }{
+		{name: "default"},
+		{name: "custom-zdotdir", location: "environment"},
+		{name: "zshenv-zdotdir", location: ".zshenv"},
+		{name: "custom-history", rc: `HISTFILE="$HOME/custom history"`},
+		{name: "login-history", login: `HISTFILE="$HOME/login history"`},
+		{name: "unset-history", rc: "unset HISTFILE\nsetopt NO_UNSET"},
+		{name: "empty-history", rc: "HISTFILE="},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			home, runtimeDir := t.TempDir(), t.TempDir()
+			t.Setenv("HOME", home)
+			t.Setenv("ZDOTDIR", "")
+			os.Unsetenv("ZDOTDIR")
+			t.Setenv("TERM_PROGRAM", "motty-history-test")
+			dotdir := home
+			if test.location != "" {
+				dotdir = filepath.Join(home, "zsh files %'#")
+				if err := os.Mkdir(dotdir, 0700); err != nil {
+					t.Fatal(err)
+				}
+				if test.location == "environment" {
+					t.Setenv("ZDOTDIR", dotdir)
+				} else if err := os.WriteFile(filepath.Join(home, ".zshenv"), []byte("ZDOTDIR=\"$HOME/zsh files %'#\"\n"), 0600); err != nil {
+					t.Fatal(err)
+				}
+			}
+			profiles := map[string]string{
+				".zshrc":  "_test_rc_histfile=${HISTFILE-}\nPS1='history-test> '\nHISTSIZE=200\nSAVEHIST=200\n" + test.rc + "\n",
+				".zlogin": test.login + "\n",
+			}
+			for name, text := range profiles {
+				if err := os.WriteFile(filepath.Join(dotdir, name), []byte(text), 0600); err != nil {
+					t.Fatal(err)
+				}
+			}
+			env := []string{"SHELL=" + program, "TMPDIR=" + runtimeDir, "TERM=xterm-256color", "LANG=en_US.UTF-8"}
+			// Compare with an ordinary login shell on this machine, including
+			// what the user's rc file saw before choosing its own history path.
+			diagnostic := `printf '\036history=%s\037rc=%s\036' "${HISTFILE-}" "$_test_rc_histfile"`
+			plain := exec.Command(program, "-lic", diagnostic)
+			plain.Env = append(os.Environ(), env...)
+			data, err := plain.CombinedOutput()
+			if err != nil {
+				t.Fatalf("ordinary zsh: %v: %q", err, data)
+			}
+			_, expected, ok := strings.Cut(string(data), "\x1ehistory=")
+			if !ok {
+				t.Fatalf("ordinary zsh did not report its history path: %q", data)
+			}
+			expected, _, ok = strings.Cut(expected, "\x1e")
+			if !ok {
+				t.Fatalf("incomplete history report: %q", data)
+			}
+			histfile, _, _ := strings.Cut(expected, "\x1frc=")
+			for session := 0; session < 2; session++ {
+				shell, err := localshell.Start(localshell.Config{
+					Shell: "/bin/sh", Args: IntegrationArgs(program, "history-token"), Dir: home,
+					Env: env, Cols: 120, Rows: 24,
+				})
+				if err != nil {
+					t.Fatal(err)
+				}
+				t.Cleanup(shell.Close)
+				screen := term.New(120, 24, 0)
+				screen.SetPromptToken("history-token")
+				ready, output := 0, ""
+				screen.SetPromptReady(func() { ready++ })
+				await := func(what string, done func() bool) {
+					t.Helper()
+					deadline := time.Now().Add(8 * time.Second)
+					for time.Now().Before(deadline) {
+						data := shell.Drain(nil)
+						output += string(data)
+						screen.Write(data)
+						if done() {
+							return
+						}
+						time.Sleep(5 * time.Millisecond)
+					}
+					t.Fatalf("session %d waiting for %s: %q", session, what, output)
+				}
+				run := func(input, want string) {
+					t.Helper()
+					before := ready
+					output = ""
+					shell.Write([]byte(input + "\r"))
+					await(input, func() bool { return ready > before && strings.Contains(output, want) })
+				}
+				await("first prompt", func() bool { return ready > 0 })
+				if session == 1 && histfile != "" {
+					run("\x1b[A", "\x1emotty-history-marker\x1f")
+				}
+				run(diagnostic, "\x1ehistory="+expected+"\x1e")
+				if session == 0 {
+					run(`printf '\036motty-history-marker\037\n'`, "\x1emotty-history-marker\x1f")
+					run("\x1b[A", "\x1emotty-history-marker\x1f")
+				}
+				// EOF saves history without adding an exit command for the next
+				// session's Up key to recall instead of the marker.
+				shell.Write([]byte("\x04"))
+				select {
+				case <-shell.Done():
+				case <-time.After(8 * time.Second):
+					t.Fatal("integrated zsh did not exit")
+				}
+				if shell.ExitStatus() != 0 {
+					t.Fatalf("exit status = %d: %q", shell.ExitStatus(), shell.Drain(nil))
+				}
+				if histfile != "" {
+					data, err := os.ReadFile(histfile)
+					if err != nil || !strings.Contains(string(data), "motty-history-marker") {
+						t.Fatalf("history was not saved to %q: %q, %v", histfile, data, err)
+					}
+				}
+			}
+			for name, want := range profiles {
+				if data, err := os.ReadFile(filepath.Join(dotdir, name)); err != nil || string(data) != want {
+					t.Fatalf("profile %s changed: %q, %v", name, data, err)
+				}
+			}
+			if files, err := os.ReadDir(runtimeDir); err != nil || len(files) != 0 {
+				t.Fatalf("session files leaked: %v, %v", files, err)
+			}
+		})
+	}
+}
+
 func TestIntegrationRejectsUnsupportedShells(t *testing.T) {
 	for _, shell := range []string{"", "bash", "/bin/fish", "/bin/bash\n", "/bin/bash;touch /tmp/no"} {
 		if command := integrationCommand(shell); command != "" {

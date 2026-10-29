@@ -38,8 +38,10 @@ another `cd` back. Both preferences use the existing shared-settings storage.
   automatic `.bash_logout` processing differ from a true login shell.
 - Zsh uses a private runtime ZDOTDIR, sources the user's startup files in order,
   restores ZDOTDIR, and adds a `precmd_functions` entry without replacing
-  `precmd`. Startup files that deliberately disable further startup processing
-  can also disable integration.
+  `precmd`. A `.zsh_history` default derived from the private directory is
+  restored to the user's directory before their startup files run; custom or
+  disabled history settings are kept. Startup files that deliberately disable
+  further startup processing can also disable integration.
 - The runtime files are removed after startup, with an exit cleanup as a
   fallback. Existing startup files are never rewritten, and the inherited umask
   is restored before starting the user shell.
