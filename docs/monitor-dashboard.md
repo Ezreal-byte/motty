@@ -23,11 +23,13 @@
 
 ## 前置依赖和提交
 
+功能需求与验收范围见 [Motty #196](https://github.com/t8y2/motty/issues/196)。
+
 开发依赖 [Motty #176](https://github.com/t8y2/motty/pull/176)（采集器和终端侧栏）及 [Viva #65](https://github.com/vivaui/viva/pull/65)（面积图渐变、布局定位及原生 Tabs）。未重写采集协议，也未引入 Web 图表库。
 
-两个前置 PR 已合并。当前功能已重新基于 Motty 上游 `401ec67` 和 Viva 上游 `62283a9`，功能差异不再包含前置 PR 的提交。现有 `design/` 原型保留，不属于本次原生客户端提交。
+两个前置 PR 已合并。当前功能已重新基于 Motty 上游 `5ac3866` 和 Viva 上游 `fd88e23`，功能差异不再包含前置 PR 的提交。现有 `design/` 原型保留，不属于本次原生客户端提交。
 
-本轮界面复用 Viva 的 Select、Input、InputGroup、Empty、Card、Checkbox、Tabs 和 ReorderList；图标按钮、整卡勾选及时间轴刻度边界修复位于 [Viva #66](https://github.com/vivaui/viva/pull/66)（本地 Viva 提交 `1289f16`）。
+本轮界面复用 Viva 的 Select、Input、InputGroup、Empty、Card、Checkbox、Tabs 和 ReorderList；图标按钮、整卡勾选及时间轴刻度边界修复位于 [Viva #66](https://github.com/vivaui/viva/pull/66)（本地 Viva 提交 `487bac4`），对应需求为 [Viva #68](https://github.com/vivaui/viva/issues/68)。此框架 PR 合入前，构建需要检出其分支；默认检出 Viva main 的 CI 可能因缺少新组件 API 而失败。
 
 ## 验证
 
@@ -36,4 +38,4 @@
 本机验证日志和截图输出到忽略目录 `tmp/monitor-dashboard/`。完整回归中的 Windows 环境/基线失败单独记录在该目录的验证结果中；不能将完整回归报告为全绿。测试和构建命令沿用仓库 Go 工具链和兄弟目录 Viva 替换配置。
 
 
-本轮代码审查另行覆盖了慢频率切换保留历史、不可用协议连接释放、目标变更重新采集、无效跳板重试清理、配置快照深拷贝、主机引用去重及恢复定义时的历史清理。审查记录和待提交的中文 PR 文案位于本地忽略目录 `tmp/monitor-dashboard/`，尚未创建 Motty PR。
+本轮代码审查另行覆盖了慢频率切换保留历史、不可用协议连接释放、目标变更重新采集、无效跳板重试清理、配置快照深拷贝、主机引用去重及恢复定义时的历史清理。审查记录、中文 Issue/PR 文案及同步后的定向验证日志位于本地忽略目录 `tmp/monitor-dashboard/`。
