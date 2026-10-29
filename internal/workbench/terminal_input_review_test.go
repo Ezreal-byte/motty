@@ -1,6 +1,7 @@
 package workbench
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/vivaui/viva/app"
@@ -170,5 +171,42 @@ func TestTerminalInputBracketedPasteRetainsAppendOnlyProtection(t *testing.T) {
 	state.Click(hitInputReplace)
 	if shell.typed() != "\x1b[200~tail \x1b[201~ " {
 		t.Fatalf("post-paste correction executed or altered original paste: %q", shell.typed())
+	}
+}
+
+func TestTerminalInputUnparsedReceivedBacklogCannotAuthorizeActions(t *testing.T) {
+	for _, action := range []string{"confirm-glyph", "confirm-locale", "open-glyph", "open-locale"} {
+		t.Run(action, func(t *testing.T) {
+			state, _, _, shell := liveSession(t)
+			session := &state.sessions[0]
+			inputGuardPrompt(state, session, shell, "other", "C.UTF-8")
+			if action == "confirm-locale" {
+				state.Click(hitInputLocaleFix)
+			}
+			if action == "confirm-glyph" {
+				state.terminalText(session.ID, app.TextEvent{Kind: app.TextInsert, Text: "\u3000"})
+			}
+			state.options.Invalidate = func() {}
+			shell.say(strings.Repeat("x", 2*pumpBudget+16) + "\x1b]133;C;motty=" + session.term.folderToken + "\x07Password: ")
+			want := ""
+			switch action {
+			case "open-glyph":
+				state.terminalText(session.ID, app.TextEvent{Kind: app.TextInsert, Text: "\u3000"})
+				want = "\u3000"
+			case "open-locale":
+				state.Click(hitInputLocaleFix)
+			default:
+				state.Click(hitInputReplace)
+			}
+			if len(session.term.rx) == 0 {
+				t.Fatal("fixture did not exercise production output parsing budget")
+			}
+			if shell.typed() != want || state.modal == modalTerminalInput {
+				t.Fatalf("unparsed received output authorized action: input=%q want=%q modal=%v backlog=%d", shell.typed(), want, state.modal, len(session.term.rx))
+			}
+			if session.term.inputGuard.prefix != "" {
+				t.Fatal("uncertain program input was retained in the command tracker")
+			}
+		})
 	}
 }

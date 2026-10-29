@@ -37,11 +37,15 @@ func TestIntegratedShellReportsActualLocaleAndConfirmedRepairFixesCJKEditing(t *
 				t.Fatal(err)
 			}
 			t.Cleanup(func() {
-				shell.Close()
+				defer shell.Close()
+				// Let the interactive child save history before its wrapper exits
+				// and TempDir removes HOME; hanging up only waits for the wrapper.
+				shell.Write([]byte("exit\r"))
 				select {
 				case <-shell.Done():
 				case <-time.After(5 * time.Second):
-					t.Error("input fixture shell did not stop")
+					shell.Close()
+					t.Error("input fixture shell did not exit gracefully")
 				}
 			})
 			screen := term.New(180, 24, 0)

@@ -186,7 +186,7 @@ func commandGlyphFix(prefix, value string, smart rune) (fixed, detail string, ne
 func (state *State) inputGuardAvailable(session *Session) bool {
 	t := session.term
 	return state.modal == modalNone && state.activeSection == sectionTerminal && state.activeSessionID == session.ID && state.broadcast == 0 && !state.transfers.open && state.knownHosts.action == knownHostsActionNone &&
-		t != nil && t.shell != nil && !t.ended && t.exec == nil && t.inputGuard.active && t.inputGuard.environment.Charset != "" && t.commandReporting && t.folderToken != "" &&
+		t != nil && t.shell != nil && !t.ended && t.exec == nil && len(t.rx) == 0 && t.inputGuard.active && t.inputGuard.environment.Charset != "" && t.commandReporting && t.folderToken != "" &&
 		session.desk == nil && session.containerCommand == "" && !t.screen.Modes().AltScreen && t.screen.KeyboardFlags() == 0 && !t.screen.Modes().Win32Input &&
 		!(state.transfer.phase != transferNone && state.transfer.sessionID == session.ID)
 }
@@ -230,6 +230,11 @@ func (state *State) inputOwnerAfterDrain(id uint32, owner *terminal) *Session {
 	session, ok = state.sessionByIDPointer(id)
 	if !ok || session.term != owner {
 		return nil
+	}
+	// A bounded pump may leave a received transition unparsed. Retire the
+	// proof rather than blocking the UI to drain an unbounded output stream.
+	if len(owner.rx) > 0 {
+		owner.inputGuard.start()
 	}
 	state.fitTerminal(session)
 	return session

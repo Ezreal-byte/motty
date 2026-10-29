@@ -44,6 +44,9 @@ never cleared to run the repair. The warning can be hidden for this session.
 - Both opening and confirming an action first consume already-received owner
   output. A changed prompt, program, terminal identity or connection invalidates
   the pending action instead of sending it elsewhere.
+- If the bounded output pump still has received data waiting to be parsed,
+  prompt proof is retired. Confirmation never waits in an unbounded drain loop
+  or assumes that an unread program transition is harmless.
 - Shell reports are bound to this session's private prompt token. They do not
   authenticate a malicious remote host that already controls that token.
 - Password/program input, alternate-screen editors, raw keyboard protocols,
