@@ -71,6 +71,9 @@ func (state *State) sftpPanelResizable(canvas *ui.Canvas, size ui.Size, context 
 	maximum := state.contextPanelExtent(base, layoutcore.MaxContextWidth)
 	base.Width -= state.aiReserve(state.deck.ActiveWorkspace(), size)
 	base.Width -= state.independentMonitorReserve(state.deck.ActiveWorkspace(), size)
+	if context.MonitorLeft {
+		base.X += state.independentMonitorReserve(state.deck.ActiveWorkspace(), size)
+	}
 	usable := max(base.Width-1, 1)
 	fraction, least, most := width/usable, minimum/usable, maximum/usable
 	if context.Side == layoutcore.ContextRight {

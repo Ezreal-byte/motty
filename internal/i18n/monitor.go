@@ -1,6 +1,7 @@
 package i18n
 
 type MonitorMessages struct {
+	MoveLeft, MoveRight                                                        string
 	AvailableMemory, LoadAverages, Uptime                                      string
 	UnsupportedPlatform                                                        string
 	PrimaryDisk                                                                string
@@ -18,6 +19,7 @@ type MonitorMessages struct {
 }
 
 var chineseMonitor = MonitorMessages{
+	MoveLeft: "将监控移到左侧", MoveRight: "将监控移到右侧",
 	AvailableMemory: "可用内存", LoadAverages: "负载 · 1 / 5 / 15 分钟", Uptime: "运行时长",
 	UnsupportedPlatform: "当前监控支持 Linux 和 Windows，此服务器暂不支持。",
 	PrimaryDisk:         "主磁盘",
@@ -35,6 +37,7 @@ var chineseMonitor = MonitorMessages{
 }
 
 var englishMonitor = MonitorMessages{
+	MoveLeft: "Move monitor left", MoveRight: "Move monitor right",
 	AvailableMemory: "Available memory", LoadAverages: "Load · 1 / 5 / 15 min", Uptime: "Uptime",
 	UnsupportedPlatform: "Monitoring currently supports Linux and Windows. This server is not supported yet.",
 	PrimaryDisk:         "System disk",

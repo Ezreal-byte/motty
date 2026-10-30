@@ -240,6 +240,30 @@ func TestMonitorResizeDoesNotChangeFilePresentation(t *testing.T) {
 	}
 }
 
+func TestMonitorDividerKeysFollowTheDockedSide(t *testing.T) {
+	for _, left := range []bool{false, true} {
+		state, _ := monitorFixture(t)
+		size := ui.Size{Width: 1800, Height: 900}
+		state.Resize(size)
+		id := state.deck.ActiveWorkspace()
+		context, _ := state.deck.Context(id)
+		context.MonitorOpen, context.MonitorWidth, context.MonitorLeft = true, 400, left
+		if err := state.deck.SetContext(id, context); err != nil {
+			t.Fatal(err)
+		}
+		state.Paint(&ui.Canvas{}, size)
+		before := state.monitorRect.Width
+		state.monitorKey(ui.KeyEvent{Target: hitMonitorDivider, Key: ui.KeyLeft})
+		state.Paint(&ui.Canvas{}, size)
+		after := state.monitorRect.Width
+		// Left always moves the divider left: a right-docked monitor widens and
+		// a left-docked one narrows, so the key follows the pointer's direction.
+		if left == (after >= before) {
+			t.Fatalf("left dock %v: Left key width %v -> %v", left, before, after)
+		}
+	}
+}
+
 func TestMonitorRefreshAnimationPausesAndRespectsReducedMotion(t *testing.T) {
 	for _, reduced := range []bool{false, true} {
 		for _, paused := range []bool{false, true} {

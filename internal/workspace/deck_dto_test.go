@@ -20,7 +20,7 @@ func TestDeckDTORoundTripPreservesTabsTreesEmptyPanesAndBindings(t *testing.T) {
 	}
 	deck.ActivateWorkspace(production)
 	deck.ActivatePane(production, second)
-	if err := deck.SetContext(production, ContextState{Kind: ContextSFTP, Open: true, Width: 412, Side: ContextRight, MonitorOpen: true, MonitorWidth: 436}); err != nil {
+	if err := deck.SetContext(production, ContextState{Kind: ContextSFTP, Open: true, Width: 412, Side: ContextRight, MonitorOpen: true, MonitorWidth: 436, MonitorLeft: true}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -32,7 +32,7 @@ func TestDeckDTORoundTripPreservesTabsTreesEmptyPanesAndBindings(t *testing.T) {
 	if got := restored.DTO(); !reflect.DeepEqual(got, want) {
 		t.Fatalf("round trip = %+v, want %+v", got, want)
 	}
-	if context, ok := restored.Context(production); !ok || context != (ContextState{Kind: ContextSFTP, Open: true, Width: 412, Side: ContextRight, MonitorOpen: true, MonitorWidth: 436}) {
+	if context, ok := restored.Context(production); !ok || context != (ContextState{Kind: ContextSFTP, Open: true, Width: 412, Side: ContextRight, MonitorOpen: true, MonitorWidth: 436, MonitorLeft: true}) {
 		t.Fatalf("restored context = %+v, %v", context, ok)
 	}
 	dto, _ := deck.ExportWorkspace(production)
@@ -41,7 +41,7 @@ func TestDeckDTORoundTripPreservesTabsTreesEmptyPanesAndBindings(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if c, _ := target.Context(imported); !c.MonitorOpen || c.Side != ContextRight || c.MonitorWidth != 436 {
+	if c, _ := target.Context(imported); !c.MonitorOpen || c.Side != ContextRight || c.MonitorWidth != 436 || !c.MonitorLeft {
 		t.Fatalf("moving a tab lost monitor visibility: %+v", c)
 	}
 }
