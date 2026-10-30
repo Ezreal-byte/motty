@@ -82,8 +82,9 @@ default.
 Hosts can be grouped, tagged, searched and imported from OpenSSH config, PuTTY,
 Xshell, MobaXterm, WindTerm or Electerm. TOTP/HOTP seeds can be stored in the
 vault and filled automatically. Saved passwords and key passphrases go into an
-AES-256-GCM vault; the vault key lives in the system secret store or behind an
-Argon2id master password.
+AES-256-GCM vault, kept under the host they belong to; the vault key lives in the
+system secret store, or in a key file beside the vault where there is none (and
+in a portable copy).
 
 <p align="center">
   <a href="assets/readme-hosts.webp"><img src="assets/readme-hosts.webp" width="720" alt="Host list with tags and a remote-desktop host" /></a>
@@ -319,7 +320,8 @@ files only; it does not automatically isolate entries in the system Keychain.
 
 - Host-key verification happens before any credential is sent.
 - Saved passwords and passphrases are stored in an AES-256-GCM vault; its key is
-  in the system secret store or wrapped by an Argon2id master password.
+  in the system secret store, or in a key file in the data folder where the system
+  has none: anyone who can copy that folder can read the vault.
 - AI provider keys are in the vault. Terminal context is redacted by default, and
   agent commands pass through the approval gate.
 - The MCP server is off by default, loopback-only and bearer-token protected.

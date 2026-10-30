@@ -115,6 +115,7 @@ func (state *State) Paint(canvas *ui.Canvas, size ui.Size) {
 		canvas.AfterPaint(func() { state.Click(id) })
 	}
 	state.syncVisible()
+	state.reveal.beginPaint()
 	state.contextRect = ui.Rect{}
 	state.hostsBounds, state.chrome.hostList = ui.Rect{}, ui.Rect{}
 	state.devBeginPaint()
@@ -252,8 +253,6 @@ func (state *State) Paint(canvas *ui.Canvas, size ui.Size) {
 		state.paintPasswordDialog(canvas, viewport)
 	case modalVaultUnlock:
 		state.paintVaultUnlockDialog(canvas, viewport)
-	case modalMasterPassword:
-		state.paintMasterPasswordDialog(canvas, viewport)
 	case modalVaultForget:
 		state.paintVaultForgetDialog(canvas, viewport)
 	case modalHighlightRule:
@@ -1979,7 +1978,7 @@ func (state *State) paintDialogFieldWithSecurity(canvas *ui.Canvas, id ui.ID, fi
 	state.revealHostField(canvas, id, content)
 	value := state.editor.field(field).String()
 	focused := canvas.Focused() == id
-	components.PaintInput(canvas, theme, content, components.InputSnapshot{
+	state.paintSecretInput(canvas, content, components.InputSnapshot{
 		ID:              id,
 		Label:           title,
 		Value:           value,
@@ -2050,7 +2049,7 @@ func (state *State) paintPasswordDialog(canvas *ui.Canvas, viewport ui.Rect) {
 		value := state.passwordFields[index].String()
 		id := hitPasswordFields.At(index + 1)
 		focused := canvas.Focused() == id
-		components.PaintInput(canvas, theme, content, components.InputSnapshot{
+		state.paintSecretInput(canvas, content, components.InputSnapshot{
 			ID: id, Label: label, Value: value, Secure: question.Secret,
 			Focused: focused, PlatformEditing: focused && (value != "" || !question.Secret), Invalid: state.passwordError != "",
 		})
@@ -2141,8 +2140,6 @@ func (state *State) passwordHintText() string {
 	hint := state.messages.PasswordHint
 	switch {
 	case state.secrets.canSave:
-	case state.secrets.needsMaster:
-		hint = state.messages.PasswordHintNoStore
 	default:
 		hint = state.messages.PasswordHintUnsaved
 	}
@@ -2176,7 +2173,7 @@ func (state *State) paintKeyPassphraseDialog(canvas *ui.Canvas, viewport ui.Rect
 	content := field.Paint(m.KeyPassphraseLabel, m.KeyPassphraseHint, "")
 	value := state.keyPassphrase.String()
 	focused := canvas.Focused() == hitKeyPassphraseField
-	components.PaintInput(canvas, theme, content, components.InputSnapshot{
+	state.paintSecretInput(canvas, content, components.InputSnapshot{
 		ID: hitKeyPassphraseField, Label: m.KeyPassphraseLabel, Value: value, Secure: true,
 		Focused: focused, PlatformEditing: focused && value != "", Invalid: state.keyPassphraseError != "",
 	})

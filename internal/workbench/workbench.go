@@ -73,6 +73,7 @@ var (
 	hitDialogAddress           = tree.ID(shellHits, "dialog-address")
 	hitDialogUser              = tree.ID(shellHits, "dialog-user")
 	hitDialogPassword          = tree.ID(shellHits, "dialog-password")
+	hitDialogPassphrase        = tree.ID(shellHits, "dialog-passphrase")
 	hitDialogGroup             = tree.ID(shellHits, "dialog-group")
 	hitDialogPort              = tree.ID(shellHits, "dialog-port")
 	hitDialogTags              = tree.ID(shellHits, "dialog-tags")
@@ -228,11 +229,7 @@ var (
 	hitSettingsRestoreAll       = tree.ID(settingsHits, "settings-restore-all")
 	hitSettingsShareToggle      = tree.ID(settingsHits, "settings-share")
 	hitSettingsVaultForget      = tree.ID(settingsHits, "settings-vault-forget")
-	hitSettingsMasterSet        = tree.ID(settingsHits, "settings-master-set")
-	hitSettingsMasterChange     = tree.ID(settingsHits, "settings-master-change")
-	hitSettingsMasterRemove     = tree.ID(settingsHits, "settings-master-remove")
-	hitSettingsMasterLock       = tree.ID(settingsHits, "settings-master-lock")
-	hitSettingsMasterUnlock     = tree.ID(settingsHits, "settings-master-unlock")
+	hitSettingsVaultConvert     = tree.ID(settingsHits, "settings-vault-convert")
 )
 
 // Jump-host routing: its page and dialog.
@@ -328,24 +325,18 @@ var (
 
 // The saved-passwords dialogs, and the boxes that offer to save.
 var (
-	hitVaultUnlockField      = tree.ID(vaultHits, "vault-unlock-field")
-	hitVaultUnlockSubmit     = tree.ID(vaultHits, "vault-unlock-submit")
-	hitVaultUnlockCancel     = tree.ID(vaultHits, "vault-unlock-cancel")
-	hitVaultUnlockClose      = tree.ID(vaultHits, "vault-unlock-close")
-	hitVaultUnlockDismiss    = tree.ID(vaultHits, "vault-unlock-dismiss")
-	hitMasterPasswordNew     = tree.ID(vaultHits, "master-password-new")
-	hitMasterPasswordConfirm = tree.ID(vaultHits, "master-password-confirm")
-	hitMasterPasswordSubmit  = tree.ID(vaultHits, "master-password-submit")
-	hitMasterPasswordCancel  = tree.ID(vaultHits, "master-password-cancel")
-	hitMasterPasswordClose   = tree.ID(vaultHits, "master-password-close")
-	hitMasterPasswordDismiss = tree.ID(vaultHits, "master-password-dismiss")
-	hitVaultForgetConfirm    = tree.ID(vaultHits, "vault-forget-confirm")
-	hitVaultForgetCancel     = tree.ID(vaultHits, "vault-forget-cancel")
-	hitVaultForgetClose      = tree.ID(vaultHits, "vault-forget-close")
-	hitVaultForgetDismiss    = tree.ID(vaultHits, "vault-forget-dismiss")
-	hitPasswordSave          = tree.ID(vaultHits, "password-save")
-	hitPasswordHint          = tree.ID(vaultHits, "password-hint")
-	hitKeyPassphraseSave     = tree.ID(vaultHits, "key-passphrase-save")
+	hitVaultUnlockField   = tree.ID(vaultHits, "vault-unlock-field")
+	hitVaultUnlockSubmit  = tree.ID(vaultHits, "vault-unlock-submit")
+	hitVaultUnlockCancel  = tree.ID(vaultHits, "vault-unlock-cancel")
+	hitVaultUnlockClose   = tree.ID(vaultHits, "vault-unlock-close")
+	hitVaultUnlockDismiss = tree.ID(vaultHits, "vault-unlock-dismiss")
+	hitVaultForgetConfirm = tree.ID(vaultHits, "vault-forget-confirm")
+	hitVaultForgetCancel  = tree.ID(vaultHits, "vault-forget-cancel")
+	hitVaultForgetClose   = tree.ID(vaultHits, "vault-forget-close")
+	hitVaultForgetDismiss = tree.ID(vaultHits, "vault-forget-dismiss")
+	hitPasswordSave       = tree.ID(vaultHits, "password-save")
+	hitPasswordHint       = tree.ID(vaultHits, "password-hint")
+	hitKeyPassphraseSave  = tree.ID(vaultHits, "key-passphrase-save")
 )
 
 var (
@@ -402,10 +393,12 @@ type State struct {
 	fileWindows       fileWindowManager
 	fileNotices       fileNotices
 	inputConfirmation terminalInputConfirmation
-	sftpWindows       map[uint32]*sftpWindow
-	remoteWindows     []*remoteToolsWindow
-	remoteWindow      *remoteToolsWindow // set only on a native tool window's isolated presenter
-	closed            bool
+	// reveal is which password fields show their text rather than bullets.
+	reveal        secretReveal
+	sftpWindows   map[uint32]*sftpWindow
+	remoteWindows []*remoteToolsWindow
+	remoteWindow  *remoteToolsWindow // set only on a native tool window's isolated presenter
+	closed        bool
 	// saveBlocked is set when the state file came from a newer build: nothing is
 	// ever written over it. stateNotice is the dialog that tells the user why a
 	// state file was not loaded as it was.
@@ -816,6 +809,7 @@ func New(options Options) *State {
 		saved.Sessions, saved.Deck, saved.ActiveSession, saved.Workspace = nil, nil, 0, ""
 	}
 	state.restore(saved)
+	state.migrateSecretsToHosts(false)
 	if report.outcome == loadOK && err == nil {
 		backupState(state.options.StatePath, saved)
 	}
@@ -1055,13 +1049,6 @@ func (state *State) EditorFor(hit ui.ID) *text.Editor {
 		case hitSnippetCommand:
 			return &state.snippets.command
 		}
-	case modalMasterPassword:
-		switch hit {
-		case hitMasterPasswordNew:
-			return &state.secrets.newPassword
-		case hitMasterPasswordConfirm:
-			return &state.secrets.confirmPassword
-		}
 	case modalCommandPalette:
 		if hit == hitCommandPaletteSearch {
 			return &state.commandPalette.search
@@ -1101,6 +1088,9 @@ func (state *State) Click(id ui.ID) {
 		return
 	}
 	if state.fileNotices.click(id) {
+		return
+	}
+	if state.clickSecretReveal(id) {
 		return
 	}
 	defer state.runLaunches()
@@ -1164,9 +1154,6 @@ func (state *State) Click(id ui.ID) {
 		return
 	case modalVaultUnlock:
 		state.clickVaultUnlock(id)
-		return
-	case modalMasterPassword:
-		state.clickMasterPassword(id)
 		return
 	case modalHighlightRule:
 		state.clickHighlightDialog(id)
@@ -1575,7 +1562,7 @@ func (state *State) clickHostDialog(id ui.ID) {
 	}
 	switch id {
 	case hitDialogDismiss, hitDialogClose, hitDialogCancel:
-		state.editor.password = text.Editor{}
+		state.editor.password, state.editor.passphrase = text.Editor{}, text.Editor{}
 		state.modal = modalNone
 		state.dialogError = ""
 		state.status = state.messages.StatusEditCanceled
@@ -1890,7 +1877,7 @@ func isHostTagsTarget(id ui.ID) bool {
 // isDialogField reports whether a hit is one of the New Host dialog's text fields.
 func isDialogField(id ui.ID) bool {
 	switch id {
-	case hitDialogLabel, hitDialogAddress, hitDialogUser, hitDialogPassword, hitDialogGroup, hitDialogPort, hitDialogTags:
+	case hitDialogLabel, hitDialogAddress, hitDialogUser, hitDialogPassword, hitDialogPassphrase, hitDialogGroup, hitDialogPort, hitDialogTags:
 		return true
 	}
 	return false
@@ -1907,6 +1894,8 @@ func fieldForDialogHit(id ui.ID) hostField {
 		return fieldUser
 	case hitDialogPassword:
 		return fieldPassword
+	case hitDialogPassphrase:
+		return fieldPassphrase
 	case hitDialogGroup:
 		return fieldGroup
 	case hitDialogTags:
@@ -2102,10 +2091,6 @@ func (state *State) key(event ui.KeyEvent) ui.EventResult {
 	}
 	if state.modal == modalSnippet && event.Key == ui.KeyEnter && (event.Target == hitSnippetName || event.Target == hitSnippetCommand) && !event.Repeat {
 		state.submitSnippet()
-		return ui.EventResult{Handled: true, Repaint: true}
-	}
-	if state.modal == modalMasterPassword && event.Key == ui.KeyEnter && (event.Target == hitMasterPasswordNew || event.Target == hitMasterPasswordConfirm) && !event.Repeat {
-		state.submitMasterPassword()
 		return ui.EventResult{Handled: true, Repaint: true}
 	}
 	if state.modal == modalKeyPassphrase && event.Key == ui.KeyEnter && event.Target == hitKeyPassphraseField && !event.Repeat {

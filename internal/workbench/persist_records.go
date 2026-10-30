@@ -54,8 +54,11 @@ import (
 // Version 6 preserves the device-local shell executable choice.
 // Version 7 preserves local folder favorites and named paired SFTP profiles.
 // Version 8 preserves independent monitor visibility and panel width.
-// Version 9 preserves device-local monitoring panel definitions and settings.
-const configFormat = 9
+// Version 9 keeps a host's password and one-time code secret under the host, not
+// under its login: an older build would look for them where they no longer are.
+// Version 9 was also used by monitoring builds for device-local panel definitions.
+// Version 10 preserves both changes so neither older build can overwrite them.
+const configFormat = 10
 
 const (
 	kindSetting             = "setting"

@@ -513,7 +513,7 @@ func TestThePasswordDialogHintAndErrorLinesDoNotOverlap(t *testing.T) {
 	state := newTestState(t, options)
 	fake := connect(t, state, world)
 	askForPassword(state, fake, 2) // a refused password, with no vault to save into
-	state.secrets.canSave, state.secrets.needsMaster = false, false
+	state.secrets.canSave = false
 	if state.modal != modalPassword || state.passwordError == "" {
 		t.Fatalf("modal %d, error %q", state.modal, state.passwordError)
 	}
@@ -887,11 +887,11 @@ func TestMultiQuestionDialogFillsThePasswordAndTheCurrentCode(t *testing.T) {
 	if state.secrets.vault == nil {
 		t.Fatal("the test vault did not open")
 	}
-	if err := state.secrets.vault.Set(passwordSecretName(endpoint), "hunter2"); err != nil {
+	if err := state.secrets.vault.Set(prodPasswordName, "hunter2"); err != nil {
 		t.Fatal(err)
 	}
 	seed := "otpauth://totp/Prod:deploy?secret=" + testOTPSeed + "&issuer=Prod"
-	if err := state.secrets.vault.Set(otpSecretName(endpoint), seed); err != nil {
+	if err := state.secrets.vault.Set(prodOTPName, seed); err != nil {
 		t.Fatal(err)
 	}
 	fake.set(func(s *sshconn.Status) {
@@ -921,7 +921,7 @@ func TestARepeatedSecondFactorRoundDoesNotBlameThePassword(t *testing.T) {
 	state := newTestState(t, options)
 	fake := connect(t, state, world)
 	session := &state.sessions[0]
-	session.filledSecret = passwordSecretName(session.endpoint)
+	session.filledSecret = state.passwordName(session)
 	fake.set(func(status *sshconn.Status) {
 		status.Phase, status.Attempt = sshconn.PhasePasswordPrompt, 2
 		status.Questions = []sshconn.Question{{Secret: true, Text: "Password: "}, {Secret: true, Text: "Verification code: "}}

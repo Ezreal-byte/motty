@@ -146,7 +146,7 @@ type Options struct {
 	// calls it on a page that has no tab to close. Nil leaves that key unbound.
 	CloseWindow func()
 	// Keystore keeps the data key of the saved-passwords vault. Nil uses the
-	// system's own secret store.
+	// system's own secret store, and a key file beside the vault where there is none.
 	Keystore vault.Keystore
 	// Dial starts a connection. Nil dials for real.
 	Dial func(sshconn.Config) Connection
@@ -362,7 +362,6 @@ const (
 	modalShortcutCapture
 	modalStateNotice
 	modalVaultUnlock
-	modalMasterPassword
 	modalVaultForget
 	modalHighlightRule
 	modalSnippet
@@ -630,7 +629,7 @@ func (state *State) Wake() {
 // lines of its story on the screen.
 func (state *State) apply(session *Session, status sshconn.Status) {
 	if session.autoRestore {
-		if isPromptPhase(status.Phase) && !state.canAutofill(status) {
+		if isPromptPhase(status.Phase) && !state.canAutofill(session, status) {
 			// Restore only connects what needs no one; a question for the user
 			// returns the tab to its page instead of opening a dialog.
 			state.abandonRestoredConnect(session)
@@ -911,6 +910,12 @@ func (state *State) showNextPrompt() {
 	if state.modal != modalNone {
 		return
 	}
+	// A vault still kept by the master password of an earlier version cannot
+	// answer anything until that password has been typed once.
+	if vaultFile := state.secrets.vault; vaultFile != nil && vaultFile.NeedsConversion() && !state.secrets.declined {
+		state.openVaultUnlock(nil, nil)
+		return
+	}
 	for session := range state.connectionSessions() {
 		key := promptKey(session.phase, session.attempt, session.identity, session.endpoint, session.role)
 		if session.conn == nil || key == 0 || key == session.answered {
@@ -921,13 +926,8 @@ func (state *State) showNextPrompt() {
 			// field per question before autofill can answer a single one.
 			state.preparePassword(session)
 		}
-		switch state.autofill(session) {
-		case autofillSent:
+		if state.autofill(session) == autofillSent {
 			continue
-		case autofillNeedsUnlock:
-			state.openVaultUnlock(session, nil)
-			state.raiseSFTPAuthentication(session)
-			return
 		}
 		state.modalSession = session.ID
 		switch session.phase {
@@ -993,6 +993,7 @@ func (state *State) closeModal() {
 	}
 	state.modal = modalNone
 	state.modalSession = 0
+	state.reveal.reset()
 	state.passwordFields = nil
 	state.passwordRects = nil
 	state.passwordBoxes = nil
@@ -1000,7 +1001,7 @@ func (state *State) closeModal() {
 	state.passwordError = ""
 	state.keyPassphrase = text.Editor{}
 	state.keyPassphraseError = ""
-	state.secrets.unlock, state.secrets.newPassword, state.secrets.confirmPassword = text.Editor{}, text.Editor{}, text.Editor{}
+	state.secrets.unlock = text.Editor{}
 	state.secrets.dialogError = ""
 	state.form = formDialog{}
 	state.closeAsked = false

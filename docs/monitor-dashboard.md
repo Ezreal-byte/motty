@@ -19,7 +19,7 @@
 
 `internal/workbench/monitor_dashboard*` 负责原生页面、表单、身份验证、连接生命周期和采集器适配。停止最后一个订阅会关闭该主机的采集与连接引用，不影响已有终端。取消后的旧采集结果通过代次校验丢弃。
 
-面板引用稳定 Catalog ID，定义和选中面板设备本地保存，配置格式为 9。凭据、运行标志和历史不写入面板配置，不参与跨设备同步。已删除主机保留失效提示，可在编辑弹窗取消选择。应用重启不自动恢复监控采集。
+面板引用稳定 Catalog ID，定义和选中面板设备本地保存，配置格式为 10。上游的主机凭据布局与早期监控分支均使用过版本 9，因此合并后提升版本，避免任一旧构建覆盖新配置。凭据、运行标志和历史不写入面板配置，不参与跨设备同步。已删除主机保留失效提示，可在编辑弹窗取消选择。应用重启不自动恢复监控采集。
 
 ## 前置依赖和提交
 
@@ -27,9 +27,9 @@
 
 开发依赖 [Motty #176](https://github.com/t8y2/motty/pull/176)（采集器和终端侧栏）及 [Viva #65](https://github.com/vivaui/viva/pull/65)（面积图渐变、布局定位及原生 Tabs）。未重写采集协议，也未引入 Web 图表库。
 
-两个前置 PR 已合并。当前功能已重新基于 Motty 上游 `5ac3866` 和 Viva 上游 `fd88e23`，功能差异不再包含前置 PR 的提交。现有 `design/` 原型保留，不属于本次原生客户端提交。
+两个前置 PR 已合并。当前功能已合并 Motty 上游 `6819b4c` 和 Viva 上游 `c20dd40`，保留主机凭据迁移、密码输入与 macOS 编辑快捷键等近期变更，功能差异不再包含前置 PR 的提交。现有 `design/` 原型保留，不属于本次原生客户端提交。
 
-本轮界面复用 Viva 的 Select、Input、InputGroup、Empty、Card、Checkbox、Tabs 和 ReorderList；图标按钮、整卡勾选及时间轴刻度边界修复位于 [Viva #66](https://github.com/vivaui/viva/pull/66)（本地 Viva 提交 `487bac4`），对应需求为 [Viva #68](https://github.com/vivaui/viva/issues/68)。此框架 PR 合入前，构建需要检出其分支；默认检出 Viva main 的 CI 可能因缺少新组件 API 而失败。
+本轮界面复用 Viva 的 Select、Input、InputGroup、Empty、Card、Checkbox、Tabs 和 ReorderList；图标按钮、整卡勾选及时间轴刻度边界修复位于 [Viva #66](https://github.com/vivaui/viva/pull/66)（本地 Viva 提交 `fee1e7c`），对应需求为 [Viva #68](https://github.com/vivaui/viva/issues/68)。此框架 PR 合入前，构建需要检出其分支；默认检出 Viva main 的 CI 可能因缺少新组件 API 而失败。
 
 ## 验证
 

@@ -147,6 +147,30 @@ func TestDashboardAuthenticationUsesExistingPromptWithoutTerminal(t *testing.T) 
 		t.Fatal("authentication connection leaked")
 	}
 }
+
+func TestDashboardUsesTheHostsSavedPasswordAtASharedEndpoint(t *testing.T) {
+	s, f, _ := dashboardTestState(t)
+	host := s.hosts[0]
+	other := host
+	other.ID, other.CatalogID = 2, "other"
+	s.hosts = append(s.hosts, other)
+	for id, secret := range map[string]string{host.CatalogID: "monitor secret", other.CatalogID: "other secret"} {
+		if err := s.secrets.vault.Set(hostSecretName(id, hostPasswordPart), secret); err != nil {
+			t.Fatal(err)
+		}
+	}
+	f.status.Phase = sshconn.PhasePasswordPrompt
+	f.status.Attempt = 1
+	f.status.Endpoint = sshconn.Endpoint{Host: host.Address, Port: host.Port, User: host.User}
+	f.status.Questions = []sshconn.Question{{Secret: true}}
+	createDashboard(t, s, "A")
+	s.Click(hitDashboardToggle)
+	s.Wake()
+	if s.modal != modalNone || len(s.sessions) != 0 || len(f.passwords) != 1 || f.passwords[0] != "monitor secret" {
+		t.Fatalf("monitor did not use its host's password: modal=%d terminals=%d answers=%d", s.modal, len(s.sessions), len(f.passwords))
+	}
+}
+
 func TestDashboardNetworkDisconnectFollowsReconnectSetting(t *testing.T) {
 	s, f, _ := dashboardTestState(t)
 	id := createDashboard(t, s, "A")

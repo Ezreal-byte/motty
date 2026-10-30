@@ -5,7 +5,6 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/vivaui/viva/text"
 	"github.com/vivaui/viva/ui"
 	"motty/internal/sshconn"
 	"motty/internal/vault"
@@ -59,7 +58,12 @@ func (keys *memKeys) Delete(service, account string) error {
 	return nil
 }
 
-const prodPasswordName = "password:deploy@prod.example.com:22"
+// The saved login of the host the tests connect to, and where its secrets are
+// kept.
+var (
+	prodCatalogID    = catalogIDFor(Host{Protocol: protocolSSH, Address: "prod.example.com", User: "deploy", Port: 22})
+	prodPasswordName = hostSecretName(prodCatalogID, hostPasswordPart)
+)
 
 func askForPassword(state *State, fake *fakeConn, attempt int) {
 	fake.set(func(s *sshconn.Status) {
@@ -255,33 +259,33 @@ func TestTheBoxToSaveIsOfferedOnlyWhereSavingCanWork(t *testing.T) {
 	fake := connect(t, state, world)
 	askForPassword(state, fake, 1)
 	if state.secrets.canSave {
-		t.Fatal("the box was offered on a system with no secret store and no master password")
+		t.Fatal("the box was offered on a system with no secret store and no key file")
 	}
 	canvas, _ := paintedTexts(state)
 	if _, ok := hitByID(canvas, hitPasswordSave); ok {
 		t.Fatal("the box was painted")
 	}
-	// With a master password it can save without a store.
-	if err := state.secrets.vault.SetMasterPassword("a master password"); err != nil {
-		t.Fatal(err)
-	}
-	state.Click(hitPasswordCancel)
-	state.Click(hitHosts)
-	fake2 := connect(t, state, world)
-	askForPassword(state, fake2, 1)
+}
+
+func TestAKeyFileLetsASystemWithoutASecretStoreSavePasswords(t *testing.T) {
+	world, options := newWorld(t)
+	options.Keystore = vault.FallbackKeystore{System: &memKeys{unavailable: true}, File: vault.FileKeystore{Path: t.TempDir() + "/vault.key"}}
+	state := newTestState(t, options)
+	fake := connect(t, state, world)
+	askForPassword(state, fake, 1)
 	if !state.secrets.canSave {
-		t.Fatal("the box is not offered although the vault is unlocked")
+		t.Fatal("the box was not offered although a key file can keep the key")
 	}
 }
 
-func TestALockedVaultAsksForTheMasterPasswordThenAnswers(t *testing.T) {
+func TestAVaultFromAnEarlierVersionAsksForItsMasterPasswordThenAnswers(t *testing.T) {
 	world, options := newWorld(t)
 	state := newTestState(t, options)
 	signInSavingThePassword(t, state, world, "hunter2")
-	if err := state.secrets.vault.SetMasterPassword("master password"); err != nil {
+	if err := state.secrets.vault.LegacyForTests("master password"); err != nil {
 		t.Fatal(err)
 	}
-	state.secrets.vault.Lock()
+	state.secrets.vault.DropKeyForTests()
 
 	state.Click(hitHosts)
 	second := connect(t, state, world)
@@ -305,8 +309,8 @@ func TestDecliningToUnlockFallsBackToTheNormalDialogAndDoesNotAskAgain(t *testin
 	world, options := newWorld(t)
 	state := newTestState(t, options)
 	signInSavingThePassword(t, state, world, "hunter2")
-	state.secrets.vault.SetMasterPassword("master password")
-	state.secrets.vault.Lock()
+	state.secrets.vault.LegacyForTests("master password")
+	state.secrets.vault.DropKeyForTests()
 
 	state.Click(hitHosts)
 	second := connect(t, state, world)
@@ -324,53 +328,49 @@ func TestDecliningToUnlockFallsBackToTheNormalDialogAndDoesNotAskAgain(t *testin
 	}
 }
 
-func TestSettingTheMasterPasswordFromSettingsValidatesAndLocksTheVault(t *testing.T) {
-	_, options := newWorld(t)
+func TestAVaultStillKeptByAnOldMasterPasswordIsConvertedFromSettings(t *testing.T) {
+	world, options := newWorld(t)
 	state := newTestState(t, options)
+	signInSavingThePassword(t, state, world, "hunter2")
+	if err := state.secrets.vault.LegacyForTests("long enough one"); err != nil {
+		t.Fatal(err)
+	}
 	state.Click(hitSettings)
-	state.Click(hitSettingsMasterSet)
-	if state.modal != modalMasterPassword {
-		t.Fatalf("modal = %d", state.modal)
+	if !settingsShows(state, hitSettingsVaultConvert) {
+		t.Fatal("Settings does not offer to enter the old master password")
 	}
-	typeInto(state, hitMasterPasswordNew, "short")
-	typeInto(state, hitMasterPasswordConfirm, "short")
-	state.Click(hitMasterPasswordSubmit)
-	if state.modal != modalMasterPassword || !strings.Contains(state.secrets.dialogError, "8") {
-		t.Fatalf("a short password: modal %d, error %q", state.modal, state.secrets.dialogError)
-	}
-	state.secrets.newPassword, state.secrets.confirmPassword = text.Editor{}, text.Editor{}
-	typeInto(state, hitMasterPasswordNew, "long enough one")
-	typeInto(state, hitMasterPasswordConfirm, "long enough two")
-	state.Click(hitMasterPasswordSubmit)
-	if state.secrets.dialogError != state.messages.MasterPasswordMismatch {
-		t.Fatalf("mismatch: error %q", state.secrets.dialogError)
-	}
-	state.secrets.confirmPassword = text.Editor{}
-	typeInto(state, hitMasterPasswordConfirm, "long enough one")
-	state.Click(hitMasterPasswordSubmit)
-	if state.modal != modalNone || !state.secrets.vault.HasMasterPassword() || state.status != state.messages.VaultMasterSet {
-		t.Fatalf("modal %d, password %v, status %q", state.modal, state.secrets.vault.HasMasterPassword(), state.status)
-	}
-
-	// The group shows what can be done now, and Lock locks.
-	for _, id := range []ui.ID{hitSettingsMasterLock, hitSettingsMasterChange, hitSettingsMasterRemove} {
-		if !settingsShows(state, id) {
-			t.Fatalf("settings lacks button %d with a master password set", id)
-		}
-	}
-	state.Click(hitSettingsMasterLock)
-	if state.secrets.vault.Unlocked() {
-		t.Fatal("Lock now left the vault unlocked")
-	}
-	// Removing needs the password first.
-	state.Click(hitSettingsMasterRemove)
+	state.Click(hitSettingsVaultConvert)
 	if state.modal != modalVaultUnlock {
-		t.Fatalf("modal = %d, want the unlock dialog before removal", state.modal)
+		t.Fatalf("modal = %d, want the dialog for the old master password", state.modal)
 	}
 	typeInto(state, hitVaultUnlockField, "long enough one")
 	state.Click(hitVaultUnlockSubmit)
-	if state.secrets.vault.HasMasterPassword() || state.status != state.messages.VaultMasterRemoved {
-		t.Fatalf("password %v, status %q", state.secrets.vault.HasMasterPassword(), state.status)
+	if state.modal != modalNone || state.secrets.vault.NeedsConversion() {
+		t.Fatalf("modal %d, still needs conversion %v", state.modal, state.secrets.vault.NeedsConversion())
+	}
+	if value, found, err := state.secrets.vault.Get(prodPasswordName); err != nil || !found || value != "hunter2" {
+		t.Fatalf("after converting: %q, %v, %v", value, found, err)
+	}
+	if settingsShows(state, hitSettingsVaultConvert) {
+		t.Fatal("Settings still offers the old master password after it was converted")
+	}
+}
+
+func TestAnOldMasterPasswordIsAskedForOnceAtStartAndOnlyOnce(t *testing.T) {
+	world, options := newWorld(t)
+	state := newTestState(t, options)
+	signInSavingThePassword(t, state, world, "hunter2")
+	if err := state.secrets.vault.LegacyForTests("long enough one"); err != nil {
+		t.Fatal(err)
+	}
+	state.Wake()
+	if state.modal != modalVaultUnlock {
+		t.Fatalf("modal = %d: a vault from an earlier version was not opened by asking for its password", state.modal)
+	}
+	state.Click(hitVaultUnlockCancel)
+	state.Wake()
+	if state.modal != modalNone {
+		t.Fatalf("modal = %d: the window asked again after it was declined", state.modal)
 	}
 }
 
@@ -399,16 +399,17 @@ func TestARestoredTabConnectsItselfWhenTheVaultHasItsPassword(t *testing.T) {
 	state := newTestState(t, options)
 	signInSavingThePassword(t, state, world, "hunter2")
 	password := []sshconn.Question{{Secret: true}}
-	if !state.canAutofill(sshconn.Status{Phase: sshconn.PhasePasswordPrompt, Attempt: 1, Questions: password, Endpoint: sshconn.Endpoint{Host: "prod.example.com", Port: 22, User: "deploy"}}) {
+	session := &state.sessions[0]
+	if !state.canAutofill(session, sshconn.Status{Phase: sshconn.PhasePasswordPrompt, Attempt: 1, Questions: password, Endpoint: sshconn.Endpoint{Host: "prod.example.com", Port: 22, User: "deploy"}}) {
 		t.Fatal("the vault does not answer the question a restore would meet")
 	}
 	for _, status := range []sshconn.Status{
 		{Phase: sshconn.PhasePasswordPrompt, Attempt: 2, Questions: password, Endpoint: sshconn.Endpoint{Host: "prod.example.com", Port: 22, User: "deploy"}},
 		{Phase: sshconn.PhasePasswordPrompt, Attempt: 1, Questions: []sshconn.Question{{Text: "Code:", Secret: true}}, Endpoint: sshconn.Endpoint{Host: "prod.example.com", Port: 22, User: "deploy"}},
-		{Phase: sshconn.PhasePasswordPrompt, Attempt: 1, Questions: password, Endpoint: sshconn.Endpoint{Host: "other.example.com", Port: 22, User: "deploy"}},
+		{Phase: sshconn.PhasePasswordPrompt, Attempt: 1, Questions: password, EndpointRole: sshconn.EndpointProxyJump, Endpoint: sshconn.Endpoint{Host: "other.example.com", Port: 22, User: "deploy"}},
 		{Phase: sshconn.PhaseHostKeyPrompt, Attempt: 1},
 	} {
-		if state.canAutofill(status) {
+		if state.canAutofill(session, status) {
 			t.Fatalf("restore would count on the vault for %+v", status)
 		}
 	}

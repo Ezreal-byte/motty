@@ -637,10 +637,8 @@ type ToolsMessages struct {
 	TabMoveBusy                     string
 	OTPField                        string
 	OTPPlaceholder                  string
-	OTPUncheckedPlaceholder         string
 	OTPSavedPlaceholder             string
 	OTPRemovingPlaceholder          string
-	OTPCheck                        string
 	OTPRemove                       string
 	OTPScan                         string
 	OTPPaste                        string

@@ -153,31 +153,21 @@ type Messages struct {
 	PasswordSave                           string
 	KeyPassphraseSave                      string
 	PasswordSavedRefused                   string
+	ShowSecret                             string
+	HideSecret                             string
 	SettingsGroupSecurity                  string
 	SettingsVault                          string
 	SettingsVaultDescriptionFmt            string
 	SettingsVaultDescriptionLockedFmt      string
 	SettingsVaultEmpty                     string
 	SettingsVaultForgetAll                 string
-	SettingsMasterPassword                 string
-	SettingsMasterPasswordDescription      string
-	SettingsMasterPasswordSet              string
-	SettingsMasterPasswordChange           string
-	SettingsMasterPasswordRemove           string
-	SettingsMasterPasswordLock             string
-	SettingsMasterPasswordUnlock           string
+	SettingsVaultConvert                   string
+	VaultConvertDescription                string
+	VaultNeedsConversion                   string
 	VaultUnlockTitle                       string
 	VaultUnlockLabel                       string
 	VaultUnlockButton                      string
 	VaultWrongPassword                     string
-	MasterPasswordTitleSet                 string
-	MasterPasswordTitleChange              string
-	MasterPasswordDescription              string
-	MasterPasswordNewLabel                 string
-	MasterPasswordConfirmLabel             string
-	MasterPasswordSave                     string
-	MasterPasswordTooShortFmt              string
-	MasterPasswordMismatch                 string
 	VaultForgetTitle                       string
 	VaultForgetDescription                 string
 	VaultForgetConfirm                     string
@@ -186,8 +176,6 @@ type Messages struct {
 	VaultKeyLost                           string
 	VaultUnavailable                       string
 	VaultCorruptFmt                        string
-	VaultMasterSet                         string
-	VaultMasterRemoved                     string
 	VaultCleared                           string
 	SettingsRestore                        string
 	SettingsSSHAgent                       string
@@ -472,7 +460,6 @@ type Messages struct {
 	PasswordLabel                  string
 	PasswordHint                   string
 	PasswordHintUnsaved            string
-	PasswordHintNoStore            string
 	PasswordRetry                  string
 	PasswordRetryFactor            string
 	StatusConnectedFmt             string
