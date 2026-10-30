@@ -13,6 +13,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/vivaui/viva/app"
+	"github.com/vivaui/viva/components"
 	"motty/internal/sftpclient"
 )
 
@@ -185,6 +186,8 @@ func (state *State) externalEditResult(session *Session, view *sftpView, result 
 			}
 			view.status = fmt.Sprintf(m.ExtEditSentFmt, edit.name)
 			view.errorText = ""
+			state.fileOpenNotice(view.detached, edit.name, view.status, components.ToastSuccess)
+			state.refreshSFTPAfterRemoteSave(view, result.Path)
 		case errors.Is(result.Err, sftpclient.ErrRemoteChanged):
 			edit.conflicted, edit.dirty = true, false
 		default:

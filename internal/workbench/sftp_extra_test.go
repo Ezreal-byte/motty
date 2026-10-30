@@ -71,6 +71,7 @@ func TestNewSymbolicLinkIsCreatedListedAndOpensLikeAFolder(t *testing.T) {
 func TestConflictDialogCanSkipWhatExists(t *testing.T) {
 	state, session, _, _ := openTestSFTP(t)
 	view := session.files
+	state.sftpDownloadDirectory = "" // exercise the ask-each-time picker path
 	target := filepath.Join(t.TempDir(), "notes.txt")
 	os.WriteFile(target, []byte("mine"), 0o600)
 	state.options.SaveFile = func(app.SaveFileOptions) (string, error) { return target, nil }
@@ -202,29 +203,49 @@ func TestFilesSettingsApplyToTheWorkerAndAreSaved(t *testing.T) {
 	state.selectSettingsCategory(settingsFiles)
 	var canvas ui.Canvas
 	state.Paint(&canvas, ui.Size{Width: 1400, Height: 900})
-	for _, id := range []ui.ID{hitSettingsParallel1, hitSettingsParallel4, hitSettingsKeepTimesToggle, hitSettingsFollowToggle, hitSettingsFollowSetup} {
+	for _, id := range []ui.ID{
+		hitSettingsParallel1, hitSettingsParallel4, hitSettingsKeepTimesToggle, hitSettingsFollowToggle, hitSettingsFollowSetup,
+		hitSettingsShowSizeColumn, hitSettingsShowModifiedColumn, hitSettingsDownloadDirectory, hitSettingsDownloadAsk,
+	} {
 		if _, ok := hitByID(&canvas, id); !ok {
 			t.Errorf("settings control %d is not painted", id)
 		}
 	}
 	var copied string
 	state.options.SetClipboardText = func(value string) error { copied = value; return nil }
+	downloadDirectory := t.TempDir()
+	state.options.OpenDirectory = func(options app.OpenDirectoryOptions) (string, error) {
+		if options.Title != state.messages.Tools.FilesDownloadChoose {
+			t.Fatalf("download chooser title = %q", options.Title)
+		}
+		return downloadDirectory, nil
+	}
 	state.Click(hitSettingsFollowSetup)
 	if !strings.Contains(copied, "\\e]7;file://") {
 		t.Fatalf("copied %q", copied)
 	}
 	state.Click(hitSettingsParallel4)
 	state.Click(hitSettingsKeepTimesToggle)
+	state.Click(hitSettingsShowSizeColumn)
+	state.Click(hitSettingsShowModifiedColumn)
+	state.Click(hitSettingsDownloadAsk)
+	if state.sftpDownloadDirectory != "" {
+		t.Fatal("ask-every-time setting did not clear the default folder")
+	}
+	state.Click(hitSettingsDownloadDirectory)
 	saved, _, err := loadState(state.options.StatePath)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if saved.SFTPParallel != 4 || saved.SFTPKeepTimes != "off" || saved.SFTPFollow != "" {
-		t.Fatalf("saved = %d %q %q", saved.SFTPParallel, saved.SFTPKeepTimes, saved.SFTPFollow)
+	if saved.SFTPParallel != 4 || saved.SFTPKeepTimes != "off" || saved.SFTPFollow != "" ||
+		saved.SFTPColumns != "name" || saved.SFTPDownloadDirectory != downloadDirectory {
+		t.Fatalf("saved = %d %q %q %q %q", saved.SFTPParallel, saved.SFTPKeepTimes, saved.SFTPFollow, saved.SFTPColumns, saved.SFTPDownloadDirectory)
 	}
 	restarted := newTestState(t, state.options)
-	if restarted.sftpParallel != 4 || !restarted.sftpKeepTimesOff || restarted.sftpFollowOff {
-		t.Fatalf("restored = %d %v %v", restarted.sftpParallel, restarted.sftpKeepTimesOff, restarted.sftpFollowOff)
+	if restarted.sftpParallel != 4 || !restarted.sftpKeepTimesOff || restarted.sftpFollowOff ||
+		restarted.sftpShowSize || restarted.sftpShowModified || restarted.sftpDownloadDirectory != downloadDirectory {
+		t.Fatalf("restored = %d %v %v %v %v %q", restarted.sftpParallel, restarted.sftpKeepTimesOff, restarted.sftpFollowOff,
+			restarted.sftpShowSize, restarted.sftpShowModified, restarted.sftpDownloadDirectory)
 	}
 	_ = session
 }

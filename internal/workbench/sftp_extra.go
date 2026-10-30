@@ -1,12 +1,15 @@
 package workbench
 
 import (
+	"errors"
 	"fmt"
 	"path"
+	"path/filepath"
 	"slices"
 	"strings"
 	"time"
 
+	"github.com/vivaui/viva/app"
 	"github.com/vivaui/viva/components"
 	"github.com/vivaui/viva/text"
 	"github.com/vivaui/viva/ui"
@@ -43,6 +46,10 @@ var (
 	hitSettingsPanelAutoOpen        = tree.ID(sftpHits, "settings-panel-auto-open")
 	hitSettingsPanelLeft            = tree.ID(sftpHits, "settings-panel-left")
 	hitSettingsPanelRight           = tree.ID(sftpHits, "settings-panel-right")
+	hitSettingsShowSizeColumn       = tree.ID(sftpHits, "settings-show-size-column")
+	hitSettingsShowModifiedColumn   = tree.ID(sftpHits, "settings-show-modified-column")
+	hitSettingsDownloadDirectory    = tree.ID(sftpHits, "settings-download-directory")
+	hitSettingsDownloadAsk          = tree.ID(sftpHits, "settings-download-ask")
 )
 
 var (
@@ -55,6 +62,7 @@ const (
 	maxBookmarks        = 500
 	maxExtractOutput    = 4096
 	extractTimeout      = 10 * time.Minute
+	sftpDownloadAsk     = "ask"
 )
 
 // sftpBookmark is a folder kept for a host, which the host's catalog id names.
@@ -309,12 +317,25 @@ func (state *State) paintFilesSettings(page *settingsPage) {
 	case 4:
 		selectedParallel = hitSettingsParallel4
 	}
+	downloadDescription := m.FilesDownloadAskDescription
+	downloadActions := []components.ButtonAction{{
+		ID: hitSettingsDownloadDirectory, Label: m.FilesDownloadChoose, Variant: components.ButtonOutline,
+	}}
+	if state.sftpDownloadDirectory != "" {
+		downloadDescription = fmt.Sprintf(m.FilesDownloadCurrentFmt, state.sftpDownloadDirectory)
+		downloadActions = append(downloadActions, components.ButtonAction{
+			ID: hitSettingsDownloadAsk, Label: m.FilesDownloadAsk, Variant: components.ButtonGhost,
+		})
+	}
 	page.groups(func() {
 		page.group("", func() {
 			page.toggleRow(m.FilesPanelAutoOpen, m.FilesPanelAutoOpenDescription, state.sftpPanelAutoOpen, hitSettingsPanelAutoOpen)
 			page.row(m.FilesPanelPosition, m.FilesPanelPositionDescription, position[:], selectedPosition)
 			page.row(m.FilesPathStyle, m.FilesPathDescription, pathOptions[:], selectedPath)
 			page.row(m.FilesParallel, "", parallel[:], selectedParallel)
+			page.toggleRow(m.FilesShowSizeColumn, m.FilesShowSizeColumnDescription, state.sftpShowSize, hitSettingsShowSizeColumn)
+			page.toggleRow(m.FilesShowModifiedColumn, m.FilesShowModifiedColumnDescription, state.sftpShowModified, hitSettingsShowModifiedColumn)
+			page.actionRow(m.FilesDownloadDirectory, downloadDescription, false, downloadActions...)
 			page.toggleRow(m.FilesKeepTimes, m.FilesKeepTimesDescription, !state.sftpKeepTimesOff, hitSettingsKeepTimesToggle)
 			page.toggleRow(m.FilesFollow, m.FilesFollowDescription, !state.sftpFollowOff, hitSettingsFollowToggle)
 			page.toggleRow(m.FilesTerminalFollow, m.FilesTerminalFollowDescription, state.sftpTerminalFollow, hitSettingsTerminalFollowToggle)
@@ -352,6 +373,33 @@ func (state *State) clickFilesSettings(id ui.ID) bool {
 			state.applySFTPSettings()
 			state.save()
 		}
+	case hitSettingsShowSizeColumn:
+		state.sftpShowSize = !state.sftpShowSize
+		state.save()
+	case hitSettingsShowModifiedColumn:
+		state.sftpShowModified = !state.sftpShowModified
+		state.save()
+	case hitSettingsDownloadDirectory:
+		directory, err := state.options.OpenDirectory(app.OpenDirectoryOptions{Title: state.messages.Tools.FilesDownloadChoose})
+		if errors.Is(err, app.ErrCanceled) {
+			return true
+		}
+		if err != nil {
+			state.status = state.messages.Tools.FilesDownloadChooseFailed
+			return true
+		}
+		directory = filepath.Clean(directory)
+		if !validSFTPDownloadDirectory(directory) {
+			state.status = fmt.Sprintf(state.messages.Tools.FilesDownloadDirectoryInvalidFmt, directory)
+			return true
+		}
+		state.sftpDownloadDirectory = directory
+		state.status = fmt.Sprintf(state.messages.Tools.FilesDownloadDirectorySavedFmt, directory)
+		state.save()
+	case hitSettingsDownloadAsk:
+		state.sftpDownloadDirectory = ""
+		state.status = state.messages.Tools.FilesDownloadAskSaved
+		state.save()
 	case hitSettingsKeepTimesToggle:
 		state.sftpKeepTimesOff = !state.sftpKeepTimesOff
 		state.applySFTPSettings()
@@ -469,6 +517,8 @@ func (state *State) restoreSFTPSettings(saved savedState) {
 	state.sftpTerminalFollow = saved.SFTPTerminalFollow
 	state.sftpPathInput = saved.SFTPPathInput
 	state.sftpPanelAutoOpen = saved.SFTPPanelAutoOpen
+	state.sftpShowSize, state.sftpShowModified = restoreSFTPColumns(saved.SFTPColumns)
+	state.sftpDownloadDirectory = restoreSFTPDownloadDirectory(saved.SFTPDownloadDirectory)
 	state.sftpPanelSide = layoutcore.ContextLeft
 	if saved.SFTPPanelSide == "right" {
 		state.sftpPanelSide = layoutcore.ContextRight
@@ -498,6 +548,56 @@ func (state *State) restoreSFTPSettings(saved savedState) {
 		perHost[entry.Host]++
 		state.sftpBookmarks = append(state.sftpBookmarks, bookmark)
 	}
+}
+
+func sftpColumnsString(showSize, showModified bool) string {
+	columns := []string{"name"}
+	if showSize {
+		columns = append(columns, "size")
+	}
+	if showModified {
+		columns = append(columns, "modified")
+	}
+	return strings.Join(columns, ",")
+}
+
+func restoreSFTPColumns(value string) (showSize, showModified bool) {
+	if value == "" {
+		// A state written before the columns were configurable showed the
+		// modification date and no size. The new default keeps the date and
+		// adds size so every sortable header is immediately useful.
+		return true, true
+	}
+	showSize = strings.Contains(","+value+",", ",size,")
+	showModified = strings.Contains(","+value+",", ",modified,")
+	return
+}
+
+func savedSFTPDownloadDirectory(value string) string {
+	if value == "" {
+		return sftpDownloadAsk
+	}
+	return filepath.Clean(value)
+}
+
+func restoreSFTPDownloadDirectory(value string) string {
+	switch value {
+	case "", sftpDownloadAsk:
+		if value == sftpDownloadAsk {
+			return ""
+		}
+		return defaultDownloadDirectory()
+	default:
+		value = filepath.Clean(value)
+		if validSFTPDownloadDirectory(value) {
+			return value
+		}
+		return defaultDownloadDirectory()
+	}
+}
+
+func validSFTPDownloadDirectory(value string) bool {
+	return value != "" && len(value) <= 4096 && filepath.IsAbs(value) && !strings.ContainsRune(value, 0)
 }
 
 // DefaultSFTPParallel is how many transfers the file panel runs at once until

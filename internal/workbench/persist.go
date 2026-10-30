@@ -73,6 +73,8 @@ type savedState struct {
 	SFTPPathInput              bool                `json:"sftp_path_input,omitempty"`
 	SFTPPanelAutoOpen          bool                `json:"sftp_panel_auto_open,omitempty"`
 	SFTPPanelSide              string              `json:"sftp_panel_side,omitempty"`
+	SFTPColumns                string              `json:"sftp_columns,omitempty"`
+	SFTPDownloadDirectory      string              `json:"sftp_download_directory,omitempty"`
 	Toolbars                   *savedToolbars      `json:"toolbars,omitempty"`
 	UpdateCheck                string              `json:"update_check,omitempty"`
 	CloseAction                string              `json:"close_action,omitempty"`
@@ -390,6 +392,8 @@ func (state *State) snapshot() savedState {
 		SFTPPathInput:              state.sftpPathInput,
 		SFTPPanelAutoOpen:          state.sftpPanelAutoOpen,
 		SFTPPanelSide:              sftpPanelSideString(state.sftpPanelSide),
+		SFTPColumns:                sftpColumnsString(state.sftpShowSize, state.sftpShowModified),
+		SFTPDownloadDirectory:      savedSFTPDownloadDirectory(state.sftpDownloadDirectory),
 		Toolbars:                   state.toolbars.snapshot(),
 		UpdateCheck:                updateCheckString(state.updateAtStart),
 		CloseAction:                state.closeAction.String(),

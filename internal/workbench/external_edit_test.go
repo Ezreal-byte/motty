@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/vivaui/viva/app"
+	"github.com/vivaui/viva/components"
 )
 
 type openedPaths struct {
@@ -77,6 +78,13 @@ func TestEditingInTheSystemEditorSendsEverySaveBack(t *testing.T) {
 	})
 	if session.files.status != fmt.Sprintf(state.messages.Tools.ExtEditSentFmt, "notes.txt") {
 		t.Fatalf("status %q", session.files.status)
+	}
+	if len(state.fileNotices.items) == 0 {
+		t.Fatal("sending an edit back did not report success")
+	}
+	notice := state.fileNotices.items[len(state.fileNotices.items)-1]
+	if notice.title != "notes.txt" || notice.detail != fmt.Sprintf(state.messages.Tools.ExtEditSentFmt, "notes.txt") || notice.kind != components.ToastSuccess {
+		t.Fatalf("send notice = %+v", notice)
 	}
 
 	// A second save goes on the identity the first one left, with no conflict.

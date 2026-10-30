@@ -486,6 +486,7 @@ func replaceSFTPText(t testing.TB, state *State, value string) {
 func TestSFTPBrowseAndDownload(t *testing.T) {
 	state, session, _, _ := openTestSFTP(t)
 	view := session.files
+	state.sftpDownloadDirectory = "" // exercise the ask-each-time picker path
 	if view.path != "/home/test" || view.rows[0].entry.Name != "docs" || view.rows[1].entry.Name != "notes.txt" {
 		t.Fatalf("initial listing = %q %+v", view.path, view.rows)
 	}
@@ -728,6 +729,7 @@ func TestSFTPUploadUsesOpenFilesAndRefreshesDirectory(t *testing.T) {
 func TestSFTPMultiSelectDownloadsFilesAndDirectories(t *testing.T) {
 	state, session, _, _ := openTestSFTP(t)
 	view := session.files
+	state.sftpDownloadDirectory = "" // exercise the ask-each-time picker path
 	destination := t.TempDir()
 	state.options.OpenDirectory = func(options app.OpenDirectoryOptions) (string, error) {
 		if options.Title != state.messages.SFTPDownloadDirectoryTitle {
@@ -803,6 +805,7 @@ func TestSFTPUploadsMultipleFilesAndDirectory(t *testing.T) {
 func TestSFTPOverwriteRequiresConfirmationThenResumes(t *testing.T) {
 	state, session, _, _ := openTestSFTP(t)
 	view := session.files
+	state.sftpDownloadDirectory = "" // exercise the ask-each-time picker path
 	target := filepath.Join(t.TempDir(), "notes.txt")
 	if err := os.WriteFile(target, []byte("do not replace yet"), 0o600); err != nil {
 		t.Fatal(err)
@@ -1001,6 +1004,7 @@ func TestSFTPWorkerStartsOnlyWhenFilesPageOpens(t *testing.T) {
 
 func TestSFTPSaveCancelDoesNotTransfer(t *testing.T) {
 	state, session, _, _ := openTestSFTP(t)
+	state.sftpDownloadDirectory = "" // exercise the ask-each-time picker path
 	state.options.SaveFile = func(app.SaveFileOptions) (string, error) { return "", app.ErrCanceled }
 	state.Click(hitSFTPEntryList.At(1))
 	state.Click(hitSFTPDownload)

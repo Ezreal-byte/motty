@@ -298,6 +298,8 @@ var (
 	hitSFTPEditReload      = tree.ID(sftpHits, "sftp-edit-reload")
 	hitSFTPBreadcrumbList  = tree.Sub(sftpHits, tree.Name("sftp-breadcrumb"))
 	hitSFTPEntryList       = tree.Sub(sftpHits, tree.Name("sftp-entry"))
+	hitSFTPColumnList      = tree.Sub(sftpHits, tree.Name("sftp-column"))
+	hitSFTPListScrollbar   = tree.ID(sftpHits, "sftp-list-scrollbar")
 
 	// hitSFTPDrawerClose is the close button of the drawer a narrow window shows
 	// the panel in. It is a hit of its own, apart from the backdrop that
@@ -550,6 +552,9 @@ type State struct {
 	sftpTerminalFollow     bool
 	sftpPathInput          bool
 	sftpPanelAutoOpen      bool
+	sftpShowSize           bool
+	sftpShowModified       bool
+	sftpDownloadDirectory  string
 	monitorRect            ui.Rect
 	monitorMenu            bool
 	monitorMenuRect        ui.Rect
@@ -652,6 +657,7 @@ type State struct {
 
 	// area: files panel and transfers
 	filesList   flex.View
+	filesHeader flex.View
 	filesPopup  flex.View
 	statsLayout flex.View // the monitor's readout in the terminal's info bar
 	// filesRowIcons and filesRowBoxes are scratch for the visible rows of the list.
@@ -765,29 +771,32 @@ func (state *State) Close() {
 func New(options Options) *State {
 	messages := i18n.For(i18n.English)
 	state := &State{
-		options:            options.withDefaults(),
-		nextSessionID:      1,
-		nextHostID:         1,
-		nextIdentityID:     1,
-		nextForwardID:      1,
-		forwardStarts:      make(chan forwardStartResult, 16),
-		nextProxyID:        1,
-		activeSection:      sectionHosts,
-		language:           i18n.English,
-		messages:           messages,
-		status:             messages.StatusReadyIdle,
-		viewport:           ui.Size{Width: 1400, Height: 900},
-		terminalFontSize:   termFontSize,
-		terminalScrollback: scrollbackLines,
-		hostCatalog:        hostCatalog{systemUser: systemLogin(), connectionTimeout: 10 * time.Second},
-		sftpParallel:       DefaultSFTPParallel,
-		terminalClipboard:  defaultTerminalClipboard,
-		shortcuts:          defaultShortcuts(),
-		terminalSchemes:    [2]string{defaultSchemeID, defaultSchemeID},
-		syncDelay:          syncDelayDefault,
-		syncRetryBase:      syncRetryBaseDefault,
-		update:             updateState{firstDelay: updateFirstDelayDefault, every: updateIntervalDefault},
-		winChrome:          windowChrome{remember: options.RememberWindowFrame},
+		options:               options.withDefaults(),
+		nextSessionID:         1,
+		nextHostID:            1,
+		nextIdentityID:        1,
+		nextForwardID:         1,
+		forwardStarts:         make(chan forwardStartResult, 16),
+		nextProxyID:           1,
+		activeSection:         sectionHosts,
+		language:              i18n.English,
+		messages:              messages,
+		status:                messages.StatusReadyIdle,
+		viewport:              ui.Size{Width: 1400, Height: 900},
+		terminalFontSize:      termFontSize,
+		terminalScrollback:    scrollbackLines,
+		hostCatalog:           hostCatalog{systemUser: systemLogin(), connectionTimeout: 10 * time.Second},
+		sftpParallel:          DefaultSFTPParallel,
+		sftpShowSize:          true,
+		sftpShowModified:      true,
+		sftpDownloadDirectory: defaultDownloadDirectory(),
+		terminalClipboard:     defaultTerminalClipboard,
+		shortcuts:             defaultShortcuts(),
+		terminalSchemes:       [2]string{defaultSchemeID, defaultSchemeID},
+		syncDelay:             syncDelayDefault,
+		syncRetryBase:         syncRetryBaseDefault,
+		update:                updateState{firstDelay: updateFirstDelayDefault, every: updateIntervalDefault},
+		winChrome:             windowChrome{remember: options.RememberWindowFrame},
 	}
 	state.cellWidth, state.cellHeight = (&ui.Canvas{}).MonoCellSize(state.terminalFontSize, state.terminalFontFace)
 	// An icon-only button names itself to the keyboard as well as the pointer.
@@ -1863,6 +1872,9 @@ func (state *State) pointer(event ui.PointerEvent) ui.EventResult {
 		return result
 	}
 	if result, handled := state.sftpPathPointer(event); handled {
+		return result
+	}
+	if result, handled := state.sftpListPointer(event); handled {
 		return result
 	}
 	if result, handled := state.sftpRowPointer(event); handled {

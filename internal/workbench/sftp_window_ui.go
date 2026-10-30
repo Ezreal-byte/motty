@@ -244,6 +244,9 @@ func (w *sftpWindow) paintPane(canvas *ui.Canvas, bounds ui.Rect, local bool) {
 		{
 			f.Row().Height(20).Gap(8).PadX(8).Items(flex.Center).Children(func() {
 				for column, label := range []string{m.SFTPWindow.Name, m.SFTPWindow.Size, m.SFTPWindow.Modified} {
+					if (column == 1 && !w.owner.sftpShowSize) || (column == 2 && !w.owner.sftpShowModified) {
+						continue
+					}
 					if w.ui.sort[side].column == column {
 						if w.ui.sort[side].descending {
 							label += " ↓"
@@ -380,12 +383,16 @@ func (w *sftpWindow) paintRow(f *flex.Frame, row *sftpRow, id ui.ID, paneWidth f
 	box.Children(func() {
 		declareSFTPRowIcon(f, row, tint)
 		f.Text(row.entry.Name).Color(color).Ellipsis().Grow(1)
-		f.Text(row.cells[2]).FontSize(metrics.FontSizeS).Color(pal.muted).Width(62).TextEnd()
-		date := row.cells[3]
-		if paneWidth < 420 && len(date) >= 16 {
-			date = date[5:10]
+		if w.owner.sftpShowSize {
+			f.Text(row.cells[2]).FontSize(metrics.FontSizeS).Color(pal.muted).Width(62).TextEnd()
 		}
-		f.Text(date).FontSize(metrics.FontSizeS).Color(pal.muted).Width(w.dateWidth(paneWidth))
+		if w.owner.sftpShowModified {
+			date := row.cells[3]
+			if paneWidth < 420 && len(date) >= 16 {
+				date = date[5:10]
+			}
+			f.Text(date).FontSize(metrics.FontSizeS).Color(pal.muted).Width(w.dateWidth(paneWidth))
+		}
 	})
 }
 
