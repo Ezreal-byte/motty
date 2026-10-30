@@ -90,6 +90,7 @@ type savedState struct {
 	Autofill                   []savedAutofill     `json:"autofill_rules,omitempty"`
 	CommandHistory             bool                `json:"command_history,omitempty"`
 	CommandSuggestOff          bool                `json:"command_suggest_off,omitempty"`
+	CommandInlineSuggestOff    bool                `json:"command_inline_suggest_off,omitempty"`
 	ShortcutVersion            int                 `json:"shortcut_version,omitempty"`
 	Shortcuts                  []savedShortcut     `json:"shortcuts,omitempty"`
 	Workspace                  string              `json:"workspace,omitempty"`
@@ -389,6 +390,7 @@ func (state *State) snapshot() savedState {
 		TerminalPasteImage:         notifyString(state.pasteImageOff),
 		CommandHistory:             state.history.on,
 		CommandSuggestOff:          state.history.suggestOff,
+		CommandInlineSuggestOff:    state.history.inlineOff,
 		SFTPParallel:               state.sftpParallel,
 		SFTPKeepTimes:              notifyString(state.sftpKeepTimesOff),
 		SFTPFollow:                 notifyString(state.sftpFollowOff),
@@ -672,6 +674,7 @@ func (state *State) restoreShared(saved savedState) {
 	state.pasteImageOff = saved.TerminalPasteImage == "off"
 	state.history.on = saved.CommandHistory
 	state.history.suggestOff = saved.CommandSuggestOff
+	state.history.inlineOff = saved.CommandInlineSuggestOff
 	state.restoreSFTPSettings(saved)
 	state.proxy = decodeOutboundProxy(saved.OutboundProxy)
 	state.restoreTerminalTools(saved)

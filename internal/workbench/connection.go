@@ -573,6 +573,8 @@ func (state *State) finishStartingConnection(session *Session, automatic bool) {
 		session.term = newTerminalWithScrollback(geometry.cols, geometry.rows, state.terminalScrollback)
 		state.configureTerminal(session)
 	} else {
+		// A reconnect invalidates any list built from the old prompt.
+		state.closeCompletionList()
 		t := session.term
 		t.shell, t.ended, t.live, t.inputSent, t.told = nil, false, false, false, toldNothing
 		t.resetFolderSync()
@@ -591,6 +593,8 @@ func (state *State) finishStartingConnection(session *Session, automatic bool) {
 // nothing for sessions whose status is unchanged and whose shell is quiet.
 func (state *State) Wake() {
 	defer state.flushLocalDirectories()
+	state.adoptHistoryClear()
+	state.adoptCompletion()
 	state.pumpFileWindows()
 	if state.syncPending {
 		state.syncPending = false

@@ -1,6 +1,7 @@
 package workbench
 
 import (
+	"io"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -8,6 +9,7 @@ import (
 
 	"github.com/vivaui/viva/app"
 	"github.com/vivaui/viva/ui"
+	"motty/internal/cmdhistory"
 	"motty/internal/sshconn"
 )
 
@@ -270,5 +272,42 @@ func TestHistoryPickerRowsTouchSoCrossingThemKeepsTheHover(t *testing.T) {
 		if _, isRow := id.In(hitHistoryItems); !ok || !isRow {
 			t.Fatalf("pointer at y=%v between rows %v and %v hits %v (ok=%v), want a history row", y, first.Bounds, second.Bounds, id, ok)
 		}
+	}
+}
+
+func TestClearingHistoryReportsCompletionAndDropsDerivedCaches(t *testing.T) {
+	w := newHistoryWorld(t, true)
+	state := w.state
+	state.history.ghost = map[string][]cmdhistory.Entry{"host": {{Command: "git status"}}}
+	state.history.ghost = map[string][]cmdhistory.Entry{"host": {{Command: "git status"}}}
+	clear := &historyClearJob{done: make(chan struct{})}
+	state.history.clear = clear
+	state.adoptHistoryClear()
+	if state.history.clear == nil {
+		t.Fatal("a pending clear was adopted before it finished")
+	}
+	close(clear.done)
+	state.adoptHistoryClear()
+	if state.status != state.messages.History.StatusCleared {
+		t.Fatalf("status %q", state.status)
+	}
+	if state.history.clear != nil {
+		t.Fatal("the clear was not released")
+	}
+	if state.history.ghost != nil {
+		t.Fatal("derived caches survived the clear")
+	}
+
+	// A failed clear reports the error and retires unproven snapshots.
+	state.history.ghost = map[string][]cmdhistory.Entry{"host": {{Command: "git status"}}}
+	failed := &historyClearJob{done: make(chan struct{}), err: io.ErrClosedPipe}
+	state.history.clear = failed
+	close(failed.done)
+	state.adoptHistoryClear()
+	if state.history.clear != nil || state.history.ghost != nil {
+		t.Fatal("a failed clear was treated as success")
+	}
+	if !strings.Contains(state.status, "closed pipe") {
+		t.Fatalf("status %q does not report the failure", state.status)
 	}
 }

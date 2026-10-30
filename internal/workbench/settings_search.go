@@ -155,12 +155,14 @@ func (state *State) eachSettingsEntry(add func(settingsEntry)) {
 	row(settingsTerminal, tools.TabTitleRow, tools.TabTitleDescription)
 	row(settingsTerminal, tools.PasteImageRow, tools.PasteImageDescription)
 	row(settingsTerminal, tools.NotifyRow, tools.NotifyDescription)
-	row(settingsTerminal, state.messages.History.SettingsRow, state.messages.History.SettingsDescription)
+	group(settingsTerminal, m.Completion.Group, m.Completion.Group, "")
+	row(settingsTerminal, m.Completion.CatalogRow, "")
 	row(settingsTerminal, state.messages.History.SuggestRow, state.messages.History.SuggestDescription)
+	row(settingsTerminal, state.messages.History.SettingsRow, state.messages.History.SettingsDescription)
+	row(settingsTerminal, state.messages.History.ClearRow, state.messages.History.ClearDescription)
 	if localShellSettingVisible() {
 		row(settingsTerminal, m.SettingsLocalShell, m.SettingsLocalShellDescription)
 	}
-	row(settingsTerminal, state.messages.History.ClearRow, state.messages.History.ClearDescription)
 	group(settingsTerminal, tools.SchemeGroup, tools.SchemeGroup, tools.SchemeDescription)
 	row(settingsTerminal, tools.HighlightBuiltin, tools.HighlightBuiltinDescription)
 	row(settingsTerminal, tools.HighlightCustom, tools.HighlightCustomDescription)
@@ -219,6 +221,9 @@ func (state *State) eachSettingsEntry(add func(settingsEntry)) {
 
 	for action := shortcutAction(1); action < shortcutActionCount; action++ {
 		row(settingsShortcuts, state.shortcutActionLabel(action), state.shortcuts.labels[action])
+	}
+	for _, help := range state.completionKeys() {
+		row(settingsShortcuts, help.label, help.keys+" "+help.description)
 	}
 
 	about := m.About

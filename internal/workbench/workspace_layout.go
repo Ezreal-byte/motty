@@ -178,6 +178,10 @@ func (state *State) activatePane(workspaceID layoutcore.WorkspaceID, paneID layo
 	state.syncActiveSession()
 	state.activeSection = sectionTerminal
 	state.syncMonitorTarget()
+	if previous != paneID {
+		// The candidate list belongs to the terminal that opened it.
+		state.closeCompletionList()
+	}
 	if previous != paneID && state.viewport.Width > 0 && state.viewport.Height > 0 {
 		state.fitWorkspaceTerminals(workspaceID)
 		state.fitSFTP(state.viewport)
@@ -192,6 +196,7 @@ func (state *State) activateWorkspace(id layoutcore.WorkspaceID) bool {
 	state.syncActiveSession()
 	state.activeSection = sectionTerminal
 	state.syncMonitorTarget()
+	state.closeCompletionList()
 	return true
 }
 

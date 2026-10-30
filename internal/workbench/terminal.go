@@ -124,6 +124,14 @@ type terminal struct {
 	// takeOutput brings in what the shell has already echoed, so the screen is
 	// read after the echo of the keys that came before an Enter.
 	takeOutput func()
+	// completionFeed says whether the recorder must follow typing for command
+	// completion even when the history itself is not wanted: the built-in
+	// catalog is public data and works with learning off.
+	completionFeed func() bool
+	// completionInput runs after the shell accepted input, so an open list
+	// closes on the first typed byte instead of offering a stale line.
+	completionInput   func()
+	suggestionPending *suggestionEcho
 
 	// exec is the command the assistant is waiting on in this terminal.
 	exec *aiExec
@@ -259,6 +267,7 @@ func (state *State) configureTerminal(session *Session) {
 	// An image decoded off the window thread asks for the frame that shows it.
 	session.term.screen.SetImageWake(state.options.Invalidate)
 	state.attachHistory(session)
+	state.attachCompletion(session)
 	state.stampTerminal(session.term)
 	state.reportTerminalColors(session.term)
 	sessionID := session.ID
@@ -312,6 +321,7 @@ func (state *State) configureTerminal(session *Session) {
 
 func (t *terminal) resetFolderSync() {
 	t.inputGuard = terminalInputGuard{}
+	t.suggestionPending = nil
 	t.folderToken = rand.Text()
 	t.screen.SetPromptToken(t.folderToken)
 	t.promptReady, t.promptStarted, t.promptDirty = false, false, false
@@ -400,7 +410,11 @@ func (t *terminal) sendInput(p []byte, drain bool) bool {
 	t.selection.clear()
 	t.screen.ScrollToBottom()
 	t.autofill.Typed(p)
-	if t.historyOn != nil && t.historyOn() {
+	feed := t.historyOn != nil && t.historyOn()
+	if !feed && t.completionFeed != nil {
+		feed = t.completionFeed()
+	}
+	if feed {
 		if drain && t.takeOutput != nil && bytes.ContainsAny(p, "\r\n") {
 			t.takeOutput()
 		}
@@ -412,7 +426,13 @@ func (t *terminal) sendInput(p []byte, drain bool) bool {
 	if accepted {
 		t.inputSent = true
 		t.noteShellInput(p)
+		if bytes.ContainsAny(p, "\r\n\x03\x04") {
+			t.suggestionPending = nil
+		}
 		t.recording.append(t.recordingNow(), terminalRecordingInput, p)
+		if t.completionInput != nil {
+			t.completionInput()
+		}
 	}
 	return accepted
 }
@@ -711,6 +731,12 @@ func (state *State) pump(session *Session) {
 	default:
 		t.rx = t.rx[:0]
 	}
+	if !finished && len(t.rx) == 0 {
+		state.reconcileSuggestionEcho(session)
+	}
+	if !finished && len(t.rx) == 0 && state.completion.list.active && state.completion.list.sessionID == session.ID {
+		state.completionRefresh(session)
+	}
 	if finished {
 		state.shellEnded(session)
 	}
@@ -718,6 +744,9 @@ func (state *State) pump(session *Session) {
 
 // shellEnded tells the screen the session is over and lets the connection go.
 func (state *State) shellEnded(session *Session) {
+	if state.completion.list.active && state.completion.list.sessionID == session.ID {
+		state.closeCompletionList()
+	}
 	t := session.term
 	state.goLive(session) // whatever it said, and that it ended, is the terminal's to show
 	err := t.shell.Err()

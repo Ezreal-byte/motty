@@ -651,6 +651,7 @@ type State struct {
 	snippets      snippetsUI
 	history       historyUI
 	historyLayout flex.View
+	completion    completionUI
 	// broadcast is the tab whose panes type together, or zero.
 	broadcast layoutcore.WorkspaceID
 
@@ -739,6 +740,11 @@ func (state *State) Close() {
 		state.update.install.cancel()
 		state.update.install.cancel = nil
 	}
+	if state.completion.cancelUpdate != nil {
+		state.completion.cancelUpdate()
+		state.completion.cancelUpdate = nil
+	}
+	state.closeCompletionWorkers()
 	state.stopUpdateCheck()
 	if state.options.Group != nil {
 		state.options.Group.leave(state)
@@ -1119,6 +1125,9 @@ func (state *State) Click(id ui.ID) {
 	}
 	defer state.runLaunches()
 	defer state.sshSyncCheck()
+	if state.clickCompletion(id) {
+		return
+	}
 	if session, local, ok := state.decodePaneHit(id); ok {
 		if state.activeSessionID != session.ID && state.ActivatePane(session.ID) {
 			state.save()
@@ -1347,8 +1356,8 @@ func (state *State) Click(id ui.ID) {
 		state.openHistoryActive()
 	case id == hitSettingsHistoryToggle:
 		state.toggleHistory()
-	case id == hitSettingsSuggestToggle:
-		state.toggleSuggestions()
+	case id == hitCompletionUpdate:
+		state.updateCompletions()
 	case id == hitSettingsHistoryClear:
 		state.askClearHistory()
 	case id == hitPanePrevious:
@@ -1968,6 +1977,9 @@ func (state *State) Key(event ui.KeyEvent) (outcome ui.EventResult) {
 
 func (state *State) key(event ui.KeyEvent) ui.EventResult {
 	if result, handled := state.terminalInputKey(event); handled {
+		return result
+	}
+	if result, handled := state.completionKey(event); handled {
 		return result
 	}
 	if result := state.dashboardKey(event); result.Handled {

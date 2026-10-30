@@ -289,6 +289,16 @@ func (state *State) paintTerminalSettings(page *settingsPage) {
 		selectedClipboard = hitSettingsClipboardAsk
 	}
 	page.groups(func() {
+		page.group(messages.Completion.Group, func() {
+			status, _ := state.completionCatalogStatus()
+			page.actionRow(messages.Completion.CatalogRow, status, false,
+				components.ButtonAction{ID: hitCompletionUpdate, Label: messages.Completion.Check, Variant: components.ButtonOutline})
+			completionOptions := state.settingsCompletionOptions()
+			page.row(messages.History.SuggestRow, messages.History.SuggestDescription, completionOptions[:], state.selectedCompletionOption())
+			page.toggleRow(messages.History.SettingsRow, messages.History.SettingsDescription, state.history.on, hitSettingsHistoryToggle)
+			page.actionRow(messages.History.ClearRow, messages.History.ClearDescription, false,
+				components.ButtonAction{ID: hitSettingsHistoryClear, Label: messages.History.Clear, Variant: components.ButtonOutline})
+		})
 		page.group("", func() {
 			page.row(messages.SettingsTerminalOption, messages.SettingsTerminalOptionDescription, option[:], selectedOption)
 			page.actionRow(messages.SettingsTerminalFontSize, messages.SettingsTerminalFontSizeDescription, false,
@@ -311,11 +321,7 @@ func (state *State) paintTerminalSettings(page *settingsPage) {
 			page.toggleRow(state.messages.Tools.LatencyRow, state.messages.Tools.LatencyDescription, state.terminalShowLatency, hitSettingsLatencyToggle)
 			page.toggleRow(state.messages.Tools.PasteImageRow, state.messages.Tools.PasteImageDescription, !state.pasteImageOff, hitSettingsPasteImageToggle)
 			page.toggleRow(state.messages.Tools.NotifyRow, state.messages.Tools.NotifyDescription, !state.notifyOff, hitSettingsNotifyToggle)
-			page.toggleRow(state.messages.History.SettingsRow, state.messages.History.SettingsDescription, state.history.on, hitSettingsHistoryToggle)
-			page.toggleRow(state.messages.History.SuggestRow, state.messages.History.SuggestDescription, !state.history.suggestOff, hitSettingsSuggestToggle)
 			state.paintLocalShellSetting(page)
-			page.actionRow(state.messages.History.ClearRow, state.messages.History.ClearDescription, false,
-				components.ButtonAction{ID: hitSettingsHistoryClear, Label: state.messages.History.Clear, Variant: components.ButtonOutline})
 		})
 		state.paintSchemeSettings(page)
 		state.paintHighlightSettings(page)

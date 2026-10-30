@@ -54,6 +54,8 @@ func (state *State) shortcutActionLabel(action shortcutAction) string {
 		return messages.History.Title
 	case shortcutClearScreen:
 		return messages.ShortcutClearScreen
+	case shortcutCompletion:
+		return messages.Completion.Open
 	default:
 		return ""
 	}
@@ -77,8 +79,26 @@ func (state *State) clickShortcutCapture(id ui.ID) {
 	state.shortcutError = ""
 }
 
-// shortcutRowHeight is a little under a settings row: fourteen of them make the page.
+// shortcutRowHeight leaves room for each action and its chord.
 const shortcutRowHeight = float32(54)
+
+type completionKeyHelp struct {
+	label, description, keys string
+}
+
+// The list navigation keys are fixed terminal behavior, shared by the page and
+// its search index so each result leads to the explanation the user can see.
+func (state *State) completionKeys() [6]completionKeyHelp {
+	m := state.messages.Completion
+	return [6]completionKeyHelp{
+		{m.KeysAccept, "", "→ / End"},
+		{m.KeysAcceptWord, "", "Alt+→ / Ctrl+→"},
+		{m.KeysSelect, "", "↑/↓ · PgUp/PgDn · Home/End"},
+		{m.KeysInsert, m.KeysInsertDescription, "Enter"},
+		{m.KeysClose, "", "Esc"},
+		{m.KeysShell, m.KeysShellDescription, "Tab"},
+	}
+}
 
 // paintShortcutSettings is the Keyboard shortcuts category: one row per action
 // with its chord on a button that opens the capture dialog, and a way back to
@@ -94,6 +114,13 @@ func (state *State) paintShortcutSettings(page *settingsPage) {
 			}
 			page.actionRow(messages.ShortcutsReset, "", false,
 				components.ButtonAction{ID: hitShortcutReset, Label: messages.ShortcutsReset, Variant: components.ButtonOutline})
+		})
+		page.group(messages.Completion.KeysGroup, func() {
+			for _, help := range state.completionKeys() {
+				page.line(help.label, help.description, 180).Children(func() {
+					page.f.Text(help.keys).FontSize(metrics.FontSizeS).Color(state.pal.muted).LineHeight(21)
+				})
+			}
 		})
 	})
 }

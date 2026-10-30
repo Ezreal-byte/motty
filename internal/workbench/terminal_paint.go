@@ -204,6 +204,7 @@ func (state *State) paintTerminalPage(canvas *ui.Canvas, size ui.Size, session *
 	}
 
 	state.paintGrid(canvas, session, geometry)
+	state.paintCompletionList(canvas, session, geometry)
 	if barHeight > infoBarHeight {
 		state.paintTerminalInputNotice(canvas, session, inputNotice.Rect())
 	}

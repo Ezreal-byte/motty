@@ -329,6 +329,12 @@ func (state *State) clickSettings(id ui.ID) bool {
 		changed = state.setReconnectPolicy(reconnectThree)
 	case hitSettingsReconnectForever:
 		changed = state.setReconnectPolicy(reconnectForever)
+	case hitSettingsCompletionOff:
+		changed = state.setCompletionMode(completionOff)
+	case hitSettingsCompletionList:
+		changed = state.setCompletionMode(completionList)
+	case hitSettingsCompletionBoth:
+		changed = state.setCompletionMode(completionBoth)
 	case hitSettingsClipboardBlock:
 		changed = state.terminalClipboard != terminalClipboardBlock
 		state.terminalClipboard = terminalClipboardBlock
@@ -534,6 +540,9 @@ func (state *State) settingsKey(event ui.KeyEvent) (ui.EventResult, bool) {
 		next, handled = components.SegmentedControlKeyDown(event.Target, options[:], components.DirectionLTR, event.Key)
 	case hitSettingsReconnectOff, hitSettingsReconnectThree, hitSettingsReconnectForever:
 		options := state.settingsReconnectOptions()
+		next, handled = components.SegmentedControlKeyDown(event.Target, options[:], components.DirectionLTR, event.Key)
+	case hitSettingsCompletionOff, hitSettingsCompletionList, hitSettingsCompletionBoth:
+		options := state.settingsCompletionOptions()
 		next, handled = components.SegmentedControlKeyDown(event.Target, options[:], components.DirectionLTR, event.Key)
 	case hitSettingsClipboardBlock, hitSettingsClipboardAsk, hitSettingsClipboardAllow:
 		options := state.settingsClipboardOptions()
