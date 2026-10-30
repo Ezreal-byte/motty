@@ -205,7 +205,8 @@ no `.p12` is needed. See `viva help package` for every variable.
 
 The website's `/en/changelog` and `/zh/changelog` are built from
 `docs/releases/<version>.md`: no release writes the page separately, and there
-is no second copy to fall out of step. `website/lib/releases.ts` parses the
+is no second copy to fall out of step. `website.yml` watches `docs/releases/**`,
+so the release commit itself rebuilds the page. `website/lib/releases.ts` parses the
 `## 新功能`, `## 改进` and `## 修复` sections at build time and takes each
 release's date from GitHub, falling back to the notes' commit date when the
 build has no network.
