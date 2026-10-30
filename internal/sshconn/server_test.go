@@ -41,8 +41,11 @@ type testServer struct {
 	exec        func(string) (string, uint32)
 	remote      bool // permits loopback-only tcpip-forward requests
 	blockDirect bool // leaves direct-tcpip requests unanswered
-	request     func(*ssh.ServerConn, *ssh.Request)
-	connected   func(*ssh.ServerConn)
+	// envFatal ends the connection on an env request, the way a gateway with a
+	// menu it starts itself may when the request is not one it implements.
+	envFatal  bool
+	request   func(*ssh.ServerConn, *ssh.Request)
+	connected func(*ssh.ServerConn)
 	// algorithms, when set, restricts what the server will negotiate, to stand
 	// in for an old device.
 	algorithms *ssh.Config
@@ -555,6 +558,10 @@ func serveSession(server *testServer, conn ssh.Conn, channel ssh.Channel, reques
 	for request := range requests {
 		switch request.Type {
 		case "env":
+			if server.envFatal {
+				conn.Close()
+				return
+			}
 			var payload struct{ Name, Value string }
 			ssh.Unmarshal(request.Payload, &payload)
 			shell.mu.Lock()

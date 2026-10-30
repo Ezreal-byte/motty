@@ -36,7 +36,7 @@ func TestRemoteSystemClassification(t *testing.T) {
 	}
 }
 
-func TestBannerSupportsCommandChannels(t *testing.T) {
+func TestStandardImplementation(t *testing.T) {
 	for banner, want := range map[string]bool{
 		"SSH-2.0-OpenSSH_9.6p1 Ubuntu-3ubuntu13": true,
 		"SSH-2.0-OpenSSH_for_Windows_9.5":        true,
@@ -44,11 +44,12 @@ func TestBannerSupportsCommandChannels(t *testing.T) {
 		"SSH-2.0-libssh_0.11.0":                  true,
 		"SSH-2.0-BHostSSH_7.0":                   false,
 		"SSH-2.0-SSHD_0.7.6":                     false,
+		"SSH-2.0-Erlang":                         false,
 		"SSH-2.0-Cisco-1.25":                     false,
 		"":                                       false,
 	} {
-		if got := bannerSupportsCommandChannels(banner); got != want {
-			t.Errorf("bannerSupportsCommandChannels(%q) = %v, want %v", banner, got, want)
+		if got := standardImplementation(banner); got != want {
+			t.Errorf("standardImplementation(%q) = %v, want %v", banner, got, want)
 		}
 	}
 }
