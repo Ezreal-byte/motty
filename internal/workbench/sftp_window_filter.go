@@ -147,7 +147,7 @@ func (w *sftpWindow) paintHeaderMenu(canvas *ui.Canvas, side int) {
 		hiddenIcon, hiddenLabel = iconEye, m.Tools.FilesHideHidden
 	}
 	menu.AddItem(components.DropdownMenuItem{ID: sftpWindowHeaderHidden[side], Label: hiddenLabel, Icon: lucideIcons[hiddenIcon], Selected: folder.showHidden})
-	busy := local && w.pendingLocal != "" || !local && (w.view.busy || !w.connected())
+	busy := w.browse.pending != nil || local && w.pendingLocal != "" || !local && (w.view.busy || !w.connected())
 	menu.AddItem(components.DropdownMenuItem{ID: sftpWindowNewFolder[side], Label: m.SFTPNewDirectory, Icon: lucideIcons[iconFolderPlus], Disabled: busy})
 	if !local {
 		menu.AddItem(components.DropdownMenuItem{ID: hitSFTPNewLink, Label: m.Tools.TipNewLink, Icon: lucideIcons[iconLink], Disabled: busy})

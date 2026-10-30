@@ -4,6 +4,7 @@ package workbench
 
 import (
 	"errors"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -37,5 +38,22 @@ func TestSFTPWindowLocalEditorUsesOriginalPathAndGlobalErrors(t *testing.T) {
 				t.Fatal("dual-pane editor failure did not appear in its window's global notices")
 			}
 		})
+	}
+}
+
+func TestSFTPWindowSpecialLocalFileHasNoEditorAction(t *testing.T) {
+	_, w, _, _, _ := dualSFTPFixture(t, 1)
+	for i := range w.view.lfolder.rows {
+		row := &w.view.lfolder.rows[i]
+		row.selected = row.entry.Name == "中文上传.yml"
+		if row.selected {
+			row.entry.Mode = os.ModeNamedPipe | 0o600
+		}
+	}
+	w.selectionChanged(true)
+	for _, action := range w.selectionActions(true) {
+		if sftpWindowActionIDs[action.index] == hitSFTPEditExternal {
+			t.Fatal("a special local file exposed the external editor action")
+		}
 	}
 }

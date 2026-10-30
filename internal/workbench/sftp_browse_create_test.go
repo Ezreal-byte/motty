@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pkg/sftp"
 	"github.com/vivaui/viva/components"
 	"github.com/vivaui/viva/ui"
 	"motty/internal/sftpclient"
@@ -140,10 +141,39 @@ func TestSFTPBrowsePendingPairDoesNotOpenAnotherFileDialog(t *testing.T) {
 		t.Fatal("paired navigation did not start")
 	}
 	w.fileAction(true, hitSFTPNewDirectory)
-	if w.view.dialog != sftpDialogNone {
-		t.Fatal("a second dialog could hide the paired directory confirmation")
+	for _, id := range []ui.ID{sftpWindowNewFolder[0], sftpWindowNewFolder[1], hitSFTPLocationProfiles} {
+		w.click(id)
+		if w.view.dialog != sftpDialogNone || w.bookmark.open {
+			t.Fatalf("%v opened a competing dialog during paired navigation", id)
+		}
 	}
 	dualWait(t, state, w, view, func() bool { return !w.navigationBusy() })
+}
+
+func TestSFTPBrowseTreatsSFTPNoSuchPathAsMissingCounterpart(t *testing.T) {
+	state, w, remote, host, root := dualSFTPFixture(t, 1)
+	view := host.windows[0].view
+	w.view.worker.Close()
+	<-w.view.worker.Done()
+	backend := pathErrorRemote{
+		workbenchSFTPRemote: remote,
+		err:                 &sftp.StatusError{Code: 10},
+	}
+	w.view.worker = sftpclient.NewWorker(func() (sftpclient.Remote, error) { return backend, nil }, func() { w.window.Invalidate() })
+	target := filepath.Join(root, "missing")
+	if err := os.Mkdir(target, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	w.toggleBrowseSync()
+	w.navigate(true, target)
+	dualWait(t, state, w, view, func() bool { return w.view.dialog == sftpDialogBrowseCreateDirectory })
+	if w.browse.pending == nil || w.browse.pending.paths[1] != "/home/test/missing" || !w.browse.enabled {
+		t.Fatal("NO_SUCH_PATH did not offer to create the matching directory")
+	}
+	dualClickID(t, view, hitSFTPDialogCancel)
+	if w.navigationBusy() || w.browse.enabled || w.view.path != "/home/test" {
+		t.Fatal("pausing did not keep the existing server directory")
+	}
 }
 
 func TestSFTPBrowseCreationCanBePausedByButtonEscapeAndClose(t *testing.T) {

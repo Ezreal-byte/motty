@@ -407,7 +407,7 @@ func (state *State) openLocalExternal(view *sftpView) {
 		return
 	}
 	location := filepath.Join(view.lfolder.path, entry.Name)
-	info, err := os.Stat(location)
+	info, err := os.Lstat(location)
 	if err == nil && !info.Mode().IsRegular() {
 		err = errors.New(state.messages.SFTPWindow.LocalEditNotFile)
 	}
@@ -415,7 +415,11 @@ func (state *State) openLocalExternal(view *sftpView) {
 		err = state.options.OpenPath(location)
 	}
 	if err != nil {
-		state.fileOpenPathReason(view.detached, state.messages.Tools.ExtEditButton, state.messages.Tools.ExtEditOpenFailedFmt, location, err.Error(), components.ToastError)
+		if isExecutablePathError(err) {
+			state.fileOpenNotice(view.detached, state.messages.Tools.ExtEditButton, state.messages.Tools.ExtEditRefused, components.ToastError)
+		} else {
+			state.fileOpenPathReason(view.detached, state.messages.Tools.ExtEditButton, state.messages.Tools.ExtEditOpenFailedFmt, location, err.Error(), components.ToastError)
+		}
 	}
 }
 

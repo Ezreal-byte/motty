@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/vivaui/viva/app"
 	"github.com/vivaui/viva/components"
 	"github.com/vivaui/viva/ui"
 )
@@ -55,6 +56,20 @@ func TestLocalSFTPEditorFailureUsesGlobalToast(t *testing.T) {
 	}
 }
 
+func TestLocalSFTPExecutableRefusalUsesLocalizedGlobalNotice(t *testing.T) {
+	state, session, _, _ := openTestSFTP(t)
+	root := localFixture(t)
+	view := openLocalPane(t, state, session, root)
+	clickSFTPLocalRow(t, state, view, "report.txt")
+	state.options.OpenPath = func(string) error { return app.ErrExecutablePath }
+	state.Click(hitSFTPEditExternal)
+	if len(state.fileNotices.items) != 1 ||
+		state.fileNotices.items[0].detail != state.messages.Tools.ExtEditRefused ||
+		state.fileNotices.items[0].kind != components.ToastError {
+		t.Fatal("executable refusal was not shown as a localized global notice")
+	}
+}
+
 func TestLocalSFTPDirectoryAndMultipleSelectionHaveNoEditorAction(t *testing.T) {
 	state, session, _, _ := openTestSFTP(t)
 	view := openLocalPane(t, state, session, localFixture(t))
@@ -71,5 +86,21 @@ func TestLocalSFTPDirectoryAndMultipleSelectionHaveNoEditorAction(t *testing.T) 
 			t.Fatal("directory or multi-selection exposed an editor action")
 		}
 		state.sftpMenu.open = false
+	}
+}
+
+func TestLocalSFTPSpecialFileHasNoEditorAction(t *testing.T) {
+	state, session, _, _ := openTestSFTP(t)
+	view := openLocalPane(t, state, session, localFixture(t))
+	for i := range view.lfolder.rows {
+		view.lfolder.rows[i].selected = view.lfolder.rows[i].entry.Name == "report.txt"
+		if view.lfolder.rows[i].selected {
+			view.lfolder.rows[i].entry.Mode = os.ModeNamedPipe | 0o600
+		}
+	}
+	state.sftpMenu = sftpMenu{open: true, session: session.ID, at: ui.Point{X: 300, Y: 200}}
+	canvas, _ := paintedTexts(state)
+	if _, ok := hitByID(canvas, hitSFTPMenuEdit); ok {
+		t.Fatal("a special local file exposed an editor action")
 	}
 }

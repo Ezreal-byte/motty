@@ -9,7 +9,6 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/pkg/sftp"
 	"github.com/vivaui/viva/components"
 	"motty/internal/sftpclient"
 )
@@ -193,9 +192,7 @@ func (w *sftpWindow) browseListingFailed(local bool, directory string, err error
 	if request == nil || request.side != sideIndex(local) || request.paths[request.side] != directory {
 		return false
 	}
-	var status *sftp.StatusError
-	missing := errors.Is(err, os.ErrNotExist) || errors.As(err, &status) && status.FxCode() == sftp.ErrSSHFxNoSuchFile
-	if request.second && !request.attempted && (w.browse.enabled || request.rebase && request.enable) && missing {
+	if request.second && !request.attempted && (w.browse.enabled || request.rebase && request.enable) && sftpclient.IsPathNotFound(err) {
 		request.confirm = true
 		w.view.pathRequest, w.view.errorText = "", ""
 		if !local {

@@ -58,7 +58,7 @@ func (w *sftpWindow) selectionActions(local bool) []sftpWindowAction {
 		add(hitSFTPOpenEntry, iconFolderOpen, m.SFTPOpen)
 	}
 	if local {
-		if count == 1 && !folder.rows[selected].entry.IsDir() {
+		if count == 1 && folder.rows[selected].entry.Mode.IsRegular() {
 			add(hitSFTPEditExternal, iconExternal, m.Tools.ExtEditButton)
 		}
 		add(hitSFTPSend, iconUpload, m.Tools.SendToServer)

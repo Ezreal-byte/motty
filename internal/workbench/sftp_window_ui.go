@@ -210,7 +210,7 @@ func (w *sftpWindow) paintPane(canvas *ui.Canvas, bounds ui.Rect, local bool) {
 				buttons[buttonCount-1].style = iconButtonActive
 			}
 			if local {
-				icon(hitSFTPLocationProfiles, iconSFTPProfiles, m.SFTPWindow.BookmarkTitle, false)
+				icon(hitSFTPLocationProfiles, iconSFTPProfiles, m.SFTPWindow.BookmarkTitle, w.browse.pending != nil)
 				hint := m.SFTPWindow.BrowseSync
 				if w.browse.enabled {
 					hint = w.browseDescription()

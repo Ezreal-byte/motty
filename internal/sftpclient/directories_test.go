@@ -47,7 +47,7 @@ type basicDirectoryRemote struct {
 	created     []string
 	denied      string
 	file        string
-	rawStatus   bool
+	statusCode  uint32
 }
 
 func (r *basicDirectoryRemote) ReadDir(directory string) ([]os.FileInfo, error) {
@@ -58,8 +58,8 @@ func (r *basicDirectoryRemote) ReadDir(directory string) ([]os.FileInfo, error) 
 		return nil, os.ErrInvalid
 	}
 	if !r.directories[directory] {
-		if r.rawStatus {
-			return nil, &sftp.StatusError{Code: uint32(sftp.ErrSSHFxNoSuchFile)}
+		if r.statusCode != 0 {
+			return nil, &sftp.StatusError{Code: r.statusCode}
 		}
 		return nil, os.ErrNotExist
 	}
@@ -75,12 +75,14 @@ func (r *basicDirectoryRemote) Mkdir(directory string) error {
 }
 
 func TestCreateDirectoriesFallbackPreservesParentsAndRejectsFilesAndPermissions(t *testing.T) {
-	for _, kind := range []string{"missing", "status", "exists", "file", "permission"} {
+	for _, kind := range []string{"missing", "status", "status-path", "exists", "file", "permission"} {
 		t.Run(kind, func(t *testing.T) {
 			r := &basicDirectoryRemote{fakeRemote: &fakeRemote{}, directories: map[string]bool{"/srv": true}}
 			switch kind {
 			case "status":
-				r.rawStatus = true
+				r.statusCode = uint32(sftp.ErrSSHFxNoSuchFile)
+			case "status-path":
+				r.statusCode = 10
 			case "exists":
 				r.directories["/srv/new"] = true
 				r.directories["/srv/new/leaf"] = true
@@ -104,6 +106,26 @@ func TestCreateDirectoriesFallbackPreservesParentsAndRejectsFilesAndPermissions(
 			}
 			if kind != "exists" && (len(r.created) != 2 || r.created[0] != "/srv/new" || r.created[1] != "/srv/new/leaf") {
 				t.Fatal("missing parents were not created in order")
+			}
+		})
+	}
+}
+
+func TestIsPathNotFoundRecognizesAllSupportedBackendErrors(t *testing.T) {
+	for _, test := range []struct {
+		name string
+		err  error
+		want bool
+	}{
+		{"os", os.ErrNotExist, true},
+		{"no-such-file", &sftp.StatusError{Code: uint32(sftp.ErrSSHFxNoSuchFile)}, true},
+		{"no-such-path", &sftp.StatusError{Code: 10}, true},
+		{"permission", os.ErrPermission, false},
+		{"status-failure", &sftp.StatusError{Code: uint32(sftp.ErrSSHFxFailure)}, false},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			if got := IsPathNotFound(test.err); got != test.want {
+				t.Fatalf("IsPathNotFound(%v) = %v, want %v", test.err, got, test.want)
 			}
 		})
 	}

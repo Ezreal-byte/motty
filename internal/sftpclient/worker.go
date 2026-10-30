@@ -2066,6 +2066,20 @@ func isUnsupportedSFTP(err error) bool {
 	return errors.As(err, &status) && status.FxCode() == sftp.ErrSSHFxOpUnsupported
 }
 
+const sftpStatusCodeNoSuchPath = 10
+
+// IsPathNotFound reports a missing remote path across the error forms used by
+// SFTP and SCP backends. Some SFTP servers use the v4-v6 NO_SUCH_PATH status
+// even though pkg/sftp only exports the v3 NO_SUCH_FILE constant.
+func IsPathNotFound(err error) bool {
+	if errors.Is(err, os.ErrNotExist) || os.IsNotExist(err) {
+		return true
+	}
+	var status *sftp.StatusError
+	return errors.As(err, &status) &&
+		(status.FxCode() == sftp.ErrSSHFxNoSuchFile || status.Code == sftpStatusCodeNoSuchPath)
+}
+
 func createDirectory(client Remote, remotePath string) error {
 	if remotePath == "" {
 		return fmt.Errorf("sftp: create directory requires a remote path")
@@ -2092,9 +2106,7 @@ func createDirectories(client Remote, remotePath string) error {
 		if _, err := client.ReadDir(current); err == nil {
 			break
 		} else {
-			var status *sftp.StatusError
-			notFound := errors.Is(err, os.ErrNotExist) || errors.As(err, &status) && status.FxCode() == sftp.ErrSSHFxNoSuchFile
-			if !notFound || path.Dir(current) == current {
+			if !IsPathNotFound(err) || path.Dir(current) == current {
 				return err
 			}
 		}
