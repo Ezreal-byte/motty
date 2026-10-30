@@ -95,6 +95,8 @@ const (
 	iconSFTPTransfer
 	iconSFTPBrowseSync
 	iconSFTPProfiles
+	iconPaperclip
+	iconImage
 )
 
 // terminalPage reports whether the window shows the panes of a workspace rather
@@ -1598,6 +1600,8 @@ var lucideIcons = [...]ui.Icon{
 	iconHardDrive:      icons.HardDrive,
 	iconExternal:       icons.SquarePen,
 	iconPlug:           icons.Plug,
+	iconPaperclip:      icons.Paperclip,
+	iconImage:          icons.Image,
 	iconPaste:          icons.ClipboardPaste,
 	iconSelectAll:      icons.SquareDashed,
 	iconEraser:         icons.Eraser,

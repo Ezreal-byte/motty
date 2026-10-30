@@ -53,6 +53,8 @@ type aiRowView struct {
 	resLen   int
 	argData  *byte
 	argLen   int
+	attData  *aiAttachmentRef
+	attLen   int
 
 	expanded bool // chosen by the user: the reasoning or output is open
 	actions  bool // the last assistant message reserves room for copy and usage
@@ -83,7 +85,8 @@ func (v *aiRowView) current(item *aiItem, width, cell float32, title string) boo
 		v.built == v.expanded && v.title == title &&
 		v.textData == unsafe.StringData(item.text) && v.textLen == len(item.text) &&
 		v.resData == unsafe.StringData(item.result) && v.resLen == len(item.result) &&
-		v.argData == unsafe.StringData(item.call.Arguments) && v.argLen == len(item.call.Arguments)
+		v.argData == unsafe.StringData(item.call.Arguments) && v.argLen == len(item.call.Arguments) &&
+		v.attData == unsafe.SliceData(item.attachments) && v.attLen == len(item.attachments)
 }
 
 // runeCells is how many terminal cells a rune takes: two for the wide scripts.
@@ -304,6 +307,7 @@ func (state *State) aiBuild(canvas *ui.Canvas, view *aiRowView, item *aiItem, wi
 		textData: unsafe.StringData(item.text), textLen: len(item.text),
 		resData: unsafe.StringData(item.result), resLen: len(item.result),
 		argData: unsafe.StringData(item.call.Arguments), argLen: len(item.call.Arguments),
+		attData: unsafe.SliceData(item.attachments), attLen: len(item.attachments),
 		expanded: view.expanded, top: view.top, lines: view.lines[:0], doc: view.doc, md: view.md, plain: view.plain,
 	}
 	switch item.kind {
@@ -312,6 +316,10 @@ func (state *State) aiBuild(canvas *ui.Canvas, view *aiRowView, item *aiItem, wi
 		view.plain[aiTextPrimary].layoutBody(canvas, item.text, aiBodySize, aiBodyLine, inner, aiMaxLines)
 		view.lines = view.plain[aiTextPrimary].appendLines(view.lines)
 		view.height = 2*aiUserPadY + float32(len(view.lines))*aiBodyLine
+		if len(item.attachments) > 0 {
+			view.detail = aiAttachmentNames(item.attachments)
+			view.height += aiAttachedLine
+		}
 	case aiTargetChange:
 		view.detail = fmt.Sprintf(state.messages.AIPanel.TargetSwitchedFmt, item.text)
 		view.height = 30
@@ -447,6 +455,7 @@ func (state *State) paintAIPanel(canvas *ui.Canvas, size ui.Size) {
 		return
 	}
 	state.ai.panel.window = ui.Rect{Width: size.Width, Height: size.Height}
+	defer state.paintAIDrop(canvas)
 	pal := state.pal
 	if reserve := state.aiSectionReserve(size); reserve > 0 {
 		bounds := ui.Rect{
@@ -941,6 +950,13 @@ func (state *State) declareAIRow(f *flex.Frame, index int, view *aiRowView, item
 				view.textSlotSet[aiTextPrimary] = true
 				if index < aiMaxRowHits {
 					text.HitWith(hitAIAnswerText.At(index), item.text, ui.HitOptions{Role: ui.RoleGroup, SkipTab: true})
+				}
+				if len(item.attachments) > 0 {
+					// What the question was sent with, under its words.
+					f.Row().Height(aiAttachedLine).Gap(5).Items(flex.Center).Children(func() {
+						f.Icon(lucideIcons[iconPaperclip]).Size(12, 12).Color(pal.muted).Shrink(0)
+						f.Text(view.detail).FontSize(aiSmallSize).Color(pal.muted).LineHeight(aiSmallLine).Ellipsis().Shrink(1)
+					})
 				}
 			})
 		})

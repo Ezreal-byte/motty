@@ -67,9 +67,38 @@ type oaToolCall struct {
 	Function oaToolFunc `json:"function"`
 }
 
+// oaPart is one piece of a user message that carries pictures.
+type oaPart struct {
+	Type     string      `json:"type"`
+	Text     string      `json:"text,omitempty"`
+	ImageURL *oaImageURL `json:"image_url,omitempty"`
+}
+
+type oaImageURL struct {
+	URL string `json:"url"`
+}
+
+// oaContent is a message's content: null, a string, or, when the message has
+// pictures, a list of parts. Plain text stays a string because not every
+// OpenAI-compatible server reads the list form.
+type oaContent struct {
+	text  *string
+	parts []oaPart
+}
+
+func (c oaContent) MarshalJSON() ([]byte, error) {
+	switch {
+	case c.parts != nil:
+		return json.Marshal(c.parts)
+	case c.text != nil:
+		return json.Marshal(*c.text)
+	}
+	return []byte("null"), nil
+}
+
 type oaMessage struct {
 	Role       string       `json:"role"`
-	Content    *string      `json:"content"`
+	Content    oaContent    `json:"content"`
 	ToolCalls  []oaToolCall `json:"tool_calls,omitempty"`
 	ToolCallID string       `json:"tool_call_id,omitempty"`
 }
@@ -101,16 +130,22 @@ func (p *openAI) buildBody(req Request) ([]byte, error) {
 	}{true}
 	str := func(s string) *string { return &s }
 	if req.System != "" {
-		out.Messages = append(out.Messages, oaMessage{Role: "system", Content: str(req.System)})
+		out.Messages = append(out.Messages, oaMessage{Role: "system", Content: oaContent{text: str(req.System)}})
 	}
 	for _, m := range req.Messages {
 		om := oaMessage{Role: string(m.Role)}
 		switch m.Role {
 		case RoleSystem, RoleUser:
-			om.Content = str(m.Text)
+			om.Content = oaContent{text: str(m.Text)}
+			if len(m.Images) > 0 {
+				om.Content = oaContent{parts: []oaPart{{Type: "text", Text: m.Text}}}
+				for _, image := range m.Images {
+					om.Content.parts = append(om.Content.parts, oaPart{Type: "image_url", ImageURL: &oaImageURL{URL: image.dataURL()}})
+				}
+			}
 		case RoleAssistant:
 			if m.Text != "" || len(m.ToolCalls) == 0 {
-				om.Content = str(m.Text)
+				om.Content = oaContent{text: str(m.Text)}
 			}
 			for _, tc := range m.ToolCalls {
 				args, err := validateArgs(tc.Arguments)
@@ -124,7 +159,7 @@ func (p *openAI) buildBody(req Request) ([]byte, error) {
 			if m.ToolCallID == "" {
 				return nil, errors.New("llm: tool message without ToolCallID")
 			}
-			om.Content, om.ToolCallID = str(m.Text), m.ToolCallID
+			om.Content, om.ToolCallID = oaContent{text: str(m.Text)}, m.ToolCallID
 		default:
 			return nil, fmt.Errorf("llm: unknown role %q", m.Role)
 		}

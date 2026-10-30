@@ -26,14 +26,37 @@ func NewOpenAIResponses(cfg Config) Provider {
 
 // rsItem is one element of the request's input list: a message, a function
 // call the model made earlier, or the output of such a call.
+// rsPart is one piece of a user message that carries pictures.
+type rsPart struct {
+	Type     string `json:"type"`
+	Text     string `json:"text,omitempty"`
+	ImageURL string `json:"image_url,omitempty"`
+}
+
+// rsContent is a message's content: a string, or, when it has pictures, a list
+// of parts. The empty value is left out of the item.
+type rsContent struct {
+	text  *string
+	parts []rsPart
+}
+
+func (c rsContent) IsZero() bool { return c.text == nil && c.parts == nil }
+
+func (c rsContent) MarshalJSON() ([]byte, error) {
+	if c.parts != nil {
+		return json.Marshal(c.parts)
+	}
+	return json.Marshal(c.text)
+}
+
 type rsItem struct {
-	Type      string  `json:"type,omitempty"`
-	Role      string  `json:"role,omitempty"`
-	Content   *string `json:"content,omitempty"`
-	CallID    string  `json:"call_id,omitempty"`
-	Name      string  `json:"name,omitempty"`
-	Arguments *string `json:"arguments,omitempty"`
-	Output    *string `json:"output,omitempty"`
+	Type      string    `json:"type,omitempty"`
+	Role      string    `json:"role,omitempty"`
+	Content   rsContent `json:"content,omitzero"`
+	CallID    string    `json:"call_id,omitempty"`
+	Name      string    `json:"name,omitempty"`
+	Arguments *string   `json:"arguments,omitempty"`
+	Output    *string   `json:"output,omitempty"`
 }
 
 type rsTool struct {
@@ -69,10 +92,17 @@ func (p *openAIResponses) buildBody(req Request) ([]byte, error) {
 	for _, m := range req.Messages {
 		switch m.Role {
 		case RoleSystem, RoleUser:
-			out.Input = append(out.Input, rsItem{Role: string(m.Role), Content: str(m.Text)})
+			item := rsItem{Role: string(m.Role), Content: rsContent{text: str(m.Text)}}
+			if len(m.Images) > 0 {
+				item.Content = rsContent{parts: []rsPart{{Type: "input_text", Text: m.Text}}}
+				for _, image := range m.Images {
+					item.Content.parts = append(item.Content.parts, rsPart{Type: "input_image", ImageURL: image.dataURL()})
+				}
+			}
+			out.Input = append(out.Input, item)
 		case RoleAssistant:
 			if m.Text != "" || len(m.ToolCalls) == 0 {
-				out.Input = append(out.Input, rsItem{Role: "assistant", Content: str(m.Text)})
+				out.Input = append(out.Input, rsItem{Role: "assistant", Content: rsContent{text: str(m.Text)}})
 			}
 			for _, tc := range m.ToolCalls {
 				args, err := validateArgs(tc.Arguments)

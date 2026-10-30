@@ -129,9 +129,30 @@ type terminalDrop struct {
 
 // FileDrop receives files dragged from the system over the window.
 func (state *State) FileDrop(event ui.FileDropEvent) ui.EventResult {
+	if event.Phase == ui.FileDropLeave {
+		return ui.EventResult{Repaint: state.clearDrop() || state.aiDropHover(false)}
+	}
+	// The assistant panel is a place of its own, over the page beside it: files
+	// dropped on it are attached to the next question.
+	if state.aiDropsOnPanel(event.X, event.Y) {
+		repaint := state.clearDrop()
+		if event.Phase == ui.FileDropOver {
+			return ui.EventResult{Handled: true, Repaint: state.aiDropHover(true) || repaint}
+		}
+		state.aiDropHover(false)
+		state.aiAttachPaths(event.Paths)
+		return ui.EventResult{Handled: len(event.Paths) > 0, Repaint: true}
+	}
+	left := state.aiDropHover(false)
+	result := state.fileDropOnPage(event)
+	result.Repaint = result.Repaint || left
+	return result
+}
+
+// fileDropOnPage is FileDrop for files that are not over the assistant: the file
+// panel and the terminals.
+func (state *State) fileDropOnPage(event ui.FileDropEvent) ui.EventResult {
 	switch event.Phase {
-	case ui.FileDropLeave:
-		return ui.EventResult{Repaint: state.clearDrop()}
 	case ui.FileDropOver:
 		if _, view := state.dropPanel(event.X, event.Y); view != nil {
 			row := state.dropFolderRow(view, event.Target)

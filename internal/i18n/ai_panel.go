@@ -57,6 +57,22 @@ type AIPanelMessages struct {
 	Send                string
 	Stop                string
 
+	// Files and pictures attached to a message. The Fmt strings take the file's
+	// name first.
+	Attach               string // the paperclip: its name and tooltip
+	AttachPickerTitle    string
+	AttachDropHint       string // over the panel while files are dragged in
+	AttachRemoveFmt      string
+	AttachedLabel        string // the name of the row of attachments under a sent message
+	AttachTooManyFmt     string // takes the most that can be attached
+	AttachFolderFmt      string
+	AttachEmptyFmt       string
+	AttachTextTooBigFmt  string // takes the name and the size limit
+	AttachTooLargeFmt    string
+	AttachUnsupportedFmt string
+	AttachTotalTextFmt   string // takes the name and the size limit of all text
+	AttachFailedFmt      string // takes the name and the system's reason
+
 	EmptyTitle     string
 	EmptyHint      string
 	Example1       string

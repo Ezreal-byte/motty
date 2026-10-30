@@ -2982,6 +2982,35 @@ var History = ui.Icon{
 	},
 }
 
+// image is a compiled vector icon.
+var Image = ui.Icon{
+	ViewBox: 24.0,
+	Stroke:  2.0,
+	Cap:     ui.CapRound,
+	Join:    ui.JoinRound,
+	Commands: []ui.PathCommand{
+		ui.MoveTo(19.0, 3.0),
+		ui.CubicTo(20.1046, 3.0, 21.0, 3.89543, 21.0, 5.0),
+		ui.LineTo(21.0, 19.0),
+		ui.CubicTo(21.0, 20.1046, 20.1046, 21.0, 19.0, 21.0),
+		ui.LineTo(5.0, 21.0),
+		ui.CubicTo(3.89543, 21.0, 3.0, 20.1046, 3.0, 19.0),
+		ui.LineTo(3.0, 5.0),
+		ui.CubicTo(3.0, 3.89543, 3.89543, 3.0, 5.0, 3.0),
+		ui.ClosePath(),
+		ui.MoveTo(11.0, 9.0),
+		ui.CubicTo(11.0, 10.1046, 10.1046, 11.0, 9.0, 11.0),
+		ui.CubicTo(7.89543, 11.0, 7.0, 10.1046, 7.0, 9.0),
+		ui.CubicTo(7.0, 7.89543, 7.89543, 7.0, 9.0, 7.0),
+		ui.CubicTo(10.1046, 7.0, 11.0, 7.89543, 11.0, 9.0),
+		ui.ClosePath(),
+		ui.MoveTo(21.0, 15.0),
+		ui.LineTo(17.914, 11.914),
+		ui.CubicTo(17.133, 11.1332, 15.867, 11.1332, 15.086, 11.914),
+		ui.LineTo(6.0, 21.0),
+	},
+}
+
 // info is a compiled vector icon.
 var Info = ui.Icon{
 	ViewBox: 24.0,
@@ -6718,6 +6747,27 @@ var PanelLeft = ui.Icon{
 		ui.ClosePath(),
 		ui.MoveTo(9.0, 3.0),
 		ui.LineTo(9.0, 21.0),
+	},
+}
+
+// paperclip is a compiled vector icon.
+var Paperclip = ui.Icon{
+	ViewBox: 24.0,
+	Stroke:  2.0,
+	Cap:     ui.CapRound,
+	Join:    ui.JoinRound,
+	Commands: []ui.PathCommand{
+		ui.MoveTo(21.44, 11.05),
+		ui.LineTo(12.25, 20.24),
+		ui.CubicTo(9.90555, 22.5844, 6.10445, 22.5844, 3.76, 20.24),
+		ui.CubicTo(1.41555, 17.8956, 1.41555, 14.0944, 3.76, 11.75),
+		ui.LineTo(12.33, 3.18),
+		ui.CubicTo(13.893, 1.61427, 16.4293, 1.61203, 17.995, 3.175),
+		ui.CubicTo(19.5607, 4.73797, 19.563, 7.27427, 18.0, 8.84),
+		ui.LineTo(9.41, 17.41),
+		ui.CubicTo(8.62852, 18.1915, 7.36148, 18.1915, 6.58, 17.41),
+		ui.CubicTo(5.79852, 16.6285, 5.79852, 15.3615, 6.58, 14.58),
+		ui.LineTo(15.07, 6.1),
 	},
 }
 

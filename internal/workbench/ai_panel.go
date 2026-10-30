@@ -211,6 +211,12 @@ type aiPanel struct {
 
 	input app.TextInput // the native editor of the message box, reused
 
+	// dropping is whether files are being dragged over the panel; chips are the
+	// waiting attachments' places above the message box, chipRows their rows.
+	dropping bool
+	chips    []aiChip
+	chipRows int
+
 	copyTargets [aiMaxCopyBlocks]string
 	// rowSlots and copies are where flex put the rows on screen and, in the row
 	// being painted, the copy buttons of its code blocks. They are only valid
@@ -455,6 +461,12 @@ func (state *State) aiPanelClick(id ui.ID) bool {
 		state.toggleAIPanel()
 	case id == hitAIClose || id == hitAIDrawerDismiss:
 		state.setAIPanelOpen(false)
+	case id == hitAIAttach:
+		state.aiPickAttachments()
+	case id.Scope() == hitAIAttachRemove:
+		if index, ok := id.In(hitAIAttachRemove); ok {
+			state.aiRemoveAttachment(index)
+		}
 	case id == hitAINew:
 		state.aiNewConversation()
 		if ai.run == nil {

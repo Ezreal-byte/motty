@@ -57,6 +57,8 @@ type aiItem struct {
 	status      aiToolStatus
 	result      string
 	risk        risk.Level
+	// attachments are the files a user message was sent with, by name.
+	attachments []aiAttachmentRef
 }
 
 // aiApproval is a question to the user from a tool call that needs a yes.
@@ -79,6 +81,9 @@ type aiRun struct {
 	targetKey  string
 	cancel     context.CancelFunc
 	providerID string
+	// attachments are what the question in flight was sent with, to be saved
+	// with it.
+	attachments []aiAttachmentRef
 	// open is the item that streamed text is appended to, or -1.
 	open int
 	// text accumulates the open item's streamed text. A builder (rather than
@@ -142,9 +147,13 @@ type aiState struct {
 	history        []llm.Message
 	conv           int64
 	input          text.Editor
-	confirm        text.Editor // the word a critical action asks to be typed
-	run            *aiRun
-	approvals      []*aiApproval
+	// attachments wait in the message box for the next question; attaching is how
+	// many files are still being read for it.
+	attachments []aiAttachment
+	attaching   int
+	confirm     text.Editor // the word a critical action asks to be typed
+	run         *aiRun
+	approvals   []*aiApproval
 	// scroll is the conversation's scroll policy: it keeps the newest row in view
 	// while the reader is at the end and leaves a reader who scrolled up alone.
 	scroll components.MessageScrollState
@@ -650,7 +659,7 @@ func (state *State) aiSend() {
 		return
 	}
 	question := strings.TrimSpace(ai.input.String())
-	if question == "" {
+	if question == "" || ai.attaching > 0 && !ai.retry {
 		return
 	}
 	provider, model, err := state.aiModel()
@@ -677,6 +686,11 @@ func (state *State) aiSend() {
 	ai.retry = false
 	ai.answerOnly = false
 	ai.input = text.Editor{}
+	var attachments []aiAttachment // a retry continues a question that already has its own
+	if !retry {
+		attachments, ai.attachments = ai.attachments, nil
+	}
+	attachedText, images, refs := aiAttachmentContext(attachments, ai.settings.redact)
 	targetKey := ""
 	if target.ID != "" {
 		if ai.targetNamespace == "" {
@@ -687,10 +701,11 @@ func (state *State) aiSend() {
 	if !retry {
 		state.dropEscalationApprovals()
 		state.aiAppendQuestion(question, targetKey, state.aiConversationTargetLabel(target))
+		ai.items[len(ai.items)-1].attachments = refs
 	}
 	ai.scroll.ScrollToEnd()
 
-	sent := question
+	sent := question + attachedText
 	var attached uint32 // the session whose text already went with the question
 	if !retry && ai.mode == agent.ModeAsk {
 		if context := state.aiContext(); context != "" {
@@ -709,6 +724,7 @@ func (state *State) aiSend() {
 		System:            agent.DefaultSystem(state.aiSessionSummary(references...)) + state.aiNoSessionNote(references...),
 		Mode:              ai.mode,
 		UserInHistory:     retry,
+		UserImages:        images,
 		NoTools:           answerOnly,
 		Gate:              state.aiGate(gate.ModeAsk),
 		MaxSteps:          ai.settings.maxSteps,
@@ -723,13 +739,16 @@ func (state *State) aiSend() {
 	config.Gate.Backend = backend
 	config.System += "\n\nConnection routing for this request: the selected primary connection is the locked default. Omitted session arguments ALWAYS resolve to that default, never to the active tab or a referenced session. Only that default and the explicit @references listed above are available to tools for this question. A reference by itself attaches context, not an instruction to act: when the user only asks to compare or analyze the attached text, answer from it. When the user explicitly asks to inspect, run a command, or modify files on an @referenced connection, use its exact session ID in the tool arguments; do NOT ask them to switch the primary selector. Cross-connection execution and writes require approval showing the actual target. For a request covering several explicitly named connections, use the specified IDs; never include an unmentioned connection from history or list_sessions. Changing tabs does not change any of these bindings."
 	ctx, cancel := context.WithCancel(context.Background())
-	run := &aiRun{cancel: cancel, open: -1, providerID: provider.ID, target: target, targetKey: targetKey}
+	run := &aiRun{cancel: cancel, open: -1, providerID: provider.ID, target: target, targetKey: targetKey, attachments: refs}
 	ai.run = run
 	ai.panel.autoMenu = false // the scope is fixed while the request runs
 	if backend.defaultDone != nil && len(backend.bindings) == 1 {
 		go state.aiWatchTarget(ctx, run, backend.defaultDone)
 	}
 	history := append([]llm.Message(nil), ai.history...)
+	if aiHasAttachments(history, sent) {
+		config.System += attachmentNote
+	}
 	go func() {
 		defer backend.closeAll()
 		messages, err := agent.Run(ctx, config, history, sent, func(event agent.Event) {
@@ -900,16 +919,19 @@ func (state *State) aiFinished(run *aiRun, messages []llm.Message, err error) {
 		}
 	}
 	ai.history = append(ai.history, messages...)
-	state.aiPersist(messages, run.target, run.targetKey)
+	state.aiPersist(messages, run.target, run.targetKey, run.attachments)
 }
 
-func (state *State) aiPersist(messages []llm.Message, target gate.SessionInfo, key string) {
+func (state *State) aiPersist(messages []llm.Message, target gate.SessionInfo, key string, attachments []aiAttachmentRef) {
 	ai := &state.ai
 	if !ai.settings.keepHistory || ai.store == nil || len(messages) == 0 {
 		return
 	}
 	if ai.conv == 0 {
-		title := messages[0].Text
+		title := strings.TrimSpace(stripContext(messages[0].Text))
+		if title == "" && len(attachments) > 0 {
+			title = attachments[0].Name
+		}
 		if r := []rune(title); len(r) > 40 {
 			title = string(r[:40])
 		}
@@ -927,6 +949,9 @@ func (state *State) aiPersist(messages []llm.Message, target gate.SessionInfo, k
 			_ = json.Unmarshal(stored.ToolJSON, &metadata)
 			metadata.TargetLabel = state.aiConversationTargetLabel(target)
 			metadata.TargetKey = key
+			if message.Role == llm.RoleUser {
+				metadata.Attachments = attachments
+			}
 			stored.ToolJSON, _ = json.Marshal(metadata)
 		}
 		_, _ = ai.store.AppendMessage(ai.conv, stored)
@@ -935,10 +960,13 @@ func (state *State) aiPersist(messages []llm.Message, target gate.SessionInfo, k
 
 // storedTools is how tool calls and results travel through a StoredMessage.
 type storedTools struct {
-	TargetKey   string         `json:"target_key,omitempty"`
-	TargetLabel string         `json:"target_label,omitempty"`
-	Calls       []llm.ToolCall `json:"calls,omitempty"`
-	CallID      string         `json:"call_id,omitempty"`
+	TargetKey   string `json:"target_key,omitempty"`
+	TargetLabel string `json:"target_label,omitempty"`
+	// Attachments are the names of what a question was sent with. The files are
+	// not kept: a saved conversation shows them but the model no longer sees them.
+	Attachments []aiAttachmentRef `json:"attachments,omitempty"`
+	Calls       []llm.ToolCall    `json:"calls,omitempty"`
+	CallID      string            `json:"call_id,omitempty"`
 }
 
 func toStored(message llm.Message) store.StoredMessage {
@@ -970,6 +998,7 @@ func (state *State) aiNewConversation() {
 	ai.panel.targetOpen = false
 	ai.panel.autoMenu = false
 	ai.items, ai.history, ai.conv, ai.notice = nil, nil, 0, ""
+	state.aiClearAttachments()
 	ai.approvals = nil
 	ai.autoUpTo = nil // a new conversation starts from the setting
 	ai.retry = false
@@ -991,6 +1020,7 @@ func (state *State) aiOpenConversation(id int64) {
 		return
 	}
 	ai.items, ai.history, ai.conv = nil, nil, id
+	state.aiClearAttachments()
 	// Persisted terminal IDs are not identities across application restarts.
 	// History restores neither a live default nor reference authorization. A new
 	// request must select its default or explicitly name its reference sessions.
@@ -1012,6 +1042,7 @@ func (state *State) aiOpenConversation(id int64) {
 		switch message.Role {
 		case llm.RoleUser:
 			state.aiAppendQuestion(stripContext(message.Text), metadata.TargetKey, metadata.TargetLabel)
+			ai.items[len(ai.items)-1].attachments = metadata.Attachments
 		case llm.RoleAssistant:
 			if message.Text != "" {
 				ai.items = append(ai.items, aiItem{kind: aiAssistant, text: message.Text})
@@ -1030,10 +1061,15 @@ func (state *State) aiOpenConversation(id int64) {
 	}
 }
 
-// stripContext removes the terminal excerpt Ask mode appended to a question.
+// stripContext removes what was appended to a question: the files attached to it
+// and the terminal excerpt Ask mode added. They are the first thing after it, so
+// whichever heading comes first ends the question.
 func stripContext(text string) string {
-	if index := strings.Index(text, "\n\n[Terminal of "); index >= 0 {
-		return text[:index]
+	end := len(text)
+	for _, marker := range [...]string{"\n\n[Terminal of ", attachedMarker} {
+		if index := strings.Index(text, marker); index >= 0 {
+			end = min(end, index)
+		}
 	}
-	return text
+	return text[:end]
 }
