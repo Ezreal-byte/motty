@@ -452,7 +452,11 @@ func (state *State) startConnectionMode(session *Session, host Host, automatic b
 	session.jumpPath = ""
 	if host.ID == localHostID {
 		// A shell on this machine: nothing to dial, so it is connected at once.
-		conn := newLocalConn(state.localShell)
+		shell := host.localShell
+		if shell == "" {
+			shell = state.localShell
+		}
+		conn := newLocalConn(shell)
 		conn.dir = localStartupDirectory(session.localDirectory, conn.shell)
 		session.conn = conn
 		state.finishStartingConnection(session, automatic)

@@ -199,6 +199,8 @@ type savedSession struct {
 	// Local marks a shell on this computer: it has no address to dial.
 	Local          bool   `json:"local,omitempty"`
 	LocalDirectory string `json:"local_directory,omitempty"`
+	// LocalShell is the shell this local tab was opened with; empty follows the default.
+	LocalShell string `json:"local_shell,omitempty"`
 	savedTransport
 }
 
@@ -498,7 +500,7 @@ func (state *State) snapshot() savedState {
 			continue
 		}
 		if session.isLocal() {
-			saved.Sessions = append(saved.Sessions, savedSession{Label: session.Title, Local: true, LocalDirectory: session.localDirectory})
+			saved.Sessions = append(saved.Sessions, savedSession{Label: session.Title, Local: true, LocalDirectory: session.localDirectory, LocalShell: session.host.localShell})
 			if session.ID == state.activeSessionID {
 				saved.ActiveSession = len(saved.Sessions)
 			}
@@ -835,7 +837,11 @@ func (state *State) restoreSessions(entries []savedSession, active int) []uint32
 
 func (state *State) restoreSessionHost(entry savedSession) (Host, bool) {
 	if entry.Local {
-		return localHost(state.messages.LocalTerminalTitle), true
+		host := localHost(state.messages.LocalTerminalTitle)
+		if validLocalShell(entry.LocalShell) {
+			host.localShell = entry.LocalShell
+		}
+		return host, true
 	}
 	if entry.Address == "" {
 		return Host{}, false

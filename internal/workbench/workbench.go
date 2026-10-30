@@ -435,6 +435,7 @@ type State struct {
 	tabStrip           tabStrip
 	tabMenu            tabMenu
 	hostMenu           hostMenu
+	localShellPicker   localShellPicker
 	snippetMenu        snippetMenu
 	sftpMenu           sftpMenu
 	popups             popupMenus
@@ -1245,7 +1246,7 @@ func (state *State) Click(id ui.ID) {
 		state.clickShortcutCapture(id)
 		return
 	}
-	if state.clickTerminalMenu(id) || state.clickTabMenu(id) || state.clickHostMenu(id) || state.clickSnippetMenu(id) || state.clickSFTPMenu(id) {
+	if state.clickTerminalMenu(id) || state.clickTabMenu(id) || state.clickHostMenu(id) || state.clickLocalShellPicker(id) || state.clickSnippetMenu(id) || state.clickSFTPMenu(id) {
 		return
 	}
 	if state.clickTerminalFind(id) {
@@ -1760,6 +1761,9 @@ func (state *State) Pointer(event ui.PointerEvent) (outcome ui.EventResult) {
 		return result
 	}
 	if result, handled := state.hostMenuPointer(event); handled {
+		return result
+	}
+	if result, handled := state.localShellPickerPointer(event); handled {
 		return result
 	}
 	if result, handled := state.snippetMenuPointer(event); handled {

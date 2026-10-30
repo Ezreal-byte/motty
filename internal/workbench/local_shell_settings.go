@@ -36,7 +36,11 @@ type localShellSelect struct {
 // wslListTimeout is how long wsl.exe gets to name the installed distributions.
 const wslListTimeout = 10 * time.Second
 
-func localShellSettingVisible() bool { return runtime.GOOS == "windows" }
+// localShellsSupported is whether this computer lists its shells for the user
+// to choose from. Only Windows does: elsewhere the login shell is the one.
+var localShellsSupported = runtime.GOOS == "windows"
+
+func localShellSettingVisible() bool { return localShellsSupported }
 
 func (state *State) refreshLocalShells() {
 	menu := &state.localShellMenu
@@ -91,6 +95,7 @@ func (state *State) adoptWSLDistros() {
 		if !slices.Equal(distros, menu.distros) {
 			menu.distros = distros
 			menu.rebuild()
+			state.shellsListed()
 		}
 	default:
 	}

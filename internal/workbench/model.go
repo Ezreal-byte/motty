@@ -59,6 +59,12 @@ type Host struct {
 	Clipboard bool
 	Console   bool
 
+	// localShell is the shell a local terminal was opened with: a program path,
+	// or a WSL distribution as localshell.WSLShell names it. Empty starts the
+	// default shell of the settings. Only the local host has one, and it is
+	// never saved with the catalog.
+	localShell string
+
 	// target is how the address column shows the destination: the host name,
 	// plus the port when it is not the default. Built once, not per paint.
 	target string

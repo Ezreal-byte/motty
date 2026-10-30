@@ -101,6 +101,16 @@ func localStartupDirectory(directory, shell string) string {
 	return ""
 }
 
+// validLocalShell reports whether a saved shell names something Start can run:
+// a WSL distribution, or an absolute program path. What it names may be gone by
+// now; that is reported when the tab starts, not here.
+func validLocalShell(shell string) bool {
+	if _, wsl := localshell.WSLDistro(shell); wsl {
+		return true
+	}
+	return filepath.IsAbs(shell) && len(shell) <= 2048 && strings.IndexFunc(shell, func(r rune) bool { return r < 0x20 || r == 0x7f }) < 0
+}
+
 func validLocalDirectory(directory string) bool {
 	return filepath.IsAbs(directory) && len(directory) <= 2048 && strings.IndexFunc(directory, func(r rune) bool { return r < 0x20 || r == 0x7f }) < 0
 }
@@ -153,7 +163,19 @@ func (conn *localConn) StreamCommand(context.Context, string, int, func([]byte) 
 // openLocalTerminal opens a shell on this computer, in the empty pane the user
 // is looking at or else in a new tab, like any other host.
 func (state *State) openLocalTerminal() *Session {
-	host := localHost(state.messages.LocalTerminalTitle)
+	return state.openLocalTerminalWith(localshell.Choice{})
+}
+
+// openLocalTerminalWith opens a local terminal that runs shell, whatever the
+// default shell is. A zero Choice starts the default one, which stays the
+// default for this tab on a reconnect, so changing the setting later moves it.
+func (state *State) openLocalTerminalWith(shell localshell.Choice) *Session {
+	label := state.messages.LocalTerminalTitle
+	if shell.Path != "" {
+		label = shell.Name
+	}
+	host := localHost(label)
+	host.localShell = shell.Path
 	return state.createHostSession(host, host.Address)
 }
 

@@ -131,6 +131,8 @@ type Messages struct {
 	SettingsLocalShell                     string
 	SettingsLocalShellDescription          string
 	SettingsLocalShellEmpty                string
+	LocalShellDefault                      string
+	LocalShellChoose                       string
 	SettingsTerminalFontSize               string
 	SettingsTerminalFontSizeDescription    string
 	SettingsTerminalFontFamily             string
