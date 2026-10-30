@@ -275,6 +275,30 @@ func (t *Terminal) ClearScrollback() {
 	t.version++
 }
 
+// ClearScreen drops the history and erases every row except the one the cursor
+// is on, which becomes the first row with the cursor in its column. A shell's
+// prompt and the command typed on it therefore survive the clear, and the line
+// editor's idea of where it is writing stays true: nothing has been sent to the
+// shell. It reports false, and leaves the screen alone, on the alternate screen,
+// which a full-screen program owns and would paint over the blank rows without
+// knowing to redraw them.
+func (t *Terminal) ClearScreen() bool {
+	if t.onAlt {
+		return false
+	}
+	lines := t.main.lines
+	lines[t.cy], lines[0] = lines[0], lines[t.cy]
+	for i := 1; i < len(lines); i++ {
+		t.eraseLine2(lines[i])
+	}
+	// What stays on the line above is gone, so it no longer continues it.
+	lines[0].wrapped = false
+	t.clearHistory()
+	t.cy = 0
+	t.version++
+	return true
+}
+
 // ScrollbackLimit is the configured maximum retained history length.
 func (t *Terminal) ScrollbackLimit() int { return t.histMax }
 

@@ -727,8 +727,14 @@ func (state *State) workspaceName() string {
 	}
 }
 
+// restoreShortcuts applies the bindings the file holds, then fills what is
+// still free with the defaults. The file wins on purpose: a chord saved for one
+// action is not taken by the default of an action a later build added. Such an
+// action stays unbound, reading "—" in the settings until it is given a chord,
+// rather than quietly moving a shortcut the user chose.
 func restoreShortcuts(saved []savedShortcut) shortcutMap {
-	shortcuts := defaultShortcuts()
+	defaults := defaultShortcuts()
+	var shortcuts shortcutMap
 	for _, entry := range saved {
 		action := shortcutActionFromString(entry.Action)
 		chord, ok := chordFromSaved(ui.Modifiers(entry.Modifiers), entry.Key)
@@ -736,6 +742,12 @@ func restoreShortcuts(saved []savedShortcut) shortcutMap {
 			continue
 		}
 		shortcuts.bind(action, chord)
+	}
+	for action := shortcutAction(1); action < shortcutActionCount; action++ {
+		if shortcuts.chords[action].valid() {
+			continue
+		}
+		shortcuts.bind(action, defaults.chords[action])
 	}
 	shortcuts.refreshLabels()
 	return shortcuts

@@ -78,6 +78,22 @@ func TestTerminalFindSearchesHistoryAndNavigatesMatches(t *testing.T) {
 	}
 }
 
+func TestClearingTheScreenRescansAnOpenFind(t *testing.T) {
+	state, _, _, shell := liveSession(t)
+	shell.say("needle in the output\r\n")
+	state.Wake()
+	_, find := openFindForTest(t, state)
+	typeTerminalFind(t, state, "needle")
+	if len(find.matches) != 1 {
+		t.Fatalf("matches = %d, want the line just printed", len(find.matches))
+	}
+	shortcut := state.shortcuts.chords[shortcutClearScreen]
+	state.Shortcut(ui.KeyEvent{Target: hitTerminalFindField, Modifiers: shortcut.Modifiers, Text: string(shortcut.Key)})
+	if len(find.matches) != 0 || find.active != -1 || find.count != state.messages.TerminalFindNoMatches {
+		t.Fatalf("after the clear = %d matches, active %d, count %q", len(find.matches), find.active, find.count)
+	}
+}
+
 func TestTerminalFindInputIsBoundedSingleLineAndCloseRestoresTerminalFocus(t *testing.T) {
 	state, _, _, _ := liveSession(t)
 	session, find := openFindForTest(t, state)

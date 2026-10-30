@@ -203,6 +203,7 @@ func (state *State) paintTerminalMenu(canvas *ui.Canvas, viewport ui.Rect) {
 	rows.add(components.ContextMenuItem{ID: hitTerminalMenuCopy, Label: messages.MenuCopy, Icon: icon(iconCopy), Keys: caps(shortcutCopy), Disabled: !hasSelection})
 	rows.add(components.ContextMenuItem{ID: hitTerminalMenuPaste, Label: messages.MenuPaste, Icon: icon(iconPaste), Keys: caps(shortcutPaste), Disabled: !live})
 	rows.add(components.ContextMenuItem{ID: hitTerminalMenuSelectAll, Label: messages.MenuSelectAll, Icon: icon(iconSelectAll)})
+	rows.add(components.ContextMenuItem{ID: hitTerminalMenuClearScreen, Label: messages.MenuClearScreen, Icon: icon(iconEraser), Keys: caps(shortcutClearScreen), Disabled: session.term.screen.Modes().AltScreen})
 	rows.add(components.ContextMenuItem{ID: hitTerminalMenuClear, Label: messages.MenuClearScrollback, Icon: icon(iconEraser), Disabled: session.term.screen.Scrollback() == 0})
 	rows.add(components.ContextMenuItem{ID: hitTerminalMenuSave, Label: messages.Tools.MenuSaveOutput, Icon: icon(iconFileDown)})
 	rows.separate()
@@ -304,6 +305,8 @@ func (state *State) clickTerminalMenu(id ui.ID) bool {
 		session.term.selection.selectRange(
 			session.term.screen.PointAt(term.Position{}),
 			session.term.screen.PointAt(term.Position{Row: rows - 1, Column: cols - 1}))
+	case hitTerminalMenuClearScreen:
+		session.term.clearScreen(state.messages)
 	case hitTerminalMenuClear:
 		session.term.screen.ClearScrollback()
 	case hitTerminalMenuSave:

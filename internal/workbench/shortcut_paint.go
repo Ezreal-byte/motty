@@ -52,6 +52,8 @@ func (state *State) shortcutActionLabel(action shortcutAction) string {
 		return messages.Tools.ZoomReset
 	case shortcutHistory:
 		return messages.History.Title
+	case shortcutClearScreen:
+		return messages.ShortcutClearScreen
 	default:
 		return ""
 	}

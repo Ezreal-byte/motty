@@ -35,6 +35,7 @@ const (
 	shortcutZoomOut
 	shortcutZoomReset
 	shortcutHistory
+	shortcutClearScreen
 	shortcutActionCount
 )
 
@@ -131,6 +132,7 @@ func defaultShortcuts() shortcutMap {
 	shortcuts.chords[shortcutZoomOut] = shortcutChord{Modifiers: primary, Key: '-'}
 	shortcuts.chords[shortcutZoomReset] = shortcutChord{Modifiers: primary, Key: '0'}
 	shortcuts.chords[shortcutHistory] = shortcutChord{Modifiers: primary | ui.ModifierShift, Key: 'h'}
+	shortcuts.chords[shortcutClearScreen] = shortcutChord{Modifiers: primary, Key: 'k'}
 	shortcuts.refreshLabels()
 	return shortcuts
 }
@@ -318,6 +320,8 @@ func (action shortcutAction) String() string {
 		return "zoom_reset"
 	case shortcutHistory:
 		return "command_history"
+	case shortcutClearScreen:
+		return "clear_screen"
 	default:
 		return ""
 	}
@@ -555,6 +559,10 @@ func (state *State) executeShortcut(action shortcutAction) ui.EventResult {
 		if hasSession && session.term != nil {
 			state.openHistory(session)
 			result.Focus = hitHistorySearch
+		}
+	case shortcutClearScreen:
+		if hasSession && session.term != nil {
+			session.term.clearScreen(state.messages)
 		}
 	case shortcutAssistant:
 		state.toggleAIPanel()

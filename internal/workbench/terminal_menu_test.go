@@ -39,7 +39,7 @@ func TestRightClickOpensTheTerminalMenuAtThePointer(t *testing.T) {
 	if copyItem.Bounds.X < 400 || copyItem.Bounds.X > 420 || copyItem.Bounds.Y < 300 || copyItem.Bounds.Y > 320 {
 		t.Fatalf("menu starts at %+v, want at the pointer", copyItem.Bounds)
 	}
-	for _, id := range []ui.ID{hitTerminalMenuPaste, hitTerminalMenuSelectAll, hitTerminalMenuClear, hitTerminalMenuSplitRight, hitTerminalMenuSplitDown, hitTerminalMenuFiles} {
+	for _, id := range []ui.ID{hitTerminalMenuPaste, hitTerminalMenuSelectAll, hitTerminalMenuClearScreen, hitTerminalMenuClear, hitTerminalMenuSplitRight, hitTerminalMenuSplitDown, hitTerminalMenuFiles} {
 		if _, ok := hitByID(&canvas, id); !ok {
 			t.Errorf("menu item %d missing", id)
 		}
@@ -200,6 +200,39 @@ func TestClearScrollbackKeepsTheScreen(t *testing.T) {
 	state.Click(hitTerminalMenuClear)
 	if session.term.screen.Scrollback() != 0 || !strings.Contains(session.term.screen.RowText(0), "line") {
 		t.Fatalf("scrollback=%d row0=%q", session.term.screen.Scrollback(), session.term.screen.RowText(0))
+	}
+}
+
+func TestTheMenuClearsTheScreenAndKeepsThePromptLine(t *testing.T) {
+	state, _, _, shell := liveSession(t)
+	session, _ := state.sessionByIDPointer(state.activeSessionID)
+	shell.say(strings.Repeat("line\r\n", 200))
+	shell.say("prompt$ ")
+	state.Wake()
+	state.terminalMenu = terminalMenu{open: true, session: session.ID}
+	state.Paint(&ui.Canvas{}, ui.Size{Width: 1400, Height: 900})
+	state.Click(hitTerminalMenuClearScreen)
+	if session.term.screen.Scrollback() != 0 || !strings.Contains(session.term.screen.RowText(0), "prompt$") {
+		t.Fatalf("scrollback=%d row0=%q", session.term.screen.Scrollback(), session.term.screen.RowText(0))
+	}
+}
+
+func TestTheMenuOffersNoClearToAFullScreenProgram(t *testing.T) {
+	state, _, _, shell := liveSession(t)
+	session, _ := state.sessionByIDPointer(state.activeSessionID)
+	shell.say("\x1b[?1049h\x1b[Hfull screen")
+	state.Wake()
+	before := session.term.screen.Text()
+	state.terminalMenu = terminalMenu{open: true, session: session.ID}
+	var canvas ui.Canvas
+	state.Paint(&canvas, ui.Size{Width: 1400, Height: 900})
+	row, ok := hitByID(&canvas, hitTerminalMenuClearScreen)
+	if !ok || !row.Disabled {
+		t.Fatalf("the clear screen row = %+v, %v; want it disabled over a program", row, ok)
+	}
+	state.Click(hitTerminalMenuClearScreen)
+	if got := session.term.screen.Text(); got != before {
+		t.Fatalf("the program's screen changed to %q, want %q", got, before)
 	}
 }
 
