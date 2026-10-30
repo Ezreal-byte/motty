@@ -306,12 +306,15 @@ func (s *State) paintDashboard(c *ui.Canvas, b ui.Rect) {
 	}
 }
 
-func dashboardBar(c *ui.Canvas, b ui.Rect, value float64, color, track ui.Color) {
-	c.Rounded(b, 3, track)
-	if !math.IsNaN(value) && value > 0 {
-		b.Width *= float32(min(value, 100) / 100)
-		c.Rounded(b, 3, color)
+// dashboardBar paints one bounded metric as Viva's progress bar, in the
+// metric's own color over the palette's track line.
+func dashboardBar(c *ui.Canvas, theme ui.Theme, b ui.Rect, value float64, color, track ui.Color) {
+	theme.Primary, theme.Muted = color, track
+	fraction := float32(0)
+	if !math.IsNaN(value) {
+		fraction = float32(min(max(value, 0), 100) / 100)
 	}
+	components.Progress(c, theme, b, fraction)
 }
 func (s *State) paintDashboardIdentity(c *ui.Canvas, h Host, b ui.Rect) {
 	s.paintHostCatalogIcon(c, h, ui.Rect{X: b.X, Y: b.Y + 9, Width: 34, Height: 34}, s.pal.workspace)
@@ -419,7 +422,7 @@ func (s *State) paintDashboardHost(c *ui.Canvas, p *monitoring.Panel, h Host, r 
 			c.DrawIcon(icons.HardDrive, ui.Rect{X: box.X + 10, Y: box.Y + 13, Width: 14, Height: 14}, dashboardAmber)
 			monitorLabel(c, disk.Path, ui.Rect{X: box.X + 32, Y: box.Y, Width: max(0, box.Width*.18-24), Height: 40}, 12, pal.text, ui.WeightMedium)
 			monitorLabel(c, fmt.Sprintf("%.0f%%", disk.Percent), ui.Rect{X: box.X + box.Width*.2, Y: box.Y, Width: 52, Height: 40}, 16, pal.text, ui.WeightSemibold)
-			dashboardBar(c, ui.Rect{X: box.X + box.Width*.35, Y: box.Y + 17, Width: box.Width * .3, Height: 6}, disk.Percent, dashboardAmber, pal.line)
+			dashboardBar(c, s.Theme(), ui.Rect{X: box.X + box.Width*.35, Y: box.Y + 17, Width: box.Width * .3, Height: 6}, disk.Percent, dashboardAmber, pal.line)
 			monitorRight(c, monitorCapacity(disk.Used, disk.Total), ui.Rect{X: box.X + box.Width*.67, Y: box.Y, Width: box.Width*.31 - 8, Height: 40}, 11, pal.muted, ui.WeightRegular)
 		}
 	}

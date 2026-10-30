@@ -12,12 +12,6 @@ import (
 	"motty/internal/workbench/icons"
 )
 
-func dashboardStatusReserve(w float32) float32 {
-	if w >= 1000 {
-		return 174
-	}
-	return 0
-}
 func (s *State) dashboardLiveColor(running bool) ui.Color {
 	if !running {
 		return s.pal.muted

@@ -294,7 +294,10 @@ func (e *Engine) Read(panel, id string, buckets int, version uint64) (Snapshot, 
 		return Snapshot{}, false
 	}
 	s := h.Snapshot
-	s.Points = reduce(h.ordered(), max(1, buckets))
+	// Reduce straight out of the ring: a retained 24 h window holds tens of
+	// thousands of points, and copying them all on every sample would cost more
+	// than the chart it feeds.
+	s.Points = reduce(h.count, h.at, max(1, buckets))
 	return s, true
 }
 func nan() float32                { return float32(math.NaN()) }
@@ -333,21 +336,31 @@ func (h *history) prune(cutoff time.Time) {
 
 // Each time bucket retains endpoints and extrema of every series, including
 // missing-value transitions. Spikes and genuine gaps survive long time ranges.
-func reduce(points []Point, buckets int) []Point {
-	if len(points) <= buckets*10 {
-		return points
+// It reads through at so the ring buffer is reduced in place, without first
+// being copied into order.
+func reduce(n int, at func(int) Point, buckets int) []Point {
+	if n <= buckets*10 {
+		out := make([]Point, n)
+		for i := range out {
+			out[i] = at(i)
+		}
+		return out
 	}
 	out := make([]Point, 0, buckets*10)
 	start := 0
-	from, to := points[0].At, points[len(points)-1].At
+	from, to := at(0).At, at(n-1).At
 	span := to.Sub(from)
 	if span <= 0 {
-		return points
+		out = make([]Point, n)
+		for i := range out {
+			out[i] = at(i)
+		}
+		return out
 	}
-	for bucket := 1; bucket <= buckets && start < len(points); bucket++ {
+	for bucket := 1; bucket <= buckets && start < n; bucket++ {
 		end := start
 		edge := from.Add(time.Duration(float64(span) * float64(bucket) / float64(buckets)))
-		for end < len(points) && !points[end].At.After(edge) {
+		for end < n && !at(end).At.After(edge) {
 			end++
 		}
 		if end == start {
@@ -358,7 +371,7 @@ func reduce(points []Point, buckets int) []Point {
 			lo, hi := -1, -1
 			wasNaN := false
 			for i := start; i < end; i++ {
-				v := points[i].Values[metric]
+				v := at(i).Values[metric]
 				missing := math.IsNaN(float64(v))
 				if missing {
 					if !wasNaN {
@@ -371,10 +384,10 @@ func reduce(points []Point, buckets int) []Point {
 					indices = append(indices, i)
 					wasNaN = false
 				}
-				if lo < 0 || v < points[lo].Values[metric] {
+				if lo < 0 || v < at(lo).Values[metric] {
 					lo = i
 				}
-				if hi < 0 || v > points[hi].Values[metric] {
+				if hi < 0 || v > at(hi).Values[metric] {
 					hi = i
 				}
 			}
@@ -385,7 +398,7 @@ func reduce(points []Point, buckets int) []Point {
 		slices.Sort(indices)
 		indices = slices.Compact(indices)
 		for _, i := range indices {
-			out = append(out, points[i])
+			out = append(out, at(i))
 		}
 		start = end
 	}

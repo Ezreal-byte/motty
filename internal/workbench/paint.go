@@ -131,6 +131,9 @@ func (state *State) Paint(canvas *ui.Canvas, size ui.Size) {
 		state.ai.cfg.agentSelectOpen = false
 	}
 	state.aiPanelBeginPaint()
+	// A running dashboard keeps sampling on every page, but only the page it is
+	// on needs the repaint each sample triggers.
+	state.dashboard.visible.Store(state.activeSection == sectionDashboard)
 	// The terminal layout follows the window and the font; remember what it
 	// was painted with so a resize can work out the rows and columns.
 	state.viewport = size
@@ -1075,35 +1078,6 @@ func (state *State) paintHostFilterMenu(canvas *ui.Canvas, viewport ui.Rect) {
 		menu.AddItem(components.DropdownMenuItem{ID: hitHostFilterMenuList.At(index), Label: state.hostGroupLabel(state.hostGroups[index])})
 	}
 	menu.End()
-}
-
-// paintQuietButton is a text button with no edge or fill until the pointer is on
-// it: for a row of actions on a selection, where five bordered boxes in a line
-// would be louder than the list they act on.
-func (state *State) paintQuietButton(canvas *ui.Canvas, id ui.ID, bounds ui.Rect, label string, danger, enabled bool) {
-	pal := state.pal
-	foreground := pal.text
-	if danger {
-		foreground = pal.danger
-	}
-	var fill ui.Color
-	switch {
-	case !enabled:
-		foreground = pal.faint
-	case canvas.Pressed() == id:
-		fill = pal.surfaceHot
-	case canvas.Hovered() == id:
-		fill = pal.surfaceSoft
-	}
-	f := state.chrome.widget.Begin(canvas, state.Theme(), bounds)
-	f.Row().Fill().Center().Radius(radius.control).Background(fill).
-		HitWith(id, label, ui.HitOptions{Role: ui.RoleButton, Disabled: !enabled}).Children(func() {
-		f.Text(label).FontSize(metrics.FontSizeS).Weight(ui.WeightSemibold).Color(foreground)
-	})
-	f.End()
-	if canvas.FocusVisible() == id {
-		canvas.RoundedBorder(bounds, radius.control, 1.5, pal.accent, ui.Color{})
-	}
 }
 
 func (state *State) paintHostGroupMenu(canvas *ui.Canvas, bounds, viewport ui.Rect) {

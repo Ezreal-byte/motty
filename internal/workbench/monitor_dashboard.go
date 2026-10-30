@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"sync/atomic"
 	"time"
 	"unicode/utf8"
 
@@ -90,6 +91,10 @@ type dashboardState struct {
 	grab            float32
 	addHosts        []string
 	addAnchor       ui.Rect
+	// visible reports whether the dashboard is the page the window last
+	// painted, so a background panel does not repaint the window from another
+	// section. Paint writes it; collector goroutines read it.
+	visible atomic.Bool
 }
 type dashboardSource struct {
 	session              Session
@@ -129,7 +134,6 @@ func (s *State) dashboardHost(id string) (Host, bool) {
 	}
 	return Host{}, false
 }
-func (s *State) dashboardRunning(id string) bool { return s.dashboard.running[id] }
 
 func (s *State) reconcileDashboard() {
 	d := &s.dashboard
@@ -375,7 +379,15 @@ func (s *State) startDashboardCollector(id string, source *dashboardSource) {
 	if details != nil {
 		detailResults = details.Results()
 	}
-	engine, notify := &s.dashboard.engine, s.options.Invalidate
+	engine, wake, visible := &s.dashboard.engine, s.options.Invalidate, &s.dashboard.visible
+	// A sample only needs a repaint while the page is on screen. Connection
+	// progress still wakes the window through the session's own notify relay,
+	// and a collector error below always wakes it.
+	notifySample := func() {
+		if wake != nil && visible.Load() {
+			wake()
+		}
+	}
 	generation := engine.BeginSource(id)
 	go func() {
 		defer worker.Close()
@@ -398,8 +410,8 @@ func (s *State) startDashboardCollector(id string, source *dashboardSource) {
 					case faults <- r.Err:
 					default:
 					}
-					if notify != nil {
-						notify()
+					if wake != nil {
+						wake()
 					}
 					return
 				}
@@ -407,9 +419,7 @@ func (s *State) startDashboardCollector(id string, source *dashboardSource) {
 					engine.DetailsFrom(id, generation, *r.Details, false)
 				}
 				engine.PublishFrom(id, generation, time.Now(), r.Sample)
-				if notify != nil {
-					notify()
-				}
+				notifySample()
 			case r, ok := <-detailResults:
 				if !ok {
 					detailResults = nil
@@ -419,9 +429,7 @@ func (s *State) startDashboardCollector(id string, source *dashboardSource) {
 					return
 				}
 				engine.DetailsFrom(id, generation, r.Details, r.Err != nil)
-				if notify != nil {
-					notify()
-				}
+				notifySample()
 			}
 		}
 	}()

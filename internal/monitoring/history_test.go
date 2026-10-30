@@ -140,7 +140,7 @@ func TestDownsamplingPreservesSpikesAndBreaks(t *testing.T) {
 	}
 	p[1043].Values[0] = 99
 	p[1100].Values = [5]float32{nan(), nan(), nan(), nan(), nan()}
-	out := reduce(p, 100)
+	out := reduce(len(p), func(i int) Point { return p[i] }, 100)
 	if len(out) > 1200 {
 		t.Fatalf("did not reduce points: %d", len(out))
 	}

@@ -54,7 +54,7 @@ func (s *State) paintDashboardSimpleMetrics(c *ui.Canvas, r *dashboardRow, b ui.
 		x := b.X + float32(i)*w
 		monitorLabel(c, labels[i], ui.Rect{X: x, Y: b.Y + 8, Width: w - 18, Height: 18}, 12, pal.muted, ui.WeightMedium)
 		monitorLabel(c, texts[i], ui.Rect{X: x, Y: b.Y + 29, Width: w - 18, Height: 27}, 18, pal.text, ui.WeightSemibold)
-		dashboardBar(c, ui.Rect{X: x, Y: b.Y + 61, Width: w - 20, Height: 5}, values[i], colors[i], pal.line)
+		dashboardBar(c, s.Theme(), ui.Rect{X: x, Y: b.Y + 61, Width: w - 20, Height: 5}, values[i], colors[i], pal.line)
 		monitorLabel(c, notes[i], ui.Rect{X: x, Y: b.Y + 72, Width: w - 18, Height: 20}, 11, pal.muted, ui.WeightRegular)
 	}
 	x := b.X + 3*w

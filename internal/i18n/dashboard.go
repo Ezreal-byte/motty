@@ -1,19 +1,19 @@
 package i18n
 
 type DashboardMessages struct {
-	UnavailableHosts                                                              string
-	NamePlaceholder, NotePlaceholder                                              string
-	AllGroups, Ungrouped, GroupFilter, SelectedOnly, PickerCount                  string
-	OrderTab, OrderHint                                                           string
-	AddHosts, AddHint, Sort, SortHint, SortPanel                                  string
-	Selected, View, Metrics, Usage                                                string
-	Host, Mount, Interface, Used, Total, Available, ReceivedTotal, SentTotal      string
-	Title, New, Edit, Delete, Start, Stop, Simple, Detailed, Search               string
-	Name, Note, Hosts, HostSearch, Create, Save, Empty, EmptyHint                 string
-	NameRequired, DuplicateName, HostsRequired, DeletePrompt                      string
-	Sampling, Retention, Every, Minutes, Hours, Count, Collecting                 string
-	Waiting, Connecting, Live, Stopped, Failed, Unsupported, Missing, Updated     string
-	State, CPU, Memory, Disk, Network, Receive, Send, Terminal, Retry, PickerHint string
+	UnavailableHosts                                                          string
+	NamePlaceholder, NotePlaceholder                                          string
+	AllGroups, Ungrouped, GroupFilter, SelectedOnly, PickerCount              string
+	OrderTab, OrderHint                                                       string
+	AddHosts, AddHint, Sort, SortHint, SortPanel                              string
+	Selected, View, Metrics, Usage                                            string
+	Host, Mount, Interface, Used, Total, Available, ReceivedTotal, SentTotal  string
+	Title, New, Edit, Delete, Start, Stop, Simple, Detailed, Search           string
+	Name, Note, Hosts, HostSearch, Create, Save, Empty, EmptyHint             string
+	NameRequired, DuplicateName, HostsRequired, DeletePrompt                  string
+	Sampling, Retention, Every, Minutes, Hours, Count, Collecting             string
+	Waiting, Connecting, Live, Stopped, Failed, Unsupported, Missing, Updated string
+	CPU, Memory, Disk, Network, Receive, Send, Terminal, Retry, PickerHint    string
 }
 
 var chineseDashboard = DashboardMessages{
@@ -28,7 +28,7 @@ var chineseDashboard = DashboardMessages{
 	NameRequired: "请输入面板名称（最多 40 字）", DuplicateName: "已存在同名面板", HostsRequired: "请至少选择一台 SSH 主机", DeletePrompt: "删除此监控面板？正在进行的采集将停止，面板历史也会清除。",
 	Sampling: "采集", Retention: "保留", Every: "每 %d 秒", Minutes: "%d 分钟", Hours: "%d 小时", Count: "共 %d 台主机", Collecting: "%d / %d 主机采集中",
 	Waiting: "未开始", Connecting: "连接中", Live: "监控中", Stopped: "已停止", Failed: "采集失败", Unsupported: "暂不支持采集", Missing: "主机已移除", Updated: "最近更新",
-	State: "状态", CPU: "CPU", Memory: "内存", Disk: "磁盘", Network: "网络收发", Receive: "接收", Send: "发送", Terminal: "打开终端", Retry: "重试", PickerHint: "可跨分组选择 SSH 主机。创建后点击“开始监控”才会连接并采集。",
+	CPU: "CPU", Memory: "内存", Disk: "磁盘", Network: "网络收发", Receive: "接收", Send: "发送", Terminal: "打开终端", Retry: "重试", PickerHint: "可跨分组选择 SSH 主机。创建后点击“开始监控”才会连接并采集。",
 }
 var englishDashboard = DashboardMessages{
 	UnavailableHosts: "Unavailable hosts",
@@ -42,5 +42,5 @@ var englishDashboard = DashboardMessages{
 	NameRequired: "Enter a panel name (up to 40 characters)", DuplicateName: "A panel with this name already exists", HostsRequired: "Select at least one SSH host", DeletePrompt: "Delete this monitoring panel? Collection will stop and its history will be cleared.",
 	Sampling: "Sample", Retention: "Retain", Every: "Every %ds", Minutes: "%d min", Hours: "%d h", Count: "%d hosts", Collecting: "%d / %d hosts collecting",
 	Waiting: "Not started", Connecting: "Connecting", Live: "Monitoring", Stopped: "Stopped", Failed: "Collection failed", Unsupported: "Unsupported", Missing: "Host removed", Updated: "Updated",
-	State: "Status", CPU: "CPU", Memory: "Memory", Disk: "Disk", Network: "Network", Receive: "Receive", Send: "Send", Terminal: "Open terminal", Retry: "Retry", PickerHint: "Select SSH hosts across groups. Creating a panel does not connect; use Start monitoring.",
+	CPU: "CPU", Memory: "Memory", Disk: "Disk", Network: "Network", Receive: "Receive", Send: "Send", Terminal: "Open terminal", Retry: "Retry", PickerHint: "Select SSH hosts across groups. Creating a panel does not connect; use Start monitoring.",
 }
