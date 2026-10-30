@@ -13,6 +13,7 @@ in a package.
 | `macos_dev_signing.sh` | Creates or reuses the private local macOS development identity, signs the executable, and verifies its identifier and certificate-bound designated requirement. `MOTTY_DEV_SIGN_IDENTITY` overrides the identity; `none` explicitly disables signing. |
 | `macos_dev_signing_integration_test.sh` | Opt-in real macOS Keychain test. It compiles two materially different probes, signs both with the development identity, and checks CDHash, requirement reuse, authorization reuse and rejection of an ad-hoc control in an isolated Keychain. |
 | `release.sh` | Builds the release packages, checksums, signing and optional upload. See `docs/release.md`. |
+| `realwin/` | Drives and times a probe build of Motty on a physical Windows machine over SSH, in the logged-in desktop session: scenarios, screenshots, and key-to-screen and frame-pacing traces from a patched scratch copy. Endpoint comes from a git-ignored `local.sh`. See `realwin/README.md`. |
 | `testslice/` | Prints the `-run` pattern for one shard of a package's tests, picked by test-name hash, so `make race-workbench` can spread the workbench suite over the parallel jobs in `tests.yml`. |
 | `competitor_issues.py` | Fetches closed issues (and pull requests, dropped) from the Netcatty and NyaTerm repositories into JSON for requirement mining. `--state`, `--label`, `--summary`. |
 
