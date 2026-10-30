@@ -657,11 +657,9 @@ type State struct {
 	// area: keychain, palette, import and the rest
 	railLayout            flex.View
 	keysLayout            flex.View
-	keysEmptyLayout       flex.View
 	paletteLayout         flex.View
 	importLayout          flex.View
 	knownHostsTableLayout flex.View
-	knownHostsEmptyLayout flex.View
 	hostToggleLayout      flex.View
 	hostGridLayout        flex.View
 	hostGridItems         []hostGridItem

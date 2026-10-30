@@ -143,8 +143,10 @@ func (s *State) paintDashboard(c *ui.Canvas, b ui.Rect) {
 	p := s.dashboardPanel()
 	theme := s.Theme()
 	if p == nil {
-		content := components.Empty(c, theme, b, components.EmptyData{Media: components.EmptyMediaIcon, Icon: icons.Activity, Title: m.Empty, Description: m.EmptyHint, ContentHeight: 36})
-		components.BeginButton(c, theme, hitDashboardNew, ui.Rect{}).WithIcon(icons.Plus).SizeToFit(m.Create).CenterIn(content).Default(m.Create)
+		f := s.dashboard.emptyLayout.Begin(c, theme, b)
+		icon, button := s.declareEmptyPage(f, b, m.Empty, m.EmptyHint, m.Create)
+		f.End()
+		s.paintEmptyPage(c, icon, button, iconActivity, hitDashboardNew, m.Create, true)
 		return
 	}
 	compact := w < 720

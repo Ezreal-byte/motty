@@ -1513,22 +1513,12 @@ func (state *State) hostBadgeFill(background ui.Color) ui.Color {
 // paintEmptyHosts is the first-run screen: no hosts are invented, the user is
 // invited to add one.
 func (state *State) paintEmptyHosts(canvas *ui.Canvas, bounds ui.Rect) {
-	pal, m := state.pal, state.messages
-	width := toolbarButtonWidth(canvas, m.NewHost, true)
-	var add flex.Box
+	m := state.messages
+	var icon, add flex.Box
 	f := state.chrome.empty.Begin(canvas, state.Theme(), bounds)
-	f.Column().Fill().Items(flex.Center).Children(func() {
-		// The icon's top is 46 above the point 40% down the page.
-		f.Slot().HeightPercent(40).MinHeight(46)
-		f.Row().Size(62, 62).MarginSides(-46, 0, 0, 0).Center().Radius(15).Background(pal.surface).Children(func() {
-			f.Icon(lucideIcons[iconHosts]).Size(24, 24).Color(pal.muted)
-		})
-		f.Text(m.HostsEmpty).FontSize(17).Weight(ui.WeightSemibold).Color(pal.text).MarginSides(20, 0, 0, 0)
-		f.Paragraph(m.HostsEmptySub, 2).FontSize(metrics.FontSizeM).Color(pal.muted).MarginSides(8, 0, 0, 0).Width(max(bounds.Width-24, 0)).TextCenter()
-		add = f.Slot().Size(width, toolbarHeight).MarginSides(20, 0, 0, 0)
-	})
+	icon, add = state.declareEmptyPage(f, bounds, m.HostsEmpty, m.HostsEmptySub, m.NewHost)
 	f.End()
-	state.paintToolbarButtonIn(canvas, hitAddHostEmpty, add.Rect(), m.NewHost, iconPlus, true, true, false)
+	state.paintEmptyPage(canvas, icon, add, iconHosts, hitAddHostEmpty, m.NewHost, true)
 }
 
 // paintNoMatches is what the list shows when the search box hides every host.
