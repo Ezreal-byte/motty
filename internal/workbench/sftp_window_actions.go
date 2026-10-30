@@ -87,7 +87,7 @@ func (w *sftpWindow) selectionActions(local bool) []sftpWindowAction {
 func (w *sftpWindow) fileAction(local bool, id ui.ID) {
 	defer w.window.Invalidate()
 	w.selectionChanged(local)
-	if w.pendingLocal != "" || !local && (w.view.busy || !w.connected()) {
+	if w.browse.pending != nil || w.pendingLocal != "" || !local && (w.view.busy || !w.connected()) {
 		return
 	}
 	w.cancelDrag()

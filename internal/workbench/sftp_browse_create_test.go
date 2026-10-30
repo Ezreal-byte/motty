@@ -125,6 +125,27 @@ func TestSFTPBrowseCreatesNestedRemoteCounterpartAndContinues(t *testing.T) {
 	}
 }
 
+func TestSFTPBrowsePendingPairDoesNotOpenAnotherFileDialog(t *testing.T) {
+	state, w, remote, host, root := dualSFTPFixture(t, 1)
+	view := host.windows[0].view
+	if err := os.Mkdir(filepath.Join(root, "docs"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	remote.mu.Lock()
+	remote.readDelay = 80 * time.Millisecond
+	remote.mu.Unlock()
+	w.toggleBrowseSync()
+	w.navigate(true, filepath.Join(root, "docs"))
+	if w.browse.pending == nil {
+		t.Fatal("paired navigation did not start")
+	}
+	w.fileAction(true, hitSFTPNewDirectory)
+	if w.view.dialog != sftpDialogNone {
+		t.Fatal("a second dialog could hide the paired directory confirmation")
+	}
+	dualWait(t, state, w, view, func() bool { return !w.navigationBusy() })
+}
+
 func TestSFTPBrowseCreationCanBePausedByButtonEscapeAndClose(t *testing.T) {
 	for _, cancel := range []string{"button", "escape", "close"} {
 		t.Run(cancel, func(t *testing.T) {
