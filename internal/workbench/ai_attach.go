@@ -72,17 +72,12 @@ type aiLoaded struct {
 // aiAttachPaths starts reading the files at paths so they can be attached. The
 // reading is off the window's thread: a file may be on a slow disk or share.
 func (state *State) aiAttachPaths(paths []string) {
-	ai := &state.ai
-	room := aiMaxAttachments - len(ai.attachments) - ai.attaching
-	if len(paths) > room {
-		ai.notice = fmt.Sprintf(state.messages.AIPanel.AttachTooManyFmt, aiMaxAttachments)
-		paths = paths[:max(room, 0)]
-	}
-	if len(paths) == 0 {
+	room := state.aiAttachRoom(len(paths))
+	if paths = paths[:room]; len(paths) == 0 {
 		return
 	}
 	paths = append([]string(nil), paths...)
-	ai.attaching += len(paths)
+	state.ai.attaching += len(paths)
 	go func() {
 		loaded := make([]aiLoaded, len(paths))
 		for index, path := range paths {
@@ -90,6 +85,46 @@ func (state *State) aiAttachPaths(paths []string) {
 			loaded[index].file, loaded[index].err = attach.Load(path)
 		}
 		state.aiPost(func(state *State) { state.aiAttached(loaded) })
+	}()
+}
+
+// aiAttachRoom is how many of count more files the message box can take, saying
+// so when it cannot take them all.
+func (state *State) aiAttachRoom(count int) int {
+	room := max(aiMaxAttachments-len(state.ai.attachments)-state.ai.attaching, 0)
+	if count > room {
+		state.ai.notice = fmt.Sprintf(state.messages.AIPanel.AttachTooManyFmt, aiMaxAttachments)
+		return room
+	}
+	return count
+}
+
+// aiPasteImage attaches the picture on the clipboard, if there is one, for a
+// paste that carried no text. It says nothing when the clipboard holds neither:
+// pasting nothing is not a mistake. The clipboard is read now and not before,
+// as asking another program what it holds can take a while.
+func (state *State) aiPasteImage() {
+	m := state.messages.AIPanel
+	data, err := state.options.ClipboardImagePNG()
+	switch {
+	case errors.Is(err, app.ErrNoImage):
+		return
+	case errors.Is(err, app.ErrTooLarge):
+		state.ai.notice = fmt.Sprintf(m.AttachTooLargeFmt, m.PastedImageName)
+		return
+	case err != nil:
+		state.ai.notice = fmt.Sprintf(m.AttachFailedFmt, m.PastedImageName, err)
+		return
+	}
+	if state.aiAttachRoom(1) == 0 {
+		return
+	}
+	state.ai.pasted++
+	name := fmt.Sprintf("%s-%d.png", m.PastedImageName, state.ai.pasted)
+	state.ai.attaching++
+	go func() {
+		file, err := attach.Decode(name, data)
+		state.aiPost(func(state *State) { state.aiAttached([]aiLoaded{{file: file, err: err}}) })
 	}()
 }
 
@@ -105,10 +140,13 @@ func (state *State) aiAttached(loaded []aiLoaded) {
 	}
 	for _, item := range loaded {
 		name := filepath.Base(item.path)
+		if item.path == "" {
+			name = item.file.Name
+		}
 		switch {
 		case item.err != nil:
 			problems = append(problems, state.aiAttachProblem(name, item.err))
-		case state.aiAttached1(item.path):
+		case item.path != "" && state.aiAttached1(item.path):
 			// The same file twice is one attachment.
 		case len(ai.attachments) >= aiMaxAttachments:
 			problems = append(problems, fmt.Sprintf(state.messages.AIPanel.AttachTooManyFmt, aiMaxAttachments))

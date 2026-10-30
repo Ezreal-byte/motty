@@ -151,6 +151,7 @@ type aiState struct {
 	// many files are still being read for it.
 	attachments []aiAttachment
 	attaching   int
+	pasted      int         // pictures pasted so far, which numbers their names
 	confirm     text.Editor // the word a critical action asks to be typed
 	run         *aiRun
 	approvals   []*aiApproval

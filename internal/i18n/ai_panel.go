@@ -72,6 +72,7 @@ type AIPanelMessages struct {
 	AttachUnsupportedFmt string
 	AttachTotalTextFmt   string // takes the name and the size limit of all text
 	AttachFailedFmt      string // takes the name and the system's reason
+	PastedImageName      string // the name a picture pasted from the clipboard goes by
 
 	EmptyTitle     string
 	EmptyHint      string

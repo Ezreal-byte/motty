@@ -814,6 +814,7 @@ var englishAIPanel = AIPanelMessages{
 	AttachUnsupportedFmt: "%s is not a text file, a Word, Excel or PowerPoint document (.docx, .xlsx, .pptx) or a PNG, JPEG, GIF, WebP, BMP or TIFF picture.",
 	AttachTotalTextFmt:   "%s would take the attached text past %s for one message.",
 	AttachFailedFmt:      "%s could not be read: %s",
+	PastedImageName:      "pasted-image",
 
 	EmptyTitle:     "Ask about this terminal",
 	EmptyHint:      "The assistant sees what is on your screen. In Agent mode it can also run commands for you.",

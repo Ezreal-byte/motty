@@ -14,6 +14,7 @@ import (
 	"github.com/vivaui/viva/app"
 	"github.com/vivaui/viva/ui"
 	"motty/internal/ai/agent"
+	"motty/internal/ai/attach"
 	"motty/internal/ai/llm"
 	"motty/internal/ai/tools"
 )
@@ -301,5 +302,55 @@ func TestPaperclipOpensTheFileDialogAndAttachesWhatIsChosen(t *testing.T) {
 	attached(t, state, 1)
 	if title != state.messages.AIPanel.AttachPickerTitle || state.ai.attachments[0].file.Name != "chosen.txt" {
 		t.Fatalf("title %q, attachments %+v", title, state.ai.attachments)
+	}
+}
+
+func pasteNoText(t *testing.T, state *State) app.TextState {
+	t.Helper()
+	input := state.AIPanelInput(app.TextInputContext{ID: hitAIInput})
+	if input == nil {
+		t.Fatal("the message box has no native editor")
+	}
+	result, err := input.OnEvent(app.TextEvent{Kind: app.TextPasteNoText})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return result
+}
+
+func TestPastingAPictureAttachesItAndLeavesTheTextAlone(t *testing.T) {
+	state := openedPanel(t, &scriptedModel{turn: func(int, llm.Request) []llm.Event { return textTurn("x") }})
+	state.ai.input.Insert("what is wrong here? ")
+	state.options.ClipboardImagePNG = func() ([]byte, error) { return redSquarePNG(t), nil }
+	if result := pasteNoText(t, state); !result.Redraw || result.Value != "what is wrong here? " {
+		t.Fatalf("result = %+v", result)
+	}
+	attached(t, state, 1)
+	pasteNoText(t, state)
+	attached(t, state, 2)
+	first, second := state.ai.attachments[0].file, state.ai.attachments[1].file
+	if first.Kind != attach.KindImage || first.Name != "pasted-image-1.png" || second.Name != "pasted-image-2.png" {
+		t.Fatalf("attachments = %q %q", first.Name, second.Name)
+	}
+	if state.ai.input.String() != "what is wrong here? " {
+		t.Fatalf("the text became %q", state.ai.input.String())
+	}
+}
+
+func TestPastingNothingSaysNothing(t *testing.T) {
+	state := openedPanel(t, &scriptedModel{turn: func(int, llm.Request) []llm.Event { return textTurn("x") }})
+	state.options.ClipboardImagePNG = func() ([]byte, error) { return nil, app.ErrNoImage }
+	pasteNoText(t, state)
+	if state.ai.attaching != 0 || len(state.ai.attachments) != 0 || state.ai.notice != "" {
+		t.Fatalf("attaching %d, attachments %d, notice %q", state.ai.attaching, len(state.ai.attachments), state.ai.notice)
+	}
+}
+
+func TestAPictureTooLargeToPasteIsNamedInTheNotice(t *testing.T) {
+	state := openedPanel(t, &scriptedModel{turn: func(int, llm.Request) []llm.Event { return textTurn("x") }})
+	state.options.ClipboardImagePNG = func() ([]byte, error) { return nil, app.ErrTooLarge }
+	pasteNoText(t, state)
+	if !strings.Contains(state.ai.notice, state.messages.AIPanel.PastedImageName) {
+		t.Fatalf("notice = %q", state.ai.notice)
 	}
 }
