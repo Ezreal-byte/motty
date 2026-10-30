@@ -5,6 +5,7 @@ import (
 	"github.com/vivaui/viva/ui"
 	"motty/internal/sshconn"
 	"motty/internal/workbench/icons"
+	layoutcore "motty/internal/workspace"
 	"time"
 )
 
@@ -12,8 +13,13 @@ func (state *State) paintIndependentMonitor(canvas *ui.Canvas, size ui.Size) {
 	if !state.monitorShown(state.deck.ActiveWorkspace()) {
 		return
 	}
+	context, _ := state.deck.Context(state.deck.ActiveWorkspace())
 	if state.monitorDrawer(size) {
-		d := components.BeginDrawer(canvas, state.Theme(), state.baseWorkspacePixelBounds(size), components.DrawerOptions{Layer: drawerLayer, Scope: dialogScope, DismissID: hitMonitorClose, Side: components.DrawerRight, ContentExtent: min(state.monitorPanelWidth(state.deck.ActiveWorkspace(), size), size.Width*.82), InitialFocusID: hitMonitorClose})
+		side := components.DrawerRight
+		if context.Side == layoutcore.ContextLeft {
+			side = components.DrawerLeft
+		}
+		d := components.BeginDrawer(canvas, state.Theme(), state.baseWorkspacePixelBounds(size), components.DrawerOptions{Layer: drawerLayer, Scope: dialogScope, DismissID: hitMonitorClose, Side: side, ContentExtent: min(state.monitorPanelWidth(state.deck.ActiveWorkspace(), size), size.Width*.82), InitialFocusID: hitMonitorClose})
 		layout := d.Begin("", "")
 		state.paintMonitor(canvas, layout.Content, state.contextSession())
 		d.End()
@@ -21,15 +27,19 @@ func (state *State) paintIndependentMonitor(canvas *ui.Canvas, size ui.Size) {
 	}
 	base := state.baseWorkspacePixelBounds(size)
 	reserve := state.independentMonitorReserve(state.deck.ActiveWorkspace(), size)
-	base.X += base.Width - state.aiReserve(state.deck.ActiveWorkspace(), size) - reserve
-	base.Width = reserve
-	canvas.Fill(ui.Rect{X: base.X, Y: base.Y, Width: 1, Height: base.Height}, state.pal.line)
-	base.X++
-	base.Width--
+	if context.Side == layoutcore.ContextRight {
+		base.X += base.Width - state.aiReserve(state.deck.ActiveWorkspace(), size) - reserve + 1
+	}
+	base.Width = reserve - 1
+	dividerX := base.X + base.Width
+	if context.Side == layoutcore.ContextRight {
+		dividerX = base.X - 1
+	}
+	canvas.Fill(ui.Rect{X: dividerX, Y: base.Y, Width: 1, Height: base.Height}, state.pal.line)
 	state.paintMonitor(canvas, base, state.contextSession())
-	divider := ui.Rect{X: base.X - 1 - paneDividerHitWidth/2, Y: base.Y, Width: paneDividerHitWidth, Height: base.Height}
+	divider := ui.Rect{X: dividerX - paneDividerHitWidth/2, Y: base.Y, Width: paneDividerHitWidth, Height: base.Height}
 	if canvas.Hovered() == hitMonitorDivider || state.monitorResizing {
-		canvas.Fill(ui.Rect{X: base.X - 2, Y: base.Y, Width: 2, Height: base.Height}, state.pal.line)
+		canvas.Fill(ui.Rect{X: dividerX - 1, Y: base.Y, Width: 2, Height: base.Height}, state.pal.line)
 	}
 	canvas.HitWithOptions(hitMonitorDivider, divider, state.messages.Monitor.Title, ui.HitOptions{Role: ui.RoleSeparator, Cursor: ui.PointerCursorResizeHorizontal})
 }
@@ -50,10 +60,16 @@ func (state *State) paintMonitor(canvas *ui.Canvas, b ui.Rect, s *Session) {
 	titleWidth := canvas.TextWidthWeight(m.Title, 14, ui.WeightSemibold)
 	state.monitorMenuRect = ui.Rect{X: b.X + 35 + titleWidth + 12, Y: b.Y + (header.Height-26)/2, Width: 82, Height: 26}
 	state.paintIconButton(canvas, hitMonitorClose, iconClose, ui.Rect{X: b.X + b.Width - 34, Y: b.Y + (header.Height-24)/2, Width: 24, Height: 24}, state.messages.LabelCloseTab, false, iconButtonQuiet, bg)
+	context, _ := state.deck.Context(state.deck.ActiveWorkspace())
+	moveIcon, moveHint := uint8(iconChevronRight), m.MoveRight
+	if context.Side == layoutcore.ContextRight {
+		moveIcon, moveHint = iconChevronLeft, m.MoveLeft
+	}
+	state.paintIconButton(canvas, hitMonitorSide, moveIcon, ui.Rect{X: b.X + b.Width - 64, Y: b.Y + (header.Height-24)/2, Width: 24, Height: 24}, moveHint, false, iconButtonQuiet, bg)
 	canvas.Fill(ui.Rect{X: b.X, Y: b.Y + header.Height - 1, Width: b.Width, Height: 1}, edge)
 	y := b.Y + header.Height
 	if s == nil || s.stats == nil {
-		monitorLabel(canvas, m.NotConnected, ui.Rect{X: b.X + 20, Y: y + 70, Width: b.Width - 40, Height: 70}, 13, pal.muted, ui.WeightRegular)
+		canvas.LabelCenter(m.NotConnected, ui.Rect{X: b.X + 16, Y: y + (b.Y+b.Height-y)/2 - 12, Width: b.Width - 32, Height: 24}, ui.TextStyle{Size: 13, Color: pal.muted})
 		return
 	}
 	v := s.stats
@@ -82,11 +98,32 @@ func (state *State) paintMonitor(canvas *ui.Canvas, b ui.Rect, s *Session) {
 			p.emptyText, p.emptyWidth = message, b.Width-32
 			p.emptyLines = canvas.WrapLines(p.emptyLines[:0], message, 13, ui.WeightRegular, p.emptyWidth, 4)
 		}
-		for i, line := range p.emptyLines {
-			monitorLabel(canvas, line, ui.Rect{X: b.X + 16, Y: y + 50 + float32(i)*18, Width: b.Width - 32, Height: 18}, 13, colors.muted, ui.WeightRegular)
+		loading := v.state == remoteStatsMeasuring && !p.paused && !unsupportedSystem
+		retry := v.state >= remoteStatsUnsupported && !unsupportedSystem
+		height := float32(len(p.emptyLines)) * 18
+		if loading {
+			height += 32
 		}
-		if v.state >= remoteStatsUnsupported && !unsupportedSystem {
-			components.BeginButton(canvas, state.Theme(), hitMonitorRetry, ui.Rect{X: b.X + 16, Y: y + 126, Width: b.Width - 32, Height: 32}).Secondary(m.Retry)
+		if retry {
+			height += 44
+		}
+		top := y + max(0, (b.Y+b.Height-y-height)/2)
+		if loading {
+			phase := components.SpinnerPhase(0)
+			if !canvas.ReduceMotion() {
+				phase = components.SpinnerPhase(canvas.Now() / (80 * time.Millisecond) % 8)
+				canvas.RequestFrameIn(80 * time.Millisecond)
+			}
+			components.PaintSpinner(canvas, state.Theme(), ui.Rect{X: b.X + b.Width/2 - 8, Y: top, Width: 16, Height: 16}, phase)
+			top += 32
+		}
+		for _, line := range p.emptyLines {
+			canvas.LabelCenter(line, ui.Rect{X: b.X + 16, Y: top, Width: b.Width - 32, Height: 18}, ui.TextStyle{Size: 13, Color: colors.muted})
+			top += 18
+		}
+		if retry {
+			width := min(b.Width-32, 200)
+			components.BeginButton(canvas, state.Theme(), hitMonitorRetry, ui.Rect{X: b.X + (b.Width-width)/2, Y: top + 12, Width: width, Height: 32}).Secondary(m.Retry)
 		}
 		return
 	}

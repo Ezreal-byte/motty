@@ -53,6 +53,7 @@ func monitorFixture(t testing.TB) (*State, *Session) {
 	state.formatMonitor(s.stats)
 	c, _ := state.deck.Context(state.deck.ActiveWorkspace())
 	c.Kind, c.Open, c.Width, c.MonitorOpen = layoutcore.ContextSFTP, true, 340, true
+	c.Side = layoutcore.ContextRight
 	_ = state.deck.SetContext(state.deck.ActiveWorkspace(), c)
 	return state, s
 }

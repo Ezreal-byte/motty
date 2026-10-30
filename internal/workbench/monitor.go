@@ -17,6 +17,7 @@ var monitorHits = tree.Feature("connection-monitor")
 var (
 	hitMonitorDivider       = tree.ID(monitorHits, "divider")
 	hitMonitorClose         = tree.ID(monitorHits, "close")
+	hitMonitorSide          = tree.ID(monitorHits, "side")
 	hitMonitorPause         = tree.ID(monitorHits, "pause")
 	hitMonitorInterval      = tree.ID(monitorHits, "interval")
 	hitMonitorMenuDismiss   = tree.ID(monitorHits, "interval-dismiss")
@@ -210,6 +211,9 @@ func (state *State) closeMonitor() {
 
 func (state *State) clickMonitor(id ui.ID) bool {
 	switch id {
+	case hitMonitorSide:
+		state.toggleConnectionPanelSide()
+		return true
 	case hitMonitorClose:
 		state.closeMonitor()
 		return true
