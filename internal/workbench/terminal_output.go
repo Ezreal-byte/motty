@@ -18,7 +18,7 @@ func (state *State) saveTerminalOutput(session *Session) {
 	m := state.messages.Tools
 	data := session.term.screen.AppendRetainedText(nil)
 	if len(data) == 0 {
-		state.showActionWarning(m.OutputSaveTitle, m.OutputEmpty)
+		state.showActionInfo(m.OutputSaveTitle, m.OutputEmpty)
 		return
 	}
 	data = append(data, '\n')

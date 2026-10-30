@@ -63,13 +63,7 @@ func (editor *proxyEditor) validate(state *State) string {
 }
 
 func (state *State) openProxyDialog() {
-	sshHosts := 0
-	for _, host := range state.hosts {
-		if host.isSSH() {
-			sshHosts++
-		}
-	}
-	if sshHosts < 2 {
+	if state.sshHostCount() < 2 {
 		state.showActionWarning(state.messages.ProxyDialogTitle, state.messages.ErrProxyHostsRequired)
 		return
 	}

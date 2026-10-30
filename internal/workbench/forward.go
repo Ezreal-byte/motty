@@ -422,7 +422,7 @@ func (state *State) toggleSelectedForward() {
 	if !ok {
 		forward.lastError = state.messages.ForwardHostUnavailable
 		forward.refresh(state.messages, false)
-		state.showActionWarning(state.messages.ForwardTitle, state.messages.ForwardHostUnavailable)
+		state.status = state.messages.ForwardHostUnavailable
 		return
 	}
 	if session := state.connectedSessionForHost(host); session != nil {

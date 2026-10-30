@@ -13,6 +13,10 @@ func (state *State) showActionError(title, detail string) {
 	state.showActionNotice(title, detail, components.ToastError)
 }
 
+func (state *State) showActionInfo(title, detail string) {
+	state.showActionNotice(title, detail, components.ToastInfo)
+}
+
 func (state *State) showActionNotice(title, detail string, kind components.ToastType) {
 	state.status = detail
 	state.fileNotices.show(title, detail, kind)

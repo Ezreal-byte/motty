@@ -153,7 +153,7 @@ func (state *State) importKeys() {
 		state.status = fmt.Sprintf(state.messages.KeyImportedFmt, added)
 		state.save()
 	} else if !hadError {
-		state.showActionWarning(state.messages.KeyImportTitle, state.messages.KeyNothingImported)
+		state.showActionInfo(state.messages.KeyImportTitle, state.messages.KeyNothingImported)
 	}
 }
 

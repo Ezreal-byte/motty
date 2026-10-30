@@ -24,6 +24,64 @@ func requireActionNotice(t *testing.T, state *State, detail string, kind compone
 	}
 }
 
+func TestCreationButtonsUseOnlySSHHosts(t *testing.T) {
+	for _, protocols := range [][]hostProtocol{nil, {protocolRDP, protocolVNC}, {protocolSSH, protocolTelnet}, {protocolSSH, protocolSSH}} {
+		t.Run(fmt.Sprint(protocols), func(t *testing.T) {
+			_, o := newWorld(t)
+			s := newTestState(t, o)
+			s.hosts = nil
+			sshHosts := 0
+			for i, protocol := range protocols {
+				s.hosts = append(s.hosts, Host{ID: uint32(i + 1), Protocol: protocol})
+				if protocol == protocolSSH {
+					sshHosts++
+				}
+			}
+			for _, page := range []struct {
+				section uint8
+				id      ui.ID
+				minimum int
+			}{{sectionForwards, hitForwardAdd, 1}, {sectionProxies, hitProxyAdd, 2}} {
+				s.activeSection = page.section
+				canvas, _ := paintedTexts(s)
+				buttons := 0
+				for _, hit := range canvas.Hits() {
+					if hit.ID == page.id {
+						buttons++
+						if hit.Disabled != (sshHosts < page.minimum) {
+							t.Fatalf("wrong creation availability: %+v", hit)
+						}
+					}
+				}
+				if buttons != 2 {
+					t.Fatalf("expected toolbar and empty-state buttons, got %d", buttons)
+				}
+			}
+		})
+	}
+}
+
+func TestNoChangeActionsUseInformationalNotices(t *testing.T) {
+	t.Run("empty output", func(t *testing.T) {
+		_, o := newWorld(t)
+		s := newTestState(t, o)
+		s.saveTerminalOutput(&Session{term: newTerminal(80, 24)})
+		requireActionNotice(t, s, s.messages.Tools.OutputEmpty, components.ToastInfo)
+	})
+	t.Run("duplicate keys", func(t *testing.T) {
+		_, o := newWorld(t)
+		key := writeWorkbenchIdentity(t, "id_test", "")
+		o.OpenFiles = func(app.OpenFileOptions) ([]string, error) { return []string{key}, nil }
+		s := newTestState(t, o)
+		s.importKeys()
+		s.importKeys()
+		requireActionNotice(t, s, s.messages.KeyNothingImported, components.ToastInfo)
+		if len(s.identities) != 1 {
+			t.Fatal("duplicate import changed the key list")
+		}
+	})
+}
+
 func TestMissingActionPrerequisitesHaveVisibleFeedback(t *testing.T) {
 	for _, test := range []struct {
 		name    string
@@ -31,7 +89,7 @@ func TestMissingActionPrerequisitesHaveVisibleFeedback(t *testing.T) {
 		run     func(*State)
 		want    func(*State) string
 	}{
-		{"forward/no hosts", func(s *State) { s.hosts = nil; s.activeSection = sectionForwards }, func(s *State) { s.Click(hitForwardAdd) }, func(s *State) string { return s.messages.ErrForwardHostRequired }},
+		{"forward/stale action", func(s *State) { s.hosts = nil; s.activeSection = sectionForwards }, func(s *State) { s.Click(hitForwardAdd) }, func(s *State) string { return s.messages.ErrForwardHostRequired }},
 		{"forward/desktop only", func(s *State) {
 			for i := range s.hosts {
 				s.hosts[i].Protocol = protocolVNC
@@ -52,7 +110,6 @@ func TestMissingActionPrerequisitesHaveVisibleFeedback(t *testing.T) {
 		{"backup/open session", func(s *State) { s.sessions = []Session{{ID: 1}} }, (*State).openRestoreBackup, func(s *State) string { return s.messages.Tools.BackupErrSessions }},
 		{"broadcast/no workspace", nil, (*State).toggleBroadcast, func(s *State) string { return s.messages.Tools.StatusBroadcastNeedsSplit }},
 		{"connection/invalid address", func(s *State) { s.search.Insert("bad host name") }, (*State).connectTyped, func(s *State) string { return fmt.Sprintf(s.messages.ErrBadTargetFmt, "bad host name") }},
-		{"output/empty", nil, func(s *State) { s.saveTerminalOutput(&Session{term: newTerminal(80, 24)}) }, func(s *State) string { return s.messages.Tools.OutputEmpty }},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			_, options := newWorld(t)
