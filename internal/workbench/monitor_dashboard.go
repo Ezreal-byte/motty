@@ -226,9 +226,11 @@ func (s *State) connectDashboardSource(source *dashboardSource) {
 		s.dashboard.engine.SetStatus(v.host.CatalogID, monitoring.Failed)
 		return
 	}
-	v.conn = nil
+	v.conn, v.shared = nil, false
 	if s.shareConnections == shareConnectionsOn {
-		v.conn, _ = s.shareFrom(v, v.host)
+		if shared, _ := s.shareFrom(v, v.host); shared != nil {
+			v.conn, v.shared = shared, true
+		}
 	}
 	if v.conn == nil {
 		v.conn = s.options.Dial(config)
@@ -373,7 +375,10 @@ func (s *State) startDashboardCollector(id string, source *dashboardSource) {
 		worker = remotestats.StartWindows(source.session.conn, nil, source.interval)
 	} else {
 		worker = remotestats.StartWithInterval(source.session.conn, nil, source.interval)
-		details = remotestats.StartDetailsWithInterval(source.session.conn, nil, source.interval)
+		// Disks and interfaces change slowly; their details keep the sidebar's
+		// five-second floor even when the sample cadence is faster, so a fast
+		// panel does not run df and interface counters every two seconds.
+		details = remotestats.StartDetailsWithInterval(source.session.conn, nil, max(source.interval, 5))
 	}
 	var detailResults <-chan remotestats.DetailResult
 	if details != nil {
