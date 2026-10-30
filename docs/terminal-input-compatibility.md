@@ -25,13 +25,16 @@ Requesting LANG over SSH is insufficient: the server may reject it, and startup
 files or unexported shell locale variables can override it.
 
 The existing session-local Bash/Zsh integration reports the actual shell locale
-after startup. Detection changes no environment variable. If that shell is not
-using UTF-8, a status row offers **Enable UTF-8** when a verified UTF-8 locale is
-available. The action requires an empty, idle, owned shell prompt and explicit
-confirmation. It changes LC_ALL in that shell only; locale-sensitive formatting
-may also change. It does not install locales or modify system settings or user
-startup files. The shell's own history/audit may record the explicit repair
-command, as it does other commands.
+after startup. Detection changes no environment variable. A local shell started
+with no locale in its environment at all — the application opened from Finder,
+for example — is given `C.UTF-8` before it starts, so non-ASCII file names are
+handled as UTF-8 from the first prompt; an environment that names a locale is
+left as it is. If that shell is still not using UTF-8, a status row offers
+**Enable UTF-8** when a verified UTF-8 locale is available. The action requires
+an empty, idle, owned shell prompt and explicit confirmation. It changes LC_ALL
+in that shell only; locale-sensitive formatting may also change. It does not
+install locales or modify system settings or user startup files. The shell's own
+history/audit may record the explicit repair command, as it does other commands.
 
 Motty reports success only after the owning shell confirms UTF-8. If no
 candidate is verified, the action stays unavailable. A partly typed command is
