@@ -82,7 +82,7 @@ func (remote *workbenchSFTPRemote) ReadDir(path string) ([]os.FileInfo, error) {
 	}
 	remote.mu.Lock()
 	defer remote.mu.Unlock()
-	return remote.entries[path], nil
+	return append([]os.FileInfo(nil), remote.entries[path]...), nil
 }
 
 // readCount is how many times a folder has been listed.
