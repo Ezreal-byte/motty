@@ -82,6 +82,20 @@ func main() {
 	if keyOnly {
 		// The certificate and extra-key fixtures must be proven by the key
 		// alone, so the password method is refused.
+	} else if os.Getenv("E2ESSHD_KBI") == "password" {
+		// A PAM-style password login: the account password is the only question
+		// of a keyboard-interactive request, as on a default OpenSSH with PAM.
+		// Password authentication stays refused.
+		config.KeyboardInteractiveCallback = func(meta ssh.ConnMetadata, challenge ssh.KeyboardInteractiveChallenge) (*ssh.Permissions, error) {
+			answers, err := challenge("", "", []string{"Password: "}, []bool{false})
+			if err != nil {
+				return nil, err
+			}
+			if len(answers) == 1 && answers[0] == "secret" {
+				return nil, nil
+			}
+			return nil, fmt.Errorf("denied")
+		}
 	} else if os.Getenv("E2ESSHD_KBI") == "1" {
 		// A PAM-style round: the account password and a one-time code are two
 		// questions of one keyboard-interactive request. Password authentication

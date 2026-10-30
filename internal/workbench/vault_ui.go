@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/vivaui/viva/components"
@@ -103,10 +104,33 @@ func (state *State) initSecrets() {
 	state.secrets.vault = opened
 }
 
-// isPlainPassword reports the one secret question with no wording: the plain
-// password method.
-func isPlainPassword(questions []sshconn.Question) bool {
-	return len(questions) == 1 && questions[0].Secret && questions[0].Text == ""
+// isPasswordQuestion reports the one secret question that asks for the account
+// password: the plain password method, which has no wording, or a
+// keyboard-interactive prompt such as PAM's "Password: ", which is how most
+// OpenSSH servers take the password. A hidden question that does not read as a
+// password (a PIN, a one-time code) is not answered with the saved password: a
+// wrong guess would be refused and the refusal would forget the saved one.
+func isPasswordQuestion(questions []sshconn.Question) bool {
+	if len(questions) != 1 || !questions[0].Secret {
+		return false
+	}
+	wording := questions[0].Text
+	return wording == "" || !otp.LooksLikeQuestion(wording) && looksLikePasswordPrompt(wording)
+}
+
+// looksLikePasswordPrompt reports whether a server's prompt names the password,
+// in the languages servers commonly answer in.
+func looksLikePasswordPrompt(wording string) bool {
+	lower := strings.ToLower(wording)
+	for _, word := range []string{
+		"password", "passwd", "passwort", "mot de passe", "contraseña", "senha", "пароль",
+		"密码", "密碼", "口令", "パスワード", "비밀번호",
+	} {
+		if strings.Contains(lower, word) {
+			return true
+		}
+	}
+	return false
 }
 
 // isOTPQuestion reports a single prompt whose wording asks for a one-time code.
@@ -119,7 +143,7 @@ func isOTPQuestion(questions []sshconn.Question) bool {
 // is asked again because the first answer was refused, has none.
 func (state *State) promptSecret(session *Session) (string, secretKind) {
 	switch {
-	case session.phase == sshconn.PhasePasswordPrompt && session.attempt == 1 && isPlainPassword(session.questions):
+	case session.phase == sshconn.PhasePasswordPrompt && session.attempt == 1 && isPasswordQuestion(session.questions):
 		return state.passwordName(session), secretPassword
 	case session.phase == sshconn.PhaseKeyPassphrasePrompt && session.attempt == 1 && session.identity != "":
 		return passphraseSecretName(session.identity), secretPassphrase
@@ -176,7 +200,7 @@ func (state *State) canAutofill(session *Session, status sshconn.Status) bool {
 	}
 	var name string
 	switch {
-	case status.Phase == sshconn.PhasePasswordPrompt && isPlainPassword(status.Questions):
+	case status.Phase == sshconn.PhasePasswordPrompt && isPasswordQuestion(status.Questions):
 		name = hostSecretName(owner, hostPasswordPart)
 	case status.Phase == sshconn.PhaseKeyPassphrasePrompt && status.IdentityPath != "":
 		name = passphraseSecretName(status.IdentityPath)

@@ -458,3 +458,51 @@ func TestPasswordHintMovesBesideTheSaveBox(t *testing.T) {
 		t.Fatalf("password field to save row gap = %v, want a compact form gap", gap)
 	}
 }
+
+// Most OpenSSH servers take the password through keyboard-interactive, whose
+// prompt has wording ("Password: "); the saved password answers it as it
+// answers the plain password method.
+func TestASavedPasswordAnswersAKeyboardInteractivePasswordPrompt(t *testing.T) {
+	world, options := newWorld(t)
+	state := newTestState(t, options)
+	fake := connect(t, state, world)
+	ask := func(fake *fakeConn, question string) {
+		fake.set(func(s *sshconn.Status) {
+			s.Phase, s.Attempt = sshconn.PhasePasswordPrompt, 1
+			s.Questions = []sshconn.Question{{Text: question, Secret: true}}
+			s.Endpoint = sshconn.Endpoint{Host: "prod.example.com", Port: 22, User: "deploy"}
+		})
+		state.Wake()
+	}
+	ask(fake, "Password: ")
+	if state.modal != modalPassword || !state.secrets.canSave {
+		t.Fatalf("modal %d, can save %v", state.modal, state.secrets.canSave)
+	}
+	state.Click(hitPasswordSave)
+	typeInto(state, hitPasswordField, "hunter2")
+	state.Click(hitPasswordSubmit)
+	fake.set(func(s *sshconn.Status) { s.Phase = sshconn.PhaseConnected })
+	state.Wake()
+
+	state.Click(hitHosts)
+	second := connect(t, state, world)
+	ask(second, "Password: ")
+	if state.modal != modalNone {
+		t.Fatalf("a saved password still opened the dialog (modal %d)", state.modal)
+	}
+	if len(second.passwords) != 1 || second.passwords[0] != "hunter2" {
+		t.Fatalf("the saved password was not sent: %v", second.passwords)
+	}
+
+	// A hidden question that is not asking for the password is the user's to
+	// answer; guessing would be refused and the refusal would forget the password.
+	state.Click(hitHosts)
+	third := connect(t, state, world)
+	ask(third, "Enter your YubiKey PIN: ")
+	if state.modal != modalPassword || len(third.passwords) != 0 {
+		t.Fatalf("modal %d, passwords sent %v; a PIN was answered with the password", state.modal, third.passwords)
+	}
+	if _, found, _ := state.secrets.vault.Get(prodPasswordName); !found {
+		t.Fatal("the saved password was lost")
+	}
+}

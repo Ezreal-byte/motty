@@ -54,3 +54,7 @@ instead of a password: it asks `Password: ` and `Verification code: ` together
 and accepts `secret` and `123456`. Password authentication is refused, so a
 client that answers only one question cannot get in. Run it on a port of its
 own (`E2ESSHD_KBI=1 /tmp/e2esshd 2223`) to drive the multi-factor login path.
+
+With `E2ESSHD_KBI=password` the only keyboard-interactive question is `Password: `
+(accepting `secret`), which is how a default OpenSSH with PAM takes the password;
+the plain password method stays refused (see `tools/e2e/vault_kbi_e2e.txt`).
