@@ -30,7 +30,7 @@ func (state *State) declareEmptyPageWithColor(f *flex.Frame, bounds ui.Rect, tit
 			icon = f.Slot().Size(emptyStateIconSize, emptyStateIconSize)
 		})
 		f.Text(title).FontSize(emptyStateTitleSize).Weight(ui.WeightSemibold).Color(pal.text).Width(contentWidth).TextCenter().Ellipsis().MarginSides(20, 0, 0, 0)
-		f.Paragraph(sub, 3).FontSize(metrics.FontSizeM).Color(descriptionColor).LineHeight(23).Width(contentWidth).TextCenter().MarginSides(8, 0, 0, 0)
+		f.Paragraph(sub, 4).FontSize(metrics.FontSizeM).Color(descriptionColor).LineHeight(23).Width(contentWidth).TextCenter().MarginSides(8, 0, 0, 0)
 		if add != "" {
 			button = f.Slot().Size(emptyStateActionWidth, toolbarHeight).MarginSides(20, 0, 0, 0)
 		}

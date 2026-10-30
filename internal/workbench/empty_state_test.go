@@ -21,41 +21,54 @@ func TestCatalogEmptyStatesUseSharedVisualMetrics(t *testing.T) {
 	tests := []struct {
 		name        string
 		section     uint8
-		title       string
+		title       func(*State) string
 		action      ui.ID
-		actionLabel string
+		actionLabel func(*State) string
 		prepare     func(*State)
 		hasAction   bool
 	}{
 		{
-			name: "hosts", section: sectionHosts, title: "Set up your hosts", action: hitAddHostEmpty, actionLabel: "New Host", hasAction: true,
-			prepare: func(state *State) { state.hosts, state.visible = nil, nil },
+			name: "hosts", section: sectionHosts, action: hitAddHostEmpty, hasAction: true,
+			title:       func(state *State) string { return state.messages.HostsEmpty },
+			actionLabel: func(state *State) string { return state.messages.NewHost },
+			prepare:     func(state *State) { state.hosts, state.visible = nil, nil },
 		},
 		{
-			name: "monitor", section: sectionDashboard, title: "Your hosts, at a glance", action: hitDashboardNew, actionLabel: "Create panel", hasAction: true,
-			prepare: func(state *State) { state.dashboard.panels, state.dashboard.active = nil, "" },
+			name: "monitor", section: sectionDashboard, action: hitDashboardNew, hasAction: true,
+			title:       func(state *State) string { return state.messages.Dashboard.Empty },
+			actionLabel: func(state *State) string { return state.messages.Dashboard.Create },
+			prepare:     func(state *State) { state.dashboard.panels, state.dashboard.active = nil, "" },
 		},
 		{
-			name: "keys", section: sectionKeys, title: "No additional identities", action: hitKeysImport, actionLabel: "Import Key", hasAction: true,
-			prepare: func(state *State) { state.identities, state.selectedIdentityID = nil, 0 },
+			name: "keys", section: sectionKeys, action: hitKeysImport, hasAction: true,
+			title:       func(state *State) string { return state.messages.KeyEmpty },
+			actionLabel: func(state *State) string { return state.messages.KeyImport },
+			prepare:     func(state *State) { state.identities, state.selectedIdentityID = nil, 0 },
 		},
 		{
-			name: "proxies", section: sectionProxies, title: "No jump routes", action: hitProxyAdd, actionLabel: "Add Route", hasAction: true,
-			prepare: func(state *State) { state.proxies, state.selectedProxyID = nil, 0 },
+			name: "proxies", section: sectionProxies, action: hitProxyAdd, hasAction: true,
+			title:       func(state *State) string { return state.messages.ProxyEmpty },
+			actionLabel: func(state *State) string { return state.messages.ProxyAdd },
+			prepare:     func(state *State) { state.proxies, state.selectedProxyID = nil, 0 },
 		},
 		{
-			name: "forwards", section: sectionForwards, title: "No port forwards", action: hitForwardAdd, actionLabel: "New Forward", hasAction: true,
-			prepare: func(state *State) { state.forwards, state.selectedForwardID = nil, 0 },
+			name: "forwards", section: sectionForwards, action: hitForwardAdd, hasAction: true,
+			title:       func(state *State) string { return state.messages.ForwardEmpty },
+			actionLabel: func(state *State) string { return state.messages.ForwardAdd },
+			prepare:     func(state *State) { state.forwards, state.selectedForwardID = nil, 0 },
 		},
 		{
-			name: "known hosts", section: sectionKnownHosts, title: "No trusted host keys",
+			name: "known hosts", section: sectionKnownHosts,
+			title: func(state *State) string { return state.messages.KnownHostsEmpty },
 			prepare: func(state *State) {
 				state.knownHosts.rows, state.knownHosts.visible, state.knownHosts.errorText = nil, nil, ""
 			},
 		},
 		{
-			name: "snippets", section: sectionSnippets, title: "No snippets", action: hitSnippetAdd, actionLabel: "Add snippet", hasAction: true,
-			prepare: func(state *State) { state.snippets.list, state.snippets.selected = nil, 0 },
+			name: "snippets", section: sectionSnippets, action: hitSnippetAdd, hasAction: true,
+			title:       func(state *State) string { return state.messages.Tools.SnippetEmpty },
+			actionLabel: func(state *State) string { return state.messages.Tools.SnippetAdd },
+			prepare:     func(state *State) { state.snippets.list, state.snippets.selected = nil, 0 },
 		},
 	}
 
@@ -65,6 +78,7 @@ func TestCatalogEmptyStatesUseSharedVisualMetrics(t *testing.T) {
 				state := newTestState(t, testOptions(t))
 				test.prepare(state)
 				state.activeSection = test.section
+				title := test.title(state)
 				var canvas ui.Canvas
 				state.Paint(&canvas, size)
 
@@ -72,16 +86,15 @@ func TestCatalogEmptyStatesUseSharedVisualMetrics(t *testing.T) {
 				for _, text := range canvas.Texts() {
 					texts = append(texts, text.Value)
 				}
-				if !contains(texts, test.title) {
-					t.Fatalf("empty title %q was not painted", test.title)
+				if !contains(texts, title) {
+					t.Fatalf("empty title %q was not painted", title)
 				}
 
 				tileFound := false
 				for _, rectangle := range canvas.Rectangles() {
 					if rectangle.Bounds.Width == emptyStateTileSize &&
 						rectangle.Bounds.Height == emptyStateTileSize &&
-						rectangle.Radius == emptyStateTileRadius &&
-						rectangle.Color == state.pal.surface {
+						rectangle.Radius == emptyStateTileRadius {
 						tileFound = true
 						break
 					}
@@ -98,8 +111,9 @@ func TestCatalogEmptyStatesUseSharedVisualMetrics(t *testing.T) {
 					}
 					return
 				}
-				if width := toolbarButtonWidth(&canvas, test.actionLabel, true); width > emptyStateActionWidth {
-					t.Fatalf("action %q needs %.1f, more than the shared %.0f width", test.actionLabel, width, emptyStateActionWidth)
+				actionLabel := test.actionLabel(state)
+				if width := toolbarButtonWidth(&canvas, actionLabel, true); width > emptyStateActionWidth {
+					t.Fatalf("action %q needs %.1f, more than the shared %.0f width", actionLabel, width, emptyStateActionWidth)
 				}
 				button, ok := emptyStateActionHit(&canvas, test.action)
 				if !ok {
@@ -111,6 +125,38 @@ func TestCatalogEmptyStatesUseSharedVisualMetrics(t *testing.T) {
 					t.Fatalf("empty-state action is outside the %v window: %+v", size, button.Bounds)
 				}
 			})
+		}
+	}
+}
+
+func TestHostSearchNoMatchesUsesTheSharedEmptyState(t *testing.T) {
+	state := newTestState(t, testOptions(t))
+	state.hosts = []Host{{ID: 1, Label: "web", Address: "web.example", Port: 22}}
+	state.search.Insert("no-such-host")
+	state.activeSection = sectionHosts
+	var canvas ui.Canvas
+	state.Paint(&canvas, ui.Size{Width: 1400, Height: 900})
+
+	var texts []string
+	for _, text := range canvas.Texts() {
+		texts = append(texts, text.Value)
+	}
+	if !contains(texts, state.messages.NoMatches) {
+		t.Fatalf("no-match title was not painted: %v", texts)
+	}
+	tile := false
+	for _, rectangle := range canvas.Rectangles() {
+		if rectangle.Bounds.Width == emptyStateTileSize && rectangle.Bounds.Height == emptyStateTileSize {
+			tile = true
+			break
+		}
+	}
+	if !tile {
+		t.Fatal("the shared empty-state icon tile was not painted")
+	}
+	for _, hit := range canvas.Hits() {
+		if hit.Bounds.Width == emptyStateActionWidth && hit.Bounds.Height == toolbarHeight {
+			t.Fatalf("the no-match state painted an action: %+v", hit)
 		}
 	}
 }

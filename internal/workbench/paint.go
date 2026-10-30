@@ -1520,14 +1520,12 @@ func (state *State) paintEmptyHosts(canvas *ui.Canvas, bounds ui.Rect) {
 
 // paintNoMatches is what the list shows when the search box hides every host.
 func (state *State) paintNoMatches(canvas *ui.Canvas, bounds ui.Rect) {
-	pal, m := state.pal, state.messages
+	m := state.messages
+	var icon, add flex.Box
 	f := state.chrome.empty.Begin(canvas, state.Theme(), bounds)
-	f.Column().Fill().Items(flex.Center).Children(func() {
-		f.Slot().HeightPercent(40)
-		f.Text(m.NoMatches).FontSize(17).Weight(ui.WeightSemibold).Color(pal.text).MarginSides(2, 0, 0, 0)
-		f.Paragraph(m.NoMatchesSub, 2).FontSize(metrics.FontSizeM).Color(pal.muted).MarginSides(8, 0, 0, 0).Width(max(bounds.Width-24, 0)).TextCenter()
-	})
+	icon, add = state.declareEmptyPage(f, bounds, m.NoMatches, m.NoMatchesSub, "")
 	f.End()
+	state.paintEmptyPage(canvas, icon, add, iconSearch, ui.ID{}, "", true)
 }
 
 // lucideIcons maps the internal icon kinds to compiled Lucide icons
