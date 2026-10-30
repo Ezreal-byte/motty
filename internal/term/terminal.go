@@ -345,8 +345,9 @@ func (t *Terminal) Cursor() Cursor {
 }
 
 // Row returns view row i (0 is the top).
-func (t *Terminal) Row(i int) Row {
-	l := t.lineAt(i)
+func (t *Terminal) Row(i int) Row { return t.rowOf(t.lineAt(i)) }
+
+func (t *Terminal) rowOf(l *line) Row {
 	cells := l.cells
 	if len(cells) > t.cols {
 		cells = cells[:t.cols]

@@ -607,6 +607,7 @@ func (state *State) Wake() {
 		}
 		if session.term != nil {
 			session.term.find.refreshIfChanged(session.term.screen, state.messages, findNow)
+			state.stepSelectionScroll(session.term, findNow)
 		}
 	}
 	state.pumpForwards()

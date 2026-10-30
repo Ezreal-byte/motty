@@ -293,7 +293,7 @@ func (state *State) clickTerminalMenu(id ui.ID) bool {
 	switch id {
 	case hitTerminalMenuCopy:
 		if selection := session.term.selection; selection.selected {
-			if err := state.options.SetClipboardText(session.term.screen.SelectedText(selection.anchor, selection.focus)); err != nil {
+			if err := state.options.SetClipboardText(selection.text(session.term.screen)); err != nil {
 				state.status = err.Error()
 			}
 		}
@@ -301,7 +301,9 @@ func (state *State) clickTerminalMenu(id ui.ID) bool {
 		state.pasteIntoTerminal(session)
 	case hitTerminalMenuSelectAll:
 		cols, rows := session.term.screen.Size()
-		session.term.selection.selectRange(term.Position{}, term.Position{Row: rows - 1, Column: cols - 1})
+		session.term.selection.selectRange(
+			session.term.screen.PointAt(term.Position{}),
+			session.term.screen.PointAt(term.Position{Row: rows - 1, Column: cols - 1}))
 	case hitTerminalMenuClear:
 		session.term.screen.ClearScrollback()
 	case hitTerminalMenuSave:

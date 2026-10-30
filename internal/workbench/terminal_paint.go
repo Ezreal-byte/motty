@@ -294,6 +294,9 @@ func (state *State) paintGridWithID(canvas *ui.Canvas, session *Session, geometr
 		}
 		canvas.RequestFrameIn(delay)
 	}
+	if t.selection.dragging && t.selection.edge.direction != 0 {
+		canvas.RequestFrameIn(selectionScrollInterval)
+	}
 	canvas.Clip(geometry.area)
 	t.cache.begin()
 	if cap(t.rowIDs) < rows {
@@ -330,7 +333,7 @@ func (state *State) paintGridWithID(canvas *ui.Canvas, session *Session, geometr
 		}
 		entry := t.cache.row(t.presentedRow(row), cols, column, pal, inactive)
 		y := geometry.top + float32(row)*cellHeight
-		if from, to, selected := t.selection.span(row, t.presentedRow(row), cols); selected {
+		if from, to, selected := t.selection.span(t.screen.LineNumber(row), t.presentedRow(row), cols); selected {
 			left := snap(geometry.left + float32(from)*cellWidth)
 			right := snap(geometry.left + float32(to)*cellWidth)
 			canvas.Fill(ui.Rect{X: left, Y: y, Width: right - left, Height: cellHeight}, withAlpha(pal.termFG, 0.25))

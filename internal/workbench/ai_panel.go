@@ -1082,7 +1082,7 @@ func (state *State) aiAskAboutSelection(session *Session) {
 		return
 	}
 	selection := session.term.selection
-	quoted := strings.TrimSpace(session.term.screen.SelectedText(selection.anchor, selection.focus))
+	quoted := strings.TrimSpace(selection.text(session.term.screen))
 	if quoted == "" {
 		return
 	}

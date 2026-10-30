@@ -1,7 +1,10 @@
 package workbench
 
 import (
+	"fmt"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/vivaui/viva/ui"
 	"motty/internal/term"
@@ -77,7 +80,7 @@ func TestDoubleClickSelectsAUnicodeWord(t *testing.T) {
 	if copied := state.Key(ui.KeyEvent{Target: hit, Modifiers: ui.ModifierMeta, Text: "c"}).ClipboardText; copied != "世界" {
 		t.Fatalf("copied %q", copied)
 	}
-	from, to, selected := session.term.selection.span(0, session.term.screen.Row(0), 20)
+	from, to, selected := session.term.selection.span(session.term.screen.LineNumber(0), session.term.screen.Row(0), 20)
 	if !selected || from != 5 || to != 9 {
 		t.Fatalf("selection span = %d..%d, %v", from, to, selected)
 	}
@@ -91,15 +94,14 @@ func TestTerminalChangesClearASelection(t *testing.T) {
 		{"output", func(_ *State, terminal *terminal) { terminal.write([]byte("new")) }},
 		{"input", func(_ *State, terminal *terminal) { terminal.shell = &fakeShell{}; terminal.send([]byte("x")) }},
 		{"resize", func(state *State, _ *terminal) { state.Resize(ui.Size{Width: 400, Height: 300}) }},
-		{"scroll", func(state *State, _ *terminal) { state.Scroll(ui.ScrollEvent{DeltaY: -state.cellHeight}) }},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			state, session, _ := selectionState()
 			session.term.screen.Write([]byte("selected\r\n"))
 			session.term.selection.selectRange(
-				term.Position{Row: 0, Column: 0},
-				term.Position{Row: 0, Column: 3},
+				session.term.screen.PointAt(term.Position{Row: 0, Column: 0}),
+				session.term.screen.PointAt(term.Position{Row: 0, Column: 3}),
 			)
 			test.change(state, session.term)
 			if session.term.selection.selected {
@@ -298,5 +300,81 @@ func TestRightClickPastesOnlyWhenChosenAndShiftKeepsTheMenu(t *testing.T) {
 	rightClick(ui.ModifierShift)
 	if !state.terminalMenu.open {
 		t.Fatal("Shift+right click no longer reaches the menu")
+	}
+}
+
+func fillHistory(t *testing.T, terminal *terminal, lines int) {
+	t.Helper()
+	for line := 0; line < lines; line++ {
+		terminal.write([]byte(fmt.Sprintf("line %02d\r\n", line)))
+	}
+}
+
+func TestDraggingBelowTheGridScrollsAndSelectsHistory(t *testing.T) {
+	state, session, geometry := selectionState()
+	terminal := session.term
+	fillHistory(t, terminal, 30)
+	terminal.screen.Scroll(20)
+	hit := hitTerminalList.At(int(session.ID))
+	startX, startY := cellPoint(geometry, 0, 0, state.cellWidth, state.cellHeight)
+	state.Pointer(ui.PointerEvent{Kind: ui.PointerDown, Button: ui.PointerButtonPrimary, Target: hit, X: startX, Y: startY, Viewport: state.viewport})
+	first := terminal.screen.RowText(0)
+
+	belowY := geometry.top + 5*state.cellHeight + 3*state.cellHeight
+	state.Pointer(ui.PointerEvent{Kind: ui.PointerMove, Button: ui.PointerButtonPrimary, Target: hit, Captured: true, X: startX, Y: belowY, Viewport: state.viewport})
+	if terminal.selection.edge.direction != -1 {
+		t.Fatalf("a pointer below the grid does not ask to scroll: %+v", terminal.selection.edge)
+	}
+	before := terminal.screen.ViewOffset()
+	for step := 1; step <= 3; step++ {
+		state.stepSelectionScroll(terminal, time.Duration(step)*selectionScrollInterval)
+	}
+	if terminal.screen.ViewOffset() >= before {
+		t.Fatalf("view stayed at %d", terminal.screen.ViewOffset())
+	}
+	state.Pointer(ui.PointerEvent{Kind: ui.PointerUp, Button: ui.PointerButtonPrimary, Target: hit, Captured: true, X: startX, Y: belowY, Viewport: state.viewport})
+
+	if terminal.selection.edge.direction != 0 {
+		t.Fatal("releasing the button left the auto-scroll armed")
+	}
+	copied := state.Key(ui.KeyEvent{Target: hit, Modifiers: ui.ModifierMeta, Text: "c"}).ClipboardText
+	if !strings.HasPrefix(copied, strings.TrimSpace(first)) || strings.Count(copied, "\n") < 8 {
+		t.Fatalf("selection covers only %q", copied)
+	}
+}
+
+func TestDraggingAboveTheGridScrollsBackIntoHistory(t *testing.T) {
+	state, session, geometry := selectionState()
+	terminal := session.term
+	fillHistory(t, terminal, 30)
+	hit := hitTerminalList.At(int(session.ID))
+	x, y := cellPoint(geometry, 4, 0, state.cellWidth, state.cellHeight)
+	state.Pointer(ui.PointerEvent{Kind: ui.PointerDown, Button: ui.PointerButtonPrimary, Target: hit, X: x, Y: y, Viewport: state.viewport})
+	state.Pointer(ui.PointerEvent{Kind: ui.PointerMove, Button: ui.PointerButtonPrimary, Target: hit, Captured: true, X: x, Y: geometry.top - 2*state.cellHeight, Viewport: state.viewport})
+	for step := 1; step <= 2; step++ {
+		state.stepSelectionScroll(terminal, time.Duration(step)*selectionScrollInterval)
+	}
+	if terminal.screen.ViewOffset() == 0 {
+		t.Fatal("view did not scroll back")
+	}
+	state.Pointer(ui.PointerEvent{Kind: ui.PointerUp, Button: ui.PointerButtonPrimary, Target: hit, Captured: true, X: x, Y: geometry.top - 2*state.cellHeight, Viewport: state.viewport})
+	copied := terminal.selection.text(terminal.screen)
+	if strings.Count(copied, "\n") < 4 {
+		t.Fatalf("selection lost the rows scrolled past: %q", copied)
+	}
+}
+
+func TestScrollingKeepsTheSelectionOnItsText(t *testing.T) {
+	state, session, _ := selectionState()
+	terminal := session.term
+	fillHistory(t, terminal, 30)
+	terminal.selection.selectRange(
+		terminal.screen.PointAt(term.Position{Row: 1}),
+		terminal.screen.PointAt(term.Position{Row: 2, Column: 5}),
+	)
+	want := terminal.selection.text(terminal.screen)
+	state.Scroll(ui.ScrollEvent{DeltaY: -3 * state.cellHeight})
+	if !terminal.selection.selected || terminal.selection.text(terminal.screen) != want {
+		t.Fatalf("scrolling changed the selection: %q, want %q", terminal.selection.text(terminal.screen), want)
 	}
 }

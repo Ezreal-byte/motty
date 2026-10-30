@@ -52,7 +52,7 @@ func (state *State) searchSelection(session *Session) {
 	if !selection.selected {
 		return
 	}
-	query := strings.Join(strings.Fields(session.term.screen.SelectedText(selection.anchor, selection.focus)), " ")
+	query := strings.Join(strings.Fields(selection.text(session.term.screen)), " ")
 	if len(query) > maxSearchQuery {
 		query = strings.ToValidUTF8(query[:maxSearchQuery], "")
 	}

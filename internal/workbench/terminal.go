@@ -1035,11 +1035,9 @@ func (state *State) terminalKey(session *Session, event ui.KeyEvent) ui.EventRes
 		_, rows := t.screen.Size()
 		switch event.Key {
 		case ui.KeyPageUp:
-			t.selection.clear()
 			t.screen.Scroll(rows - 1)
 			return ui.EventResult{Handled: true, Repaint: true}
 		case ui.KeyPageDown:
-			t.selection.clear()
 			t.screen.Scroll(-(rows - 1))
 			return ui.EventResult{Handled: true, Repaint: true}
 		}
@@ -1096,7 +1094,7 @@ func (state *State) copySelection(session *Session) ui.EventResult {
 	}
 	return ui.EventResult{
 		Handled:       true,
-		ClipboardText: session.term.screen.SelectedText(selection.anchor, selection.focus),
+		ClipboardText: selection.text(session.term.screen),
 	}
 }
 
@@ -1239,7 +1237,6 @@ func (state *State) scroll(event ui.ScrollEvent) ui.EventResult {
 		}
 		return ui.EventResult{Handled: true}
 	}
-	t.selection.clear()
 	if t.screen.Scroll(-lines) {
 		return ui.EventResult{Handled: true, Repaint: true}
 	}

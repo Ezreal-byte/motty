@@ -119,6 +119,5 @@ func (state *State) scrollTerminalView(t *terminal, lines int) ui.EventResult {
 	if lines == 0 {
 		return ui.EventResult{Handled: true}
 	}
-	t.selection.clear()
 	return ui.EventResult{Handled: true, Repaint: t.screen.Scroll(lines)}
 }

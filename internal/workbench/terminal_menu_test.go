@@ -258,7 +258,9 @@ func TestTerminalMenuSavesTheOutputAndSearchesTheSelection(t *testing.T) {
 	}
 
 	open()
-	session.term.selection.selectRange(term.Position{Row: 1}, term.Position{Row: 1, Column: 20})
+	session.term.selection.selectRange(
+		session.term.screen.PointAt(term.Position{Row: 1}),
+		session.term.screen.PointAt(term.Position{Row: 1, Column: 20}))
 	open()
 	state.Click(hitTerminalMenuSearch)
 	if !strings.HasPrefix(opened, "https://www.bing.com/search?q=second+") || strings.ContainsAny(opened, "\n ") {
