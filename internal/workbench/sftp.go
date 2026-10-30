@@ -69,6 +69,8 @@ type sftpFolder struct {
 	first          int
 	visibleRows    int     // rows the last paint had room for
 	wheel          float32 // wheel travel not yet worth a whole row
+	scroll         components.ScrollAreaGeometry
+	scrollOffset   float32
 	pathField      sftpPathField
 	filterEditor   text.Editor
 	filterInput    app.TextInput
@@ -125,6 +127,8 @@ type sftpView struct {
 	places                sftpPlaceMenu
 	dropping              bool // files are being dragged over the panel
 	dropRow               int  // the folder row they are over, or -1
+	scrollDrag            bool
+	scrollGrab            float32
 	details               sftpDetails
 	extracting            bool
 	archiveSequence       uint64
@@ -295,9 +299,7 @@ func (state *State) clickSFTP(id ui.ID) {
 		}
 		if column, ok := id.In(sftpHeaderSortHits); ok && column < 3 {
 			folder.headerMenuOpen = false
-			folder.sortChosen = true
-			folder.sortOrder.toggle(column)
-			folder.sortRows(folder.sortOrder)
+			state.toggleSFTPSidebarSort(folder, column)
 			return
 		}
 		switch id {
@@ -310,6 +312,10 @@ func (state *State) clickSFTP(id ui.ID) {
 		default:
 			folder.headerMenuOpen = false
 		}
+		return
+	}
+	if column, ok := id.In(hitSFTPColumnList); ok && column < int(sftpColumnCount) && state.sftpColumns.enabled(sftpColumnKey(column)) {
+		state.toggleSFTPSidebarSort(folder, column)
 		return
 	}
 	if id == hitSFTPHeaderMore {
@@ -390,6 +396,17 @@ func (state *State) clickSFTP(id ui.ID) {
 			}
 		}
 	}
+}
+
+func (state *State) toggleSFTPSidebarSort(folder *sftpFolder, column int) {
+	if folder.sortChosen {
+		folder.sortOrder.toggle(column)
+	} else {
+		folder.sortOrder = sftpWindowSort{column: column}
+		folder.sortChosen = true
+	}
+	folder.sortRows(folder.sortOrder)
+	folder.scrollOffset = float32(folder.first) * sftpRowHeight
 }
 
 func (state *State) sftpEditor(hit ui.ID) *text.Editor {
@@ -676,6 +693,10 @@ func (view *sftpView) forgetListings() {
 	clear(view.listings)
 	view.listings = view.listings[:0]
 	view.listingBytes = 0
+	// A listing already being read ahead may have observed the state before the
+	// remote change. Forget its token so its late result cannot repopulate the
+	// cache.
+	clear(view.prefetching)
 }
 
 // openSFTPDirectory goes into a folder. One already read is shown at once and
@@ -733,6 +754,29 @@ func (state *State) prefetchSFTPRefresh(view *sftpView, key string) {
 	if view.worker.PrefetchWithID(key, id) {
 		view.markPrefetching(key, id)
 	}
+}
+
+// refreshSFTPAfterRemoteSave refreshes the directory being shown after a
+// successful remote save. If the saved file belongs to another remembered
+// directory, drop the cached listings so that opening it cannot show stale
+// metadata.
+func (state *State) refreshSFTPAfterRemoteSave(view *sftpView, remotePath string) {
+	if view == nil || view.worker == nil {
+		return
+	}
+	directory := path.Dir(remotePath)
+	if view.path == directory {
+		// Force a second read even when a prefetch was already in flight. That
+		// read may have started before the save and must not be allowed to put
+		// the old metadata back into the cache.
+		view.navigationID++
+		id := view.navigationID
+		if view.worker.PrefetchWithID(directory, id) {
+			view.markPrefetching(directory, id)
+		}
+		return
+	}
+	view.forgetListings()
 }
 
 // showSFTPListing puts a folder on screen.
@@ -897,6 +941,13 @@ func (state *State) downloadSFTP(view *sftpView) {
 	if len(selected) == 0 {
 		return
 	}
+	configuredDirectory := state.sftpDownloadDirectory
+	if directory, ok := state.ensureSFTPDownloadDirectory(view); ok {
+		for index := range selected {
+			state.queueSFTPDownload(view, selected[index].entry, filepath.Join(directory, safeLocalName(selected[index].entry.Name)))
+		}
+		return
+	}
 	if len(selected) == 1 && !selected[0].entry.IsDir() {
 		entry := selected[0].entry
 		extension := strings.TrimPrefix(path.Ext(entry.Name), ".")
@@ -906,6 +957,9 @@ func (state *State) downloadSFTP(view *sftpView) {
 		if state.handleSFTPPickerError(view, err, state.messages.SFTPSaveCanceled) {
 			return
 		}
+		if configuredDirectory != "" {
+			state.rememberSFTPDownloadDirectory(filepath.Dir(localPath))
+		}
 		state.queueSFTPDownload(view, entry, localPath)
 		return
 	}
@@ -913,9 +967,57 @@ func (state *State) downloadSFTP(view *sftpView) {
 	if state.handleSFTPPickerError(view, err, state.messages.SFTPSaveCanceled) {
 		return
 	}
-	for index := range selected {
-		state.queueSFTPDownload(view, selected[index].entry, filepath.Join(localDirectory, selected[index].entry.Name))
+	if configuredDirectory != "" {
+		state.rememberSFTPDownloadDirectory(localDirectory)
 	}
+	for index := range selected {
+		state.queueSFTPDownload(view, selected[index].entry, filepath.Join(localDirectory, safeLocalName(selected[index].entry.Name)))
+	}
+}
+
+func (state *State) ensureSFTPDownloadDirectory(view *sftpView) (string, bool) {
+	directory := state.sftpDownloadDirectory
+	if directory == "" {
+		return "", false
+	}
+	if !validSFTPDownloadDirectory(directory) {
+		state.fileOpenNotice(
+			view.detached,
+			state.messages.Tools.FilesDownloadDirectory,
+			fmt.Sprintf(state.messages.Tools.FilesDownloadDirectoryUnavailableFmt, directory),
+			components.ToastWarning,
+		)
+		return "", false
+	}
+	if err := os.MkdirAll(directory, 0o755); err != nil {
+		state.fileOpenNotice(
+			view.detached,
+			state.messages.Tools.FilesDownloadDirectory,
+			fmt.Sprintf(state.messages.Tools.FilesDownloadDirectoryUnavailableFmt, directory),
+			components.ToastWarning,
+		)
+		return "", false
+	}
+	info, err := os.Stat(directory)
+	if err != nil || !info.IsDir() {
+		state.fileOpenNotice(
+			view.detached,
+			state.messages.Tools.FilesDownloadDirectory,
+			fmt.Sprintf(state.messages.Tools.FilesDownloadDirectoryUnavailableFmt, directory),
+			components.ToastWarning,
+		)
+		return "", false
+	}
+	return directory, true
+}
+
+func (state *State) rememberSFTPDownloadDirectory(directory string) {
+	directory = filepath.Clean(directory)
+	if !validSFTPDownloadDirectory(directory) || state.sftpDownloadDirectory == directory {
+		return
+	}
+	state.sftpDownloadDirectory = directory
+	state.save()
 }
 
 func (state *State) handleSFTPPickerError(view *sftpView, err error, canceled string) bool {
@@ -1325,6 +1427,8 @@ func (state *State) pumpSFTP(session *Session) {
 				view.editUTF8BOM = result.Document.UTF8BOM
 				view.status = state.messages.SFTPEditSaved
 				view.errorText = ""
+				state.fileOpenNotice(view.detached, view.editName, state.messages.SFTPEditSaved, components.ToastSuccess)
+				state.refreshSFTPAfterRemoteSave(view, result.Path)
 			}
 		default:
 			state.refreshSFTPTransfers(view)

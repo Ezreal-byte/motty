@@ -38,14 +38,22 @@ const fontPickerVisibleRows = 8
 // is room, and clear them once there is one.
 func (state *State) fallbackActions() []components.ButtonAction {
 	m := state.messages.Tools
-	actions := make([]components.ButtonAction, 0, 2)
-	if len(state.fonts.fallbacks) < maxFallbackFonts {
-		actions = append(actions, components.ButtonAction{ID: hitSettingsFallbackAdd, Label: m.FontFallbackAdd, Variant: components.ButtonOutline})
+	fonts := &state.fonts
+	if fonts.actionCountFor != len(fonts.fallbacks) || fonts.actionAddLabel != m.FontFallbackAdd || fonts.actionClearLabel != m.FontFallbackClear {
+		fonts.actionCountFor = len(fonts.fallbacks)
+		fonts.actionAddLabel, fonts.actionClearLabel = m.FontFallbackAdd, m.FontFallbackClear
+		fonts.actions = [2]components.ButtonAction{}
+		fonts.actionCount = 0
+		if len(fonts.fallbacks) < maxFallbackFonts {
+			fonts.actions[fonts.actionCount] = components.ButtonAction{ID: hitSettingsFallbackAdd, Label: m.FontFallbackAdd, Variant: components.ButtonOutline}
+			fonts.actionCount++
+		}
+		if len(fonts.fallbacks) > 0 {
+			fonts.actions[fonts.actionCount] = components.ButtonAction{ID: hitSettingsFallbackClear, Label: m.FontFallbackClear, Variant: components.ButtonOutline}
+			fonts.actionCount++
+		}
 	}
-	if len(state.fonts.fallbacks) > 0 {
-		actions = append(actions, components.ButtonAction{ID: hitSettingsFallbackClear, Label: m.FontFallbackClear, Variant: components.ButtonOutline})
-	}
-	return actions
+	return fonts.actions[:fonts.actionCount]
 }
 
 // maxFallbackFonts is how many families can stand behind the terminal's font.
@@ -87,6 +95,11 @@ type fontsUI struct {
 	text, textFor string
 	// fallbackText is the same for the fallback row.
 	fallbackText, fallbackFor string
+	// actions are the fallback row's buttons, cached for the settings page's
+	// zero-allocation repaint path.
+	actions                          [2]components.ButtonAction
+	actionCount, actionCountFor      int
+	actionAddLabel, actionClearLabel string
 }
 
 // fontName is the name of the font in use, in the current language.

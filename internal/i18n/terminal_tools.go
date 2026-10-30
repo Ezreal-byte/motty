@@ -690,4 +690,28 @@ type ToolsMessages struct {
 	AlgoNegotiatedFmt               string
 	UpdateFailedFmt                 string
 	LoginFailedFmt                  string
+
+	// The file list's configurable columns and default download destination.
+	FilesColumns                         string
+	FilesColumnsDescription              string
+	FilesColumnsEnabledFmt               string
+	FilesColumnsCustomize                string
+	FilesColumnsTitle                    string
+	FilesColumnsHint                     string
+	FilesColumnDragFmt                   string
+	FilesColumnName                      string
+	FilesColumnSize                      string
+	FilesColumnModified                  string
+	FilesColumnsReset                    string
+	FilesColumnsClose                    string
+	FilesDownloadDirectory               string
+	FilesDownloadAskDescription          string
+	FilesDownloadCurrentFmt              string
+	FilesDownloadChoose                  string
+	FilesDownloadAsk                     string
+	FilesDownloadChooseFailed            string
+	FilesDownloadDirectoryInvalidFmt     string
+	FilesDownloadDirectorySavedFmt       string
+	FilesDownloadAskSaved                string
+	FilesDownloadDirectoryUnavailableFmt string
 }

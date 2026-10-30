@@ -8,6 +8,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 	"sync"
@@ -2035,10 +2036,14 @@ func remoteRelative(root, target string) (string, error) {
 }
 
 func joinLocalWithin(root, relative string) (string, error) {
+	return joinLocalWithinFor(root, relative, runtime.GOOS == "windows")
+}
+
+func joinLocalWithinFor(root, relative string, windows bool) (string, error) {
 	if filepath.IsAbs(relative) {
 		return "", fmt.Errorf("%w: %s", ErrPathTraversal, relative)
 	}
-	joined := filepath.Join(root, filepath.FromSlash(relative))
+	joined := filepath.Join(root, localRelativePath(relative, windows))
 	relativeToRoot, err := filepath.Rel(filepath.Clean(root), joined)
 	if err != nil || relativeToRoot == ".." || strings.HasPrefix(relativeToRoot, ".."+string(filepath.Separator)) {
 		return "", fmt.Errorf("%w: %s", ErrPathTraversal, relative)

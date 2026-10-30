@@ -456,7 +456,7 @@ func (state *State) downloadHere(view *sftpView) {
 		return
 	}
 	for _, row := range selectedSFTPRows(view) {
-		state.queueSFTPDownload(view, row.entry, filepath.Join(view.lfolder.path, row.entry.Name))
+		state.queueSFTPDownload(view, row.entry, filepath.Join(view.lfolder.path, safeLocalName(row.entry.Name)))
 	}
 }
 
