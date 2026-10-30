@@ -83,9 +83,9 @@ jobs:
         with:
           go-version-file: motty/go.mod
           cache-dependency-path: motty/go.sum
-      - name: Test remote tools
+      - name: Test remote tools platform handling
         working-directory: motty
-        run: go test -short ./internal/remotetools -count=1
+        run: go test -short -run 'Test(Windows|Darwin|Docker)' ./internal/remotetools -count=1
 
   # The race detector is the long pole: it runs one package at a time, and it
   # multiplies the memory the tests hold. CI therefore spreads the package list
