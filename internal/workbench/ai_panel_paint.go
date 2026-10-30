@@ -3,6 +3,7 @@ package workbench
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 	"unicode/utf8"
 	"unsafe"
@@ -375,11 +376,39 @@ func (state *State) aiLayoutTool(view *aiRowView, item *aiItem, width, cell, cel
 	view.height = height
 }
 
+// aiScrollbarTheme keeps the narrow thumb visible against the panel at rest,
+// and gives hover and press a clear contrast increase.
+func (state *State) aiScrollbarTheme() ui.Theme {
+	theme := state.Theme()
+	theme.Border = state.pal.faint
+	theme.MutedForeground = state.pal.text
+	return theme
+}
+
+// aiScrollbarValue reports the active list's position, formatted only when the
+// visible percentage changes so a streaming repaint does not allocate for it.
+func (state *State) aiScrollbarValue(history bool, offset, maximum float32) string {
+	bar := &state.ai.panel.scrollbar
+	percent := 0
+	if maximum > 0 {
+		percent = min(max(int(offset*100/maximum+0.5), 0), 100)
+	}
+	if bar.value == "" || bar.valueHistory != history || bar.percent != percent {
+		bar.value = strconv.Itoa(percent) + "%"
+		bar.percent, bar.valueHistory = percent, history
+	}
+	return bar.value
+}
+
 // aiPanelBeginPaint forgets the geometry of the previous paint, so a panel that
 // is not painted again stops catching the wheel.
 func (state *State) aiPanelBeginPaint() {
 	panel := &state.ai.panel
 	panel.rect, panel.list, panel.listing = ui.Rect{}, ui.Rect{}, false
+	panel.scrollbar.geometry = components.MessageScrollerGeometry{}
+	if !state.aiPanelVisible() {
+		panel.scrollbar.dragging = false
+	}
 	panel.copyCount = 0
 	panel.answer = ui.Rect{}
 	panel.linkRows, panel.linkBase = 0, 0
@@ -693,7 +722,8 @@ func (state *State) paintAIHistory(canvas *ui.Canvas, list ui.Rect) {
 	})
 	f.End()
 
-	scroller := components.BeginMessageScroller(canvas, state.Theme(), area, content, panel.historyTop)
+	scroller := components.BeginMessageScroller(canvas, state.aiScrollbarTheme(), area, content, panel.historyTop).
+		Scrollbar(hitAIHistoryBar, m.HistoryScrollbarLabel, state.aiScrollbarValue(true, panel.historyTop, panel.maxTop))
 	scroller.BeginContent()
 	for offset, slot := range panel.rowSlots {
 		index := first + offset
@@ -726,7 +756,7 @@ func (state *State) paintAIHistory(canvas *ui.Canvas, list ui.Rect) {
 		state.paintIconButton(canvas, renameID, iconPencil, rename.Rect(), m.HistoryRename, false, iconButtonQuiet, pal.workspace)
 		state.paintIconButton(canvas, deleteID, iconTrash, remove.Rect(), m.HistoryDelete, false, iconButtonQuiet, pal.workspace)
 	}
-	scroller.EndContent()
+	panel.scrollbar.geometry = scroller.EndContent()
 }
 
 // intersectRect is the part of a that lies inside b.
@@ -845,7 +875,8 @@ func (state *State) paintAIMessages(canvas *ui.Canvas, list ui.Rect) {
 	})
 	f.End()
 
-	scroller := components.BeginMessageScroller(canvas, state.Theme(), list, content, scroll).Buttons(ui.ID{}, "", hitAIToEnd, m.ScrollToEnd)
+	scroller := components.BeginMessageScroller(canvas, state.aiScrollbarTheme(), list, content, scroll).
+		Scrollbar(hitAIMessageBar, m.ScrollbarLabel, state.aiScrollbarValue(false, scroll, panel.maxScroll)).Buttons(ui.ID{}, "", hitAIToEnd, m.ScrollToEnd)
 	scroller.BeginContent()
 	for offset, slot := range panel.rowSlots {
 		index := first + offset
@@ -864,7 +895,7 @@ func (state *State) paintAIMessages(canvas *ui.Canvas, list ui.Rect) {
 			canvas.RequestFrameIn(spinnerStep)
 		}
 	}
-	scroller.EndContent()
+	panel.scrollbar.geometry = scroller.EndContent()
 }
 
 // aiThinking reports whether row index is a thought the model is still writing:

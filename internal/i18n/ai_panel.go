@@ -18,13 +18,14 @@ type AIPanelMessages struct {
 	Toggle    string
 	Close     string
 
-	NewConversation string
-	History         string
-	HistoryTitle    string
-	HistoryEmpty    string
-	HistoryOpen     string
-	HistoryDelete   string
-	HistoryRename   string
+	NewConversation       string
+	History               string
+	HistoryTitle          string
+	HistoryEmpty          string
+	HistoryOpen           string
+	HistoryDelete         string
+	HistoryRename         string
+	HistoryScrollbarLabel string
 
 	// The rename dialog of a saved conversation.
 	RenameTitle       string
@@ -56,12 +57,13 @@ type AIPanelMessages struct {
 	Send                string
 	Stop                string
 
-	EmptyTitle  string
-	EmptyHint   string
-	Example1    string
-	Example2    string
-	Example3    string
-	ScrollToEnd string
+	EmptyTitle     string
+	EmptyHint      string
+	Example1       string
+	Example2       string
+	Example3       string
+	ScrollToEnd    string
+	ScrollbarLabel string
 
 	// The empty panel while no terminal is open: what to do to give the assistant
 	// something to look at, and questions that need no terminal.

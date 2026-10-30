@@ -37,6 +37,8 @@ var (
 	hitAIApprove          = tree.ID(aiPanelHits, "ai-approve")
 	hitAIDecline          = tree.ID(aiPanelHits, "ai-decline")
 	hitAIToEnd            = tree.ID(aiPanelHits, "ai-to-end")
+	hitAIMessageBar       = tree.ID(aiPanelHits, "ai-message-scroll-bar")
+	hitAIHistoryBar       = tree.ID(aiPanelHits, "ai-history-scroll-bar")
 	hitAIDrawerDismiss    = tree.ID(aiPanelHits, "ai-drawer-dismiss")
 	hitAIModelChip        = tree.ID(aiPanelHits, "ai-model-chip")
 	hitAIDivider          = tree.ID(aiPanelHits, "ai-divider")
@@ -169,6 +171,19 @@ func (panel *aiPanel) aiTextSelectionText() (string, bool) {
 	return text, text != ""
 }
 
+// aiScrollbarState is the active list's painted geometry, accessible value and
+// pointer gesture. dragGeometry stays fixed while content streams beneath it.
+type aiScrollbarState struct {
+	geometry     components.MessageScrollerGeometry
+	dragGeometry components.MessageScrollerGeometry
+	value        string
+	percent      int
+	valueHistory bool
+	dragging     bool
+	history      bool
+	grab         float32
+}
+
 // aiPanel is what the panel keeps beyond the conversation itself: layout caches,
 // the geometry of the last paint and small view state. It is all derived or
 // cosmetic; nothing here is saved.
@@ -230,6 +245,9 @@ type aiPanel struct {
 	// textSelect is the conversation text selected with the pointer, and the drag
 	// that is extending it. It belongs to one block and is never saved.
 	textSelect aiTextSelection
+
+	// The active message or history scrollbar's geometry and pointer drag.
+	scrollbar aiScrollbarState
 
 	// Dragging the panel's left edge or the message box's top edge.
 	drag      aiDragKind
@@ -372,6 +390,7 @@ func (state *State) setAIPanelOpen(open bool) {
 		ai.panel.history = false
 		ai.panel.modelMenu = false
 		ai.panel.autoMenu = false
+		ai.panel.scrollbar.dragging = false
 		ai.panel.clearAITextSelection()
 	}
 	state.aiPanelSync()
@@ -410,6 +429,7 @@ func (state *State) aiPanelReset() {
 	panel.rows = panel.rows[:0]
 	panel.history = false
 	panel.copied = ""
+	panel.scrollbar.dragging = false
 	panel.clearAITextSelection()
 }
 
@@ -663,6 +683,84 @@ func aiTextTarget(id ui.ID) (row int, part aiTextPart, ok bool) {
 	}
 }
 
+// aiReleaseMessageScroll disengages the live edge without moving the reader.
+// Restoring the offset with AutoScroll temporarily off prevents ScrollTo from
+// immediately taking hold of the edge again.
+func aiReleaseMessageScroll(scroll *components.MessageScrollState) {
+	offset, autoScroll := scroll.Offset(), scroll.AutoScroll
+	scroll.AutoScroll = false
+	scroll.ScrollToStart()
+	scroll.ScrollTo(offset)
+	scroll.AutoScroll = autoScroll
+}
+
+// aiPanelScrollbarPointer drags the active message or history thumb and pages
+// when its track is pressed. Painting owns the geometry; the panel owns the offset.
+func (state *State) aiPanelScrollbarPointer(event ui.PointerEvent) (ui.EventResult, bool) {
+	panel := &state.ai.panel
+	bar := &panel.scrollbar
+	// A window that deactivates mid-drag (Cmd-Tab) never delivers the PointerUp.
+	// Cancel on a press elsewhere and let that press through, so the panel does
+	// not answer every later click with the stale gesture.
+	if event.Kind == ui.PointerDown && bar.dragging &&
+		event.Target != hitAIMessageBar && event.Target != hitAIHistoryBar {
+		bar.dragging = false
+		return ui.EventResult{}, false
+	}
+	history := event.Target == hitAIHistoryBar
+	if event.Kind == ui.PointerDown && (history || event.Target == hitAIMessageBar) {
+		primary := event.Button == ui.PointerButtonPrimary || event.Button == ui.PointerButtonNone
+		geometry := bar.geometry
+		if !primary || history != panel.listing || geometry.MaxOffset <= 0 {
+			return ui.EventResult{}, false
+		}
+		page := panel.list.Height * 0.9
+		switch {
+		case event.Y < geometry.Thumb.Y:
+			return state.aiPanelScrollBy(-page), true
+		case event.Y >= geometry.Thumb.Y+geometry.Thumb.Height:
+			return state.aiPanelScrollBy(page), true
+		}
+		result := ui.EventResult{Handled: true, Repaint: true, Focus: event.Target}
+		if geometry.Track.Height <= geometry.Thumb.Height {
+			return result, true
+		}
+		if !history {
+			aiReleaseMessageScroll(&state.ai.scroll)
+		}
+		bar.dragging = true
+		bar.history = history
+		bar.grab = event.Y - geometry.Thumb.Y
+		bar.dragGeometry = geometry
+		return result, true
+	}
+	if !bar.dragging {
+		return ui.EventResult{}, false
+	}
+	if event.Kind == ui.PointerExit {
+		bar.dragging = false
+		return ui.EventResult{Handled: true, Repaint: true}, true
+	}
+	if bar.history != panel.listing || !state.aiPanelVisible() {
+		bar.dragging = false
+		return ui.EventResult{Handled: true}, true
+	}
+	if event.Kind == ui.PointerUp {
+		// Moves already applied the gesture. Recomputing on Up would jump if the
+		// content extent changed while the pointer stayed still.
+		bar.dragging = false
+		return ui.EventResult{Handled: true}, true
+	}
+	if event.Kind == ui.PointerMove && !event.Captured {
+		return ui.EventResult{}, false
+	}
+	if event.Kind != ui.PointerMove {
+		return ui.EventResult{Handled: true}, true
+	}
+	offset := bar.dragGeometry.OffsetForThumb(event.Y - bar.grab)
+	return state.aiPanelScrollTo(offset), true
+}
+
 // aiPanelPointer moves the focus to the message box when an example is released,
 // and follows a drag of the panel's or the box's edge.
 //
@@ -671,6 +769,9 @@ func aiTextTarget(id ui.ID) (row int, part aiTextPart, ok bool) {
 // are declared after it and still win the press.
 func (state *State) aiPanelPointer(event ui.PointerEvent) (ui.EventResult, bool) {
 	panel := &state.ai.panel
+	if result, handled := state.aiPanelScrollbarPointer(event); handled {
+		return result, true
+	}
 	primary := event.Button == ui.PointerButtonPrimary || event.Button == ui.PointerButtonNone
 	if event.Kind == ui.PointerDown && primary {
 		if index, part, ok := aiTextTarget(event.Target); ok && index < len(panel.rows) {
@@ -795,6 +896,40 @@ func (state *State) aiPanelScroll(event ui.ScrollEvent) (ui.EventResult, bool) {
 	return state.aiPanelScrollBy(event.StepY(24)), true
 }
 
+// aiPanelScrollTo moves the active list to an absolute offset.
+func (state *State) aiPanelScrollTo(offset float32) ui.EventResult {
+	ai := &state.ai
+	panel := &ai.panel
+	if panel.listing {
+		before := panel.historyTop
+		panel.historyTop = min(max(offset, 0), panel.maxTop)
+		return ui.EventResult{Handled: true, Repaint: panel.historyTop != before}
+	}
+	before := ai.scroll.Offset()
+	ai.scroll.ScrollTo(offset)
+	return ui.EventResult{Handled: true, Repaint: ai.scroll.Offset() != before}
+}
+
+// aiPanelScrollbarKey gives the focused slider the same keyboard and
+// accessibility-increment behavior as a scroll area.
+func (state *State) aiPanelScrollbarKey(event ui.KeyEvent) (ui.EventResult, bool) {
+	panel := &state.ai.panel
+	history := event.Target == hitAIHistoryBar
+	if (!history && event.Target != hitAIMessageBar) || history != panel.listing {
+		return ui.EventResult{}, false
+	}
+	offset, maximum := state.ai.scroll.Offset(), panel.maxScroll
+	if history {
+		offset, maximum = panel.historyTop, panel.maxTop
+	}
+	area := components.BeginScrollArea(nil, state.Theme(), panel.list, ui.Size{Width: panel.list.Width, Height: panel.list.Height + maximum}).Offset(0, offset)
+	_, next, ok := area.ScrollForKey(0, offset, event.Key, 24)
+	if !ok {
+		return ui.EventResult{}, false
+	}
+	return state.aiPanelScrollTo(next), true
+}
+
 // aiPanelScrollBy moves the list by step pixels. Reaching the end of the
 // conversation makes it follow new messages again; leaving it stops that.
 func (state *State) aiPanelScrollBy(step float32) ui.EventResult {
@@ -869,6 +1004,9 @@ func (state *State) aiPanelKey(event ui.KeyEvent) (ui.EventResult, bool) {
 		return result, true
 	}
 	handled := ui.EventResult{Handled: true, Repaint: true}
+	if result, handled := state.aiPanelScrollbarKey(event); handled {
+		return result, true
+	}
 	if event.Target == hitAITarget && ai.run == nil && !panel.targetOpen && (event.Key == ui.KeyDown || event.Key == ui.KeyUp) {
 		panel.targetOpen = true
 		panel.modelMenu = false
