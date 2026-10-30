@@ -181,3 +181,22 @@ func TestMonitorMeasuringCentersSpinnerAndText(t *testing.T) {
 		t.Fatal("spinner is not animated")
 	}
 }
+
+func TestMonitorDrawerFollowsItsOwnSide(t *testing.T) {
+	for _, left := range []bool{false, true} {
+		state, _ := monitorFixture(t)
+		id := state.deck.ActiveWorkspace()
+		c, _ := state.deck.Context(id)
+		c.Open = false
+		c.MonitorLeft = left
+		_ = state.deck.SetContext(id, c)
+		view, err := headless.Open(app.Config{Width: 800, Height: 700, Tree: Tree(), Paint: state.Paint, OnResize: state.Resize, OnPointer: state.Pointer}, nil, headless.Options{Scale: 1.25})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !state.monitorDrawer(state.viewport) || (state.monitorRect.X < 400) != left {
+			t.Fatalf("wrong drawer side: left=%v bounds=%v", left, state.monitorRect)
+		}
+		view.Close()
+	}
+}
