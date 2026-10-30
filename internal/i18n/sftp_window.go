@@ -7,6 +7,8 @@ type SFTPWindowMessages struct {
 	ProfileScope, BrowseRootLabel                                                                           string
 	ProfileSite, ProfileShared, ProfileNew, ProfileDelete, ProfileOpen, ProfileEmpty, ProfileNameExists     string
 	BrowseSync, BrowseHint, BrowseRootsFmt, BrowseOutside, BrowseFailedFmt                                  string
+	BrowseCreateTitle, BrowseCreateDescriptionFmt, BrowseCreateConfirm, BrowsePause, BrowseCreateFailedFmt  string
+	LocalEditNotFile                                                                                        string
 	BookmarkTitle, BookmarkDescription, BookmarkName, BookmarkLocal, BookmarkRemote                         string
 	BookmarkSave, BookmarkAdd, BookmarkEdit, BookmarkChooseLocal                                            string
 	BookmarkInvalid, BookmarkLimit                                                                          string

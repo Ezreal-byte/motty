@@ -101,11 +101,17 @@ func TestSFTPBrowseFailedSourceAndMissingCounterpartDoNotCreateDirectories(t *te
 			} else {
 				w.navigate(false, "/home/test/docs")
 			}
-			dualWait(t, state, w, view, func() bool { return !w.navigationBusy() })
+			dualWait(t, state, w, view, func() bool { return !w.navigationBusy() || w.view.dialog == sftpDialogBrowseCreateDirectory })
+			if !sourceFails {
+				if w.view.dialog != sftpDialogBrowseCreateDirectory || !w.browse.enabled || len(w.notices.items) != 0 {
+					t.Fatal("missing counterpart did not ask before pausing")
+				}
+				w.click(hitSFTPDialogCancel)
+			}
 			if w.browse.enabled || w.view.lfolder.path != dir {
 				t.Fatal("failure changed local folder or kept sync enabled")
 			}
-			if len(w.notices.items) != 1 || w.notices.items[0].kind != components.ToastError || w.view.errorText != "" {
+			if sourceFails && (len(w.notices.items) != 1 || w.notices.items[0].kind != components.ToastError) || w.view.errorText != "" {
 				t.Fatal("failure must use a global toast")
 			}
 			if _, err := os.Stat(filepath.Join(dir, "docs")); !os.IsNotExist(err) {

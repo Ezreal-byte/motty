@@ -131,6 +131,9 @@ func (w *sftpWindow) wake() {
 	w.owner.pumpSFTP(&w.session)
 	if !w.connected() {
 		w.browse.enabled, w.browse.pending = false, nil
+		if w.view.dialog == sftpDialogBrowseCreateDirectory {
+			w.owner.closeSFTPDialog(w.view)
+		}
 	}
 	if w.externalConflict != 0 && w.owner.editByID(w.externalConflict) == nil {
 		w.externalConflict = 0

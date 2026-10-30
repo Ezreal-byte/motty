@@ -58,6 +58,9 @@ func (w *sftpWindow) selectionActions(local bool) []sftpWindowAction {
 		add(hitSFTPOpenEntry, iconFolderOpen, m.SFTPOpen)
 	}
 	if local {
+		if count == 1 && !folder.rows[selected].entry.IsDir() {
+			add(hitSFTPEditExternal, iconExternal, m.Tools.ExtEditButton)
+		}
 		add(hitSFTPSend, iconUpload, m.Tools.SendToServer)
 		return actions
 	}
@@ -121,7 +124,9 @@ func (w *sftpWindow) fileAction(local bool, id ui.ID) {
 			w.owner.openSFTPLinkDialog(w.view)
 		}
 	case hitSFTPEditExternal:
-		if !local {
+		if local {
+			w.owner.openLocalExternal(w.view)
+		} else {
 			w.owner.startExternalEdit(&w.session, w.view)
 		}
 	case hitSFTPRename:
