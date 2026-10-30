@@ -442,7 +442,7 @@ func (state *State) snapshot() savedState {
 	for action := shortcutAction(1); action < shortcutActionCount; action++ {
 		chord := state.shortcuts.chords[action]
 		saved.Shortcuts = append(saved.Shortcuts, savedShortcut{
-			Action: action.String(), Key: string([]byte{chord.Key}), Modifiers: uint8(chord.Modifiers),
+			Action: action.String(), Key: chord.savedKey(), Modifiers: uint8(chord.Modifiers),
 		})
 	}
 	for _, host := range state.hosts {
@@ -731,14 +731,11 @@ func restoreShortcuts(saved []savedShortcut) shortcutMap {
 	shortcuts := defaultShortcuts()
 	for _, entry := range saved {
 		action := shortcutActionFromString(entry.Action)
-		if action == shortcutNone || len(entry.Key) != 1 {
+		chord, ok := chordFromSaved(ui.Modifiers(entry.Modifiers), entry.Key)
+		if action == shortcutNone || !ok {
 			continue
 		}
-		key := entry.Key[0]
-		if key >= 'A' && key <= 'Z' {
-			key += 'a' - 'A'
-		}
-		shortcuts.bind(action, shortcutChord{Modifiers: ui.Modifiers(entry.Modifiers), Key: key})
+		shortcuts.bind(action, chord)
 	}
 	shortcuts.refreshLabels()
 	return shortcuts

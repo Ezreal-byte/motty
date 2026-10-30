@@ -1939,6 +1939,9 @@ func fieldForDialogHit(id ui.ID) hostField {
 // Key provides roving keyboard focus for terminal tabs.
 func (state *State) Key(event ui.KeyEvent) (outcome ui.EventResult) {
 	defer state.afterEvent(&outcome)
+	if result, handled := state.namedShortcut(event); handled {
+		return result
+	}
 	if state.tabDrag.active && event.Key == ui.KeyEscape {
 		state.tabDrag = tabDrag{}
 		return ui.EventResult{Handled: true, Repaint: true}

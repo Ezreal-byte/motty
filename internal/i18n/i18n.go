@@ -230,6 +230,8 @@ type Messages struct {
 	ShortcutNewTab                       string
 	ShortcutLocalTerminal                string
 	ShortcutCloseTab                     string
+	ShortcutNextTab                      string
+	ShortcutPreviousTab                  string
 	RecordingStart                       string
 	RecordingStop                        string
 	RecordingExport                      string

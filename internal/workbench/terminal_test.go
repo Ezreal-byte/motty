@@ -373,17 +373,25 @@ func TestCommandChordsDriveTheTabs(t *testing.T) {
 	connect(t, state, world)
 	first, second := state.sessions[0].ID, state.sessions[1].ID
 
-	key(state, 1, ui.KeyEvent{Modifiers: ui.ModifierMeta, Text: "1"})
-	if state.activeSessionID != first {
-		t.Fatal("Command+1 did not select the first tab")
-	}
-	key(state, 0, ui.KeyEvent{Modifiers: ui.ModifierMeta, Text: "2"})
-	if state.activeSessionID != second {
-		t.Fatal("Command+2 did not select the second tab")
-	}
-	key(state, 1, ui.KeyEvent{Modifiers: ui.ModifierMeta, Text: "9"}) // no ninth tab
-	if state.activeSessionID != second {
-		t.Fatal("a missing tab changed the selection")
+	if defaultShortcutModifier() == ui.ModifierMeta {
+		// A tab is a workspace on the tab bar: selecting one has to move the bar,
+		// not only the session the keyboard goes to.
+		workspaces := state.deck.Workspaces(nil)
+		digit := func(text string) {
+			state.Shortcut(ui.KeyEvent{Target: state.activeTerminalFocusHit(), Modifiers: ui.ModifierMeta, Text: text})
+		}
+		digit("1")
+		if state.activeSessionID != first || state.deck.ActiveWorkspace() != workspaces[0].ID {
+			t.Fatal("Command+1 did not select the first tab")
+		}
+		digit("2")
+		if state.activeSessionID != second || state.deck.ActiveWorkspace() != workspaces[1].ID {
+			t.Fatal("Command+2 did not select the second tab")
+		}
+		digit("9") // no ninth tab
+		if state.activeSessionID != second {
+			t.Fatal("a missing tab changed the selection")
+		}
 	}
 	key(state, 1, ui.KeyEvent{Modifiers: ui.ModifierMeta, Text: "t"})
 	if state.activeSection != sectionHosts {

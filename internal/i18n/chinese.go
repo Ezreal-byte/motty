@@ -226,6 +226,8 @@ var ChineseMessages = Messages{
 	ShortcutNewTab:                         "新标签页",
 	ShortcutLocalTerminal:                  "打开本地终端",
 	ShortcutCloseTab:                       "关闭标签页",
+	ShortcutNextTab:                        "下一个标签页",
+	ShortcutPreviousTab:                    "上一个标签页",
 	RecordingStart:                         "录制",
 	RecordingStop:                          "停止录制",
 	RecordingExport:                        "导出录制",

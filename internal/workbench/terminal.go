@@ -1079,14 +1079,6 @@ func (state *State) commandChord(session *Session, event ui.KeyEvent) ui.EventRe
 		state.activeSection = sectionHosts
 		state.save()
 	default:
-		if len(event.Text) == 1 && event.Text[0] >= '1' && event.Text[0] <= '9' {
-			index := int(event.Text[0] - '1')
-			if index < len(state.sessions) {
-				state.activeSessionID = state.sessions[index].ID
-				state.save()
-			}
-			return result
-		}
 		return ui.EventResult{Handled: true}
 	}
 	return result

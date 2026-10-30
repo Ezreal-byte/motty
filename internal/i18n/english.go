@@ -226,6 +226,8 @@ var EnglishMessages = Messages{
 	ShortcutNewTab:                         "New tab",
 	ShortcutLocalTerminal:                  "Open local terminal",
 	ShortcutCloseTab:                       "Close tab",
+	ShortcutNextTab:                        "Next tab",
+	ShortcutPreviousTab:                    "Previous tab",
 	RecordingStart:                         "Record",
 	RecordingStop:                          "Stop recording",
 	RecordingExport:                        "Export recording",
