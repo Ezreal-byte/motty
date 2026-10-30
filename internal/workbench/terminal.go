@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
+	"runtime"
 	"time"
 	"unicode/utf8"
 
@@ -576,9 +577,9 @@ func (state *State) shellOpened(session *Session, shell Shell, err error) {
 	t.shell = shell
 	t.shellOpened = state.now()
 	forwardNotes := 0
-	if noter, ok := shell.(interface{ X11Note() string }); ok && session.host.ForwardX11 {
-		if note := noter.X11Note(); note != "" {
-			line := fmt.Sprintf(state.messages.Tools.X11UnavailableFmt, note)
+	if reporter, ok := shell.(interface{ X11Err() error }); ok && session.host.ForwardX11 {
+		if err := reporter.X11Err(); err != nil {
+			line := fmt.Sprintf(state.messages.Tools.X11UnavailableFmt, state.x11Reason(err, runtime.GOOS))
 			t.say(sgrWarn, line)
 			forwardNotes++
 			if forwardNotes == 1 {

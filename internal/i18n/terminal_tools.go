@@ -664,6 +664,12 @@ type ToolsMessages struct {
 	ErrOTPScanReadFmt               string
 	X11Forward                      string
 	X11UnavailableFmt               string
+	X11NoServerFmt                  string
+	X11UnreachableFmt               string
+	X11Refused                      string
+	X11HintMac                      string
+	X11HintWindows                  string
+	X11HintOther                    string
 	AgentForward                    string
 	AgentAccess                     string
 	AgentAccessNote                 string
