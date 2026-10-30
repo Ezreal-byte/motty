@@ -378,6 +378,12 @@ func (worker *Worker) CreateDirectory(remotePath string) bool {
 	return worker.enqueue(request{operation: OperationCreateDirectory, remote: remotePath})
 }
 
+// CreateDirectories creates a matching navigation path, including missing
+// parents. It is queued only after the application confirms that creation.
+func (worker *Worker) CreateDirectories(remotePath string) bool {
+	return worker.enqueue(request{operation: OperationCreateDirectory, remote: remotePath, recursive: true})
+}
+
 func (worker *Worker) Rename(oldPath, newPath string) bool {
 	return worker.enqueue(request{operation: OperationRename, remote: oldPath, destination: newPath})
 }
@@ -954,7 +960,11 @@ func (worker *Worker) execute(next request) Result {
 	case OperationUpload:
 		result.Files, result.Bytes, result.Resumed, result.Err = worker.upload(client, next, generation)
 	case OperationCreateDirectory:
-		result.Err = createDirectory(client, next.remote)
+		if next.recursive {
+			result.Err = createDirectories(client, next.remote)
+		} else {
+			result.Err = createDirectory(client, next.remote)
+		}
 	case OperationRename:
 		result.Err = rename(client, next.remote, next.destination)
 	case OperationRemoveFile:
@@ -2056,6 +2066,20 @@ func isUnsupportedSFTP(err error) bool {
 	return errors.As(err, &status) && status.FxCode() == sftp.ErrSSHFxOpUnsupported
 }
 
+const sftpStatusCodeNoSuchPath = 10
+
+// IsPathNotFound reports a missing remote path across the error forms used by
+// SFTP and SCP backends. Some SFTP servers use the v4-v6 NO_SUCH_PATH status
+// even though pkg/sftp only exports the v3 NO_SUCH_FILE constant.
+func IsPathNotFound(err error) bool {
+	if errors.Is(err, os.ErrNotExist) || os.IsNotExist(err) {
+		return true
+	}
+	var status *sftp.StatusError
+	return errors.As(err, &status) &&
+		(status.FxCode() == sftp.ErrSSHFxNoSuchFile || status.Code == sftpStatusCodeNoSuchPath)
+}
+
 func createDirectory(client Remote, remotePath string) error {
 	if remotePath == "" {
 		return fmt.Errorf("sftp: create directory requires a remote path")
@@ -2065,6 +2089,37 @@ func createDirectory(client Remote, remotePath string) error {
 		return fmt.Errorf("sftp: create directory is not supported by the remote")
 	}
 	return creator.Mkdir(remotePath)
+}
+
+func createDirectories(client Remote, remotePath string) error {
+	if remotePath == "" {
+		return errors.New("sftp: create directories requires a remote path")
+	}
+	if creator, ok := client.(interface{ MkdirAll(string) error }); ok {
+		return creator.MkdirAll(remotePath)
+	}
+	// SCP and minimal backends can still create a tree using their existing
+	// directory primitives. Permission and non-directory errors are never
+	// treated as missing paths, and existing entries are not replaced.
+	var missing []string
+	for current := path.Clean(remotePath); ; current = path.Dir(current) {
+		if _, err := client.ReadDir(current); err == nil {
+			break
+		} else {
+			if !IsPathNotFound(err) || path.Dir(current) == current {
+				return err
+			}
+		}
+		missing = append(missing, current)
+	}
+	for i := len(missing) - 1; i >= 0; i-- {
+		if err := createDirectory(client, missing[i]); err != nil {
+			if _, check := client.ReadDir(missing[i]); check != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 func rename(client Remote, oldPath, newPath string) error {

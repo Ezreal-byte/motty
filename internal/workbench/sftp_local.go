@@ -9,6 +9,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/vivaui/viva/components"
 	"github.com/vivaui/viva/ui"
 	"motty/internal/sftpclient"
 )
@@ -361,6 +362,8 @@ func (state *State) clickSFTPLocal(session *Session, view *sftpView, id ui.ID) b
 		state.openSFTPDialog(view, sftpDialogCreateDirectory)
 	case id == hitSFTPOpenEntry:
 		state.openLocalSelected(view)
+	case id == hitSFTPEditExternal:
+		state.openLocalExternal(view)
 	case id == hitSFTPSend && !view.localOnly:
 		state.sendLocalSelection(view)
 	case id == hitSFTPInsertPath && view.localOnly:
@@ -394,6 +397,30 @@ func (state *State) openLocalSelected(view *sftpView) {
 		return
 	}
 	state.navigateLocalDirectory(view, filepath.Join(view.lfolder.path, entry.Name))
+}
+
+// Local files already live at their final path. Opening one in the system's
+// application must not download a copy or start remote edit synchronization.
+func (state *State) openLocalExternal(view *sftpView) {
+	count, entry := selectedSFTP(view)
+	if !view.local || count != 1 || entry.IsDir() || view.lfolder.path == "" {
+		return
+	}
+	location := filepath.Join(view.lfolder.path, entry.Name)
+	info, err := os.Lstat(location)
+	if err == nil && !info.Mode().IsRegular() {
+		err = errors.New(state.messages.SFTPWindow.LocalEditNotFile)
+	}
+	if err == nil {
+		err = state.options.OpenPath(location)
+	}
+	if err != nil {
+		if isExecutablePathError(err) {
+			state.fileOpenNotice(view.detached, state.messages.Tools.ExtEditButton, state.messages.Tools.ExtEditRefused, components.ToastError)
+		} else {
+			state.fileOpenPathReason(view.detached, state.messages.Tools.ExtEditButton, state.messages.Tools.ExtEditOpenFailedFmt, location, err.Error(), components.ToastError)
+		}
+	}
 }
 
 // insertLocalPaths types the selected items' paths into the local shell, quoted

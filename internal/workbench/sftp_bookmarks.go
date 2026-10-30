@@ -136,6 +136,9 @@ func (w *sftpWindow) currentBookmark() *sftpBookmark {
 }
 
 func (w *sftpWindow) editBookmark(bookmark *sftpBookmark) {
+	if w.browse.pending != nil {
+		return
+	}
 	w.cancelDrag()
 	w.closeHeaderMenu()
 	w.view.bookmarksOpen, w.ui.menuOpen = false, false

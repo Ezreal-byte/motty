@@ -3,12 +3,14 @@ package workbench
 import (
 	"errors"
 	"fmt"
+	"os"
 	"path"
 	"path/filepath"
 	"runtime"
 	"strings"
 
 	"github.com/vivaui/viva/components"
+	"motty/internal/sftpclient"
 )
 
 // Only explicit navigation starts a request. Publishing or refreshing a listing
@@ -17,16 +19,18 @@ type sftpBrowseSync struct {
 	enabled                        bool
 	roots                          [2]string // local, remote
 	pending                        *sftpBrowseRequest
+	creating                       *sftpBrowseRequest
 	descriptionRoots               [2]string
 	descriptionFormat, description string
 }
 
 type sftpBrowseRequest struct {
-	paths  [2]string
-	side   int
-	second bool
-	rebase bool
-	enable bool
+	paths              [2]string
+	side               int
+	second             bool
+	rebase             bool
+	enable             bool
+	confirm, attempted bool
 }
 
 func (w *sftpWindow) navigationBusy() bool {
@@ -96,7 +100,7 @@ func browseCounterpart(local bool, roots [2]string, destination string) (string,
 // uploads and downloads belong to their own independent task lifecycle.
 func (w *sftpWindow) stopBrowseCounterpart() {
 	request := w.browse.pending
-	if request == nil || !request.second {
+	if request == nil || !request.second || request.confirm || request == w.browse.creating {
 		return
 	}
 	if request.side == 0 {
@@ -188,12 +192,97 @@ func (w *sftpWindow) browseListingFailed(local bool, directory string, err error
 	if request == nil || request.side != sideIndex(local) || request.paths[request.side] != directory {
 		return false
 	}
+	if request.second && !request.attempted && (w.browse.enabled || request.rebase && request.enable) && sftpclient.IsPathNotFound(err) {
+		request.confirm = true
+		w.view.pathRequest, w.view.errorText = "", ""
+		if !local {
+			w.view.navigation = sftpNavigation{}
+		}
+		w.view.setItemCountStatus(w.owner.messages.SFTPItemsFmt, len(w.view.active().rows))
+		w.view.dialog = sftpDialogBrowseCreateDirectory
+		return true
+	}
 	w.browse.pending, w.browse.enabled = nil, false
 	w.view.pathRequest, w.view.errorText = "", ""
 	w.view.setItemCountStatus(w.owner.messages.SFTPItemsFmt, len(w.view.active().rows))
 	m := w.owner.messages.SFTPWindow
 	w.notices.showPathReason(m.BrowseSync, m.BrowseFailedFmt, directory, err.Error(), components.ToastError)
 	return true
+}
+
+func (w *sftpWindow) cancelBrowseDirectoryPrompt() {
+	if request := w.browse.pending; request != nil && request.confirm {
+		w.browse.pending, w.browse.enabled = nil, false
+		w.view.pathRequest, w.view.errorText = "", ""
+	}
+}
+
+func (w *sftpWindow) createBrowseDirectory() {
+	request := w.browse.pending
+	if request == nil || !request.confirm || w.closed || !w.connected() {
+		w.owner.closeSFTPDialog(w.view)
+		return
+	}
+	request.confirm, request.attempted = false, true
+	w.owner.closeSFTPDialog(w.view)
+	directory := request.paths[request.side]
+	w.browse.creating = request
+	if request.side == 0 {
+		w.pendingLocal = directory
+		go func() {
+			err := os.MkdirAll(directory, 0o755)
+			w.owner.aiPost(func(*State) { w.finishBrowseDirectoryCreation(request, err) })
+		}()
+		return
+	}
+	if !w.view.worker.CreateDirectories(directory) {
+		w.browse.creating = nil
+		w.browseDirectoryFailed(directory, errors.New(w.owner.messages.SFTPUnavailable))
+		return
+	}
+	w.view.busy, w.view.operation = true, sftpclient.OperationCreateDirectory
+	w.view.status = fmt.Sprintf(w.owner.messages.SFTPCreatingDirectoryFmt, directory)
+}
+
+func (w *sftpWindow) browseDirectoryFailed(directory string, err error) {
+	w.browse.pending, w.browse.enabled = nil, false
+	w.view.pathRequest, w.view.errorText = "", ""
+	w.view.setItemCountStatus(w.owner.messages.SFTPItemsFmt, len(w.view.active().rows))
+	m := w.owner.messages.SFTPWindow
+	w.notices.showPathReason(m.BrowseSync, m.BrowseCreateFailedFmt, directory, err.Error(), components.ToastError)
+}
+
+func (w *sftpWindow) browseDirectoryCreated(result sftpclient.Result) bool {
+	request := w.browse.creating
+	if request == nil || request.side != 1 || result.Operation != sftpclient.OperationCreateDirectory || result.Path != request.paths[1] {
+		return false
+	}
+	w.finishBrowseDirectoryCreation(request, result.Err)
+	return true
+}
+
+func (w *sftpWindow) finishBrowseDirectoryCreation(request *sftpBrowseRequest, err error) {
+	if w.browse.creating != request {
+		return
+	}
+	w.browse.creating = nil
+	if request.side == 0 {
+		w.pendingLocal = ""
+	} else {
+		w.view.busy = false
+	}
+	if w.closed || w.browse.pending != request || !w.connected() {
+		return // a completed mkdir must not revive a retired navigation
+	}
+	directory := request.paths[request.side]
+	if err != nil {
+		w.browseDirectoryFailed(directory, err)
+		return
+	}
+	if request.side == 1 {
+		w.view.forgetListings()
+	}
+	w.readBrowseDirectory(request.side == 0, directory)
 }
 
 func (w *sftpWindow) cancelBrowseNavigation(local bool, directory string) {

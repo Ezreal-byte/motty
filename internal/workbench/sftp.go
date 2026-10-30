@@ -52,6 +52,7 @@ const (
 	sftpDialogSymlink
 	sftpDialogExtract
 	sftpDialogCompress
+	sftpDialogBrowseCreateDirectory
 )
 
 // sftpFolder is a folder on show: where it is, its rows and the user's place in
@@ -411,7 +412,7 @@ func (state *State) sftpEditor(hit ui.ID) *text.Editor {
 	if hit == hitSFTPDialogField2 && session.files.dialog == sftpDialogSymlink {
 		return &session.files.dialogEditor2
 	}
-	if hit != hitSFTPDialogField || session.files.dialog == sftpDialogNone || session.files.dialog == sftpDialogDelete || session.files.dialog == sftpDialogDiscardEdit || session.files.dialog == sftpDialogReloadEdit || session.files.dialog == sftpDialogRemoteChanged {
+	if hit != hitSFTPDialogField || session.files.dialog == sftpDialogNone || session.files.dialog == sftpDialogDelete || session.files.dialog == sftpDialogDiscardEdit || session.files.dialog == sftpDialogReloadEdit || session.files.dialog == sftpDialogRemoteChanged || session.files.dialog == sftpDialogBrowseCreateDirectory {
 		return nil
 	}
 	return &session.files.dialogEditor
@@ -1014,6 +1015,9 @@ func (state *State) openSFTPDialog(view *sftpView, dialog sftpDialogKind) {
 }
 
 func (state *State) closeSFTPDialog(view *sftpView) {
+	if view.dialog == sftpDialogBrowseCreateDirectory && view.detached != nil {
+		view.detached.cancelBrowseDirectoryPrompt()
+	}
 	view.dialog = sftpDialogNone
 	view.dialogEditor, view.dialogEditor2 = text.Editor{}, text.Editor{}
 	view.dialogEntry = sftpclient.Entry{}
@@ -1035,6 +1039,11 @@ func (state *State) submitSFTPDialog(view *sftpView) {
 	operation := sftpclient.Operation(0)
 	status := ""
 	switch view.dialog {
+	case sftpDialogBrowseCreateDirectory:
+		if view.detached != nil {
+			view.detached.createBrowseDirectory()
+		}
+		return
 	case sftpDialogDiscardEdit:
 		state.closeSFTPDialog(view)
 		resetSFTPEditor(view)
@@ -1199,6 +1208,9 @@ func (state *State) pumpSFTP(session *Session) {
 					view.status = fmt.Sprintf(state.messages.SFTPDownloadedFmt, formatBytes(result.Bytes), result.LocalPath)
 				}
 				state.refreshSFTPTransfers(view)
+				continue
+			}
+			if view.detached != nil && view.detached.browseDirectoryCreated(result) {
 				continue
 			}
 			view.busy = false

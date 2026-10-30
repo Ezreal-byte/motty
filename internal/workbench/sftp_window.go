@@ -131,6 +131,9 @@ func (w *sftpWindow) wake() {
 	w.owner.pumpSFTP(&w.session)
 	if !w.connected() {
 		w.browse.enabled, w.browse.pending = false, nil
+		if w.view.dialog == sftpDialogBrowseCreateDirectory {
+			w.owner.closeSFTPDialog(w.view)
+		}
 	}
 	if w.externalConflict != 0 && w.owner.editByID(w.externalConflict) == nil {
 		w.externalConflict = 0
@@ -282,7 +285,7 @@ func (w *sftpWindow) navigate(local bool, location string) {
 }
 
 func (w *sftpWindow) openEntry(local bool, index int) {
-	if w.closeConfirm || w.view.dialog != sftpDialogNone || local && w.pendingLocal != "" || !local && (!w.connected() || w.view.busy) {
+	if w.closeConfirm || w.view.dialog != sftpDialogNone || w.browse.pending != nil || local && w.pendingLocal != "" || !local && (!w.connected() || w.view.busy) {
 		return
 	}
 	folder := w.folder(local)
