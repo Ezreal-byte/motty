@@ -1673,7 +1673,7 @@ var englishTools = ToolsMessages{
 	RemoteSnapshotStaleFmt:          "Stale · collected %s · refresh to enable changes",
 	RemoteRefreshRequired:           "Refresh successfully before making changes.",
 	RemoteProcessChanged:            "The process instance changed or exited. Refresh and reselect before trying again.",
-	RemoteProcessUnverifiable:       "Process identity is unavailable (procfs unreadable or the read failed). Refresh and reselect.",
+	RemoteProcessUnverifiable:       "Process identity cannot be safely verified; this listing is read-only. Refresh or manage processes in the terminal.",
 	RemoteNeedSelection:             "Select a row first.",
 	RemoteSignalSentFmt:             "Sent %[1]s to process %[2]d.",
 	RemoteActionDoneFmt:             "Done: %s.",
