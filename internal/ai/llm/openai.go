@@ -25,7 +25,8 @@ func NewOpenAI(cfg Config) Provider {
 }
 
 // openAIBase normalizes a base URL: trailing slashes and a pasted
-// /chat/completions suffix are dropped, and a bare host gets /v1.
+// /chat/completions or /responses suffix are dropped, and a bare host gets /v1.
+// Which of the two routes is used follows the provider, not the pasted address.
 func openAIBase(raw string) (string, error) {
 	if strings.TrimSpace(raw) == "" {
 		return "https://api.openai.com/v1", nil
@@ -34,7 +35,11 @@ func openAIBase(raw string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	u.Path, _ = cutSuffixFold(u.Path, "/chat/completions")
+	if path, ok := cutSuffixFold(u.Path, "/chat/completions"); ok {
+		u.Path = path
+	} else {
+		u.Path, _ = cutSuffixFold(u.Path, "/responses")
+	}
 	u.Path = strings.TrimRight(u.Path, "/")
 	if u.Path == "" {
 		u.Path = "/v1"

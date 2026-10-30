@@ -392,6 +392,9 @@ func (state *State) aiProvider(provider store.Provider) llm.Provider {
 	if provider.Kind == store.KindAnthropic {
 		return llm.NewAnthropic(config)
 	}
+	if provider.APIFormat == store.APIFormatResponses {
+		return llm.NewOpenAIResponses(config)
+	}
 	return llm.NewOpenAI(config)
 }
 
