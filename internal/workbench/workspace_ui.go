@@ -36,7 +36,7 @@ func (state *State) workspacePixelBoundsFor(workspaceID layoutcore.WorkspaceID, 
 	}
 	// The assistant's panel sits on the right, so the panes end before it.
 	monitor := state.independentMonitorReserve(workspaceID, size)
-	if context.Side == layoutcore.ContextLeft {
+	if context.MonitorLeft {
 		bounds.X += monitor
 	}
 	bounds.Width = max(0, bounds.Width-monitor)

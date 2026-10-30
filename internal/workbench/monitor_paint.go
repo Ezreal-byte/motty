@@ -5,7 +5,6 @@ import (
 	"github.com/vivaui/viva/ui"
 	"motty/internal/sshconn"
 	"motty/internal/workbench/icons"
-	layoutcore "motty/internal/workspace"
 	"time"
 )
 
@@ -16,7 +15,7 @@ func (state *State) paintIndependentMonitor(canvas *ui.Canvas, size ui.Size) {
 	context, _ := state.deck.Context(state.deck.ActiveWorkspace())
 	if state.monitorDrawer(size) {
 		side := components.DrawerRight
-		if context.Side == layoutcore.ContextLeft {
+		if context.MonitorLeft {
 			side = components.DrawerLeft
 		}
 		d := components.BeginDrawer(canvas, state.Theme(), state.baseWorkspacePixelBounds(size), components.DrawerOptions{Layer: drawerLayer, Scope: dialogScope, DismissID: hitMonitorClose, Side: side, ContentExtent: min(state.monitorPanelWidth(state.deck.ActiveWorkspace(), size), size.Width*.82), InitialFocusID: hitMonitorClose})
@@ -27,12 +26,12 @@ func (state *State) paintIndependentMonitor(canvas *ui.Canvas, size ui.Size) {
 	}
 	base := state.baseWorkspacePixelBounds(size)
 	reserve := state.independentMonitorReserve(state.deck.ActiveWorkspace(), size)
-	if context.Side == layoutcore.ContextRight {
+	if !context.MonitorLeft {
 		base.X += base.Width - state.aiReserve(state.deck.ActiveWorkspace(), size) - reserve + 1
 	}
 	base.Width = reserve - 1
 	dividerX := base.X + base.Width
-	if context.Side == layoutcore.ContextRight {
+	if !context.MonitorLeft {
 		dividerX = base.X - 1
 	}
 	canvas.Fill(ui.Rect{X: dividerX, Y: base.Y, Width: 1, Height: base.Height}, state.pal.line)
@@ -62,7 +61,7 @@ func (state *State) paintMonitor(canvas *ui.Canvas, b ui.Rect, s *Session) {
 	state.paintIconButton(canvas, hitMonitorClose, iconClose, ui.Rect{X: b.X + b.Width - 34, Y: b.Y + (header.Height-24)/2, Width: 24, Height: 24}, state.messages.LabelCloseTab, false, iconButtonQuiet, bg)
 	context, _ := state.deck.Context(state.deck.ActiveWorkspace())
 	moveIcon, moveHint := uint8(iconChevronRight), m.MoveRight
-	if context.Side == layoutcore.ContextRight {
+	if !context.MonitorLeft {
 		moveIcon, moveHint = iconChevronLeft, m.MoveLeft
 	}
 	state.paintIconButton(canvas, hitMonitorSide, moveIcon, ui.Rect{X: b.X + b.Width - 64, Y: b.Y + (header.Height-24)/2, Width: 24, Height: 24}, moveHint, false, iconButtonQuiet, bg)

@@ -18,79 +18,100 @@ import (
 func TestMonitorOuterPanelLayoutsAndResizeAtDisplayScales(t *testing.T) {
 	for _, scale := range []float64{1, 1.25, 1.5, 1.75, 2} {
 		for _, side := range []layoutcore.ContextSide{layoutcore.ContextLeft, layoutcore.ContextRight} {
-			t.Run(fmt.Sprintf("%g/%d", scale, side), func(t *testing.T) {
-				state, s := monitorFixture(t)
-				original := s.stats
-				id := state.deck.ActiveWorkspace()
-				c, _ := state.deck.Context(id)
-				c.Side = side
-				_ = state.deck.SetContext(id, c)
-				view, err := headless.Open(app.Config{Title: "Panels", Width: 1600, Height: 900, Tree: Tree(), Paint: state.Paint, OnResize: state.Resize, OnPointer: state.Pointer, OnKey: state.Key}, nil, headless.Options{Scale: scale})
-				if err != nil {
-					t.Fatal(err)
-				}
-				defer view.Close()
-				check := func() {
-					t.Helper()
-					m, f, term := state.monitorRect, state.contextRect, state.workspacePixelBounds(state.viewport)
-					if side == layoutcore.ContextLeft {
-						if m.X != 0 || m.X+m.Width > f.X || f.X+f.Width > term.X {
-							t.Fatalf("left order: %v %v %v", m, f, term)
-						}
-					} else {
-						if term.X+term.Width > f.X || f.X+f.Width > m.X || m.X+m.Width != state.viewport.Width {
-							t.Fatalf("right order: %v %v %v", term, f, m)
-						}
-					}
-				}
-				check()
-				x := state.monitorDividerX()
-				delta := float32(40)
-				if side == layoutcore.ContextRight {
-					delta = -delta
-				}
-				state.monitorPointer(ui.PointerEvent{Kind: ui.PointerDown, Target: hitMonitorDivider, Button: ui.PointerButtonPrimary, X: x, Y: 200})
-				state.monitorPointer(ui.PointerEvent{Kind: ui.PointerUp, X: x + delta, Y: 200})
-				if err = view.Rest(); err != nil {
-					t.Fatal(err)
-				}
-				// Rest may have nothing scheduled by direct input; resize explicitly publishes.
-				if err = view.Resize(1600, 900); err != nil {
-					t.Fatal(err)
-				}
-				if state.monitorRect.Width != monitorWidth+40 {
-					t.Fatalf("resize width=%v", state.monitorRect.Width)
-				}
-				check()
-				side = layoutcore.ContextRight - side
-				hint := state.messages.Monitor.MoveRight
-				if side == layoutcore.ContextLeft {
-					hint = state.messages.Monitor.MoveLeft
-				}
-				if err = view.ClickLabel(hint); err != nil {
-					t.Fatal(err)
-				}
-				check()
-				after, _ := state.deck.Context(id)
-				if after.Width != c.Width || !after.Open || after.MonitorWidth != monitorWidth+40 || state.contextSession().stats != original {
-					t.Fatal("moving panels changed content or widths")
-				}
-				if dir := os.Getenv("MOTTY_PANEL_SCREENSHOTS"); dir != "" && scale == 1.5 {
-					if err = view.Screenshot(filepath.Join(dir, fmt.Sprintf("panels-%d.png", side))); err != nil {
+			for _, left := range []bool{false, true} {
+				t.Run(fmt.Sprintf("%g/files-%d/monitor-left-%v", scale, side, left), func(t *testing.T) {
+					state, s := monitorFixture(t)
+					original := s.stats
+					id := state.deck.ActiveWorkspace()
+					c, _ := state.deck.Context(id)
+					c.Side = side
+					c.MonitorLeft = left
+					_ = state.deck.SetContext(id, c)
+					view, err := headless.Open(app.Config{Title: "Panels", Width: 1600, Height: 900, Tree: Tree(), Paint: state.Paint, OnResize: state.Resize, OnPointer: state.Pointer, OnKey: state.Key}, nil, headless.Options{Scale: scale})
+					if err != nil {
 						t.Fatal(err)
 					}
-					if side == layoutcore.ContextLeft {
-						s.stats.state = remoteStatsMeasuring
-						s.stats.panel.count = 0
-						if err = view.Resize(1600, 900); err != nil {
-							t.Fatal(err)
+					defer view.Close()
+					check := func() {
+						t.Helper()
+						m, f, term := state.monitorRect, state.contextRect, state.workspacePixelBounds(state.viewport)
+						ordered := []ui.Rect{f, term}
+						if side == layoutcore.ContextRight {
+							ordered = []ui.Rect{term, f}
 						}
-						if err = view.Screenshot(filepath.Join(dir, "panels-loading.png")); err != nil {
-							t.Fatal(err)
+						if left {
+							ordered = append([]ui.Rect{m}, ordered...)
+						} else {
+							ordered = append(ordered, m)
+						}
+						if ordered[0].X != 0 || ordered[2].X+ordered[2].Width != state.viewport.Width {
+							t.Fatalf("panel not at outer edge: %v", ordered)
+						}
+						for i := 0; i < 2; i++ {
+							if ordered[i].X+ordered[i].Width > ordered[i+1].X {
+								t.Fatalf("overlapping or wrong order: %v", ordered)
+							}
 						}
 					}
-				}
-			})
+					check()
+					x := state.monitorDividerX()
+					delta := float32(40)
+					if !left {
+						delta = -delta
+					}
+					state.monitorPointer(ui.PointerEvent{Kind: ui.PointerDown, Target: hitMonitorDivider, Button: ui.PointerButtonPrimary, X: x, Y: 200})
+					state.monitorPointer(ui.PointerEvent{Kind: ui.PointerUp, X: x + delta, Y: 200})
+					if err = view.Rest(); err != nil {
+						t.Fatal(err)
+					}
+					// Rest may have nothing scheduled by direct input; resize explicitly publishes.
+					if err = view.Resize(1600, 900); err != nil {
+						t.Fatal(err)
+					}
+					if state.monitorRect.Width != monitorWidth+40 {
+						t.Fatalf("resize width=%v", state.monitorRect.Width)
+					}
+					check()
+					left = !left
+					hint := state.messages.Monitor.MoveRight
+					if left {
+						hint = state.messages.Monitor.MoveLeft
+					}
+					if err = view.ClickLabel(hint); err != nil {
+						t.Fatal(err)
+					}
+					check()
+					after, _ := state.deck.Context(id)
+					if after.Side != side || after.MonitorLeft != left || after.Width != c.Width || !after.Open || after.MonitorWidth != monitorWidth+40 || state.contextSession().stats != original {
+						t.Fatal("moving panels changed content or widths")
+					}
+					_, fileHint := state.sftpPanelMoveAction()
+					if err = view.ClickLabel(fileHint); err != nil {
+						t.Fatal(err)
+					}
+					side = layoutcore.ContextRight - side
+					check()
+					after, _ = state.deck.Context(id)
+					if after.MonitorLeft != left || after.Side != side {
+						t.Fatal("file move changed monitor side")
+					}
+					if dir := os.Getenv("MOTTY_PANEL_SCREENSHOTS"); dir != "" && scale == 1.5 {
+						if err = view.Screenshot(filepath.Join(dir, fmt.Sprintf("panels-files-%d-monitor-left-%v.png", side, left))); err != nil {
+							t.Fatal(err)
+						}
+						if left {
+							s.stats.state = remoteStatsMeasuring
+							s.stats.panel.count = 0
+							if err = view.Resize(1600, 900); err != nil {
+								t.Fatal(err)
+							}
+							if err = view.Screenshot(filepath.Join(dir, "panels-loading.png")); err != nil {
+								t.Fatal(err)
+							}
+						}
+					}
+				})
+			}
 		}
 	}
 }
@@ -103,6 +124,7 @@ func TestMonitorSideWithFilesClosedAndAIDocked(t *testing.T) {
 	for _, side := range []layoutcore.ContextSide{layoutcore.ContextLeft, layoutcore.ContextRight} {
 		c, _ := state.deck.Context(id)
 		c.Side = side
+		c.MonitorLeft = side == layoutcore.ContextLeft
 		c.Open = false
 		_ = state.deck.SetContext(id, c)
 		state.Paint(&ui.Canvas{}, size)

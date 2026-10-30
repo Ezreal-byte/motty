@@ -212,7 +212,7 @@ func (state *State) closeMonitor() {
 func (state *State) clickMonitor(id ui.ID) bool {
 	switch id {
 	case hitMonitorSide:
-		state.toggleConnectionPanelSide()
+		state.toggleMonitorSide()
 		return true
 	case hitMonitorClose:
 		state.closeMonitor()
@@ -296,6 +296,25 @@ func (state *State) clickMonitor(id ui.ID) bool {
 		return false
 	}
 	return true
+}
+
+func (state *State) toggleMonitorSide() {
+	id := state.deck.ActiveWorkspace()
+	c, ok := state.deck.Context(id)
+	if !ok || !c.MonitorOpen {
+		return
+	}
+	c.MonitorLeft = !c.MonitorLeft
+	if state.deck.SetContext(id, c) != nil {
+		return
+	}
+	state.monitorResizing = false
+	state.draggedContextDivider = false
+	state.monitorMenu = false
+	state.monitorRect, state.contextRect = ui.Rect{}, ui.Rect{}
+	state.fitWorkspaceTerminals(id)
+	state.fitSFTP(state.viewport)
+	state.save()
 }
 
 // One bounded, timestamped buffer for every metric; missing observations remain

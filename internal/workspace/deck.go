@@ -51,6 +51,7 @@ const (
 type ContextState struct {
 	MonitorOpen  bool    // independent monitor, alongside the shared context panel
 	MonitorWidth float32 // zero uses DefaultMonitorWidth
+	MonitorLeft  bool    // false preserves the original right-docked monitor
 	Kind         ContextKind
 	Open         bool
 	Width        float32

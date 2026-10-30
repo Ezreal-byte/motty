@@ -31,7 +31,7 @@ func (state *State) monitorPointer(e ui.PointerEvent) (ui.EventResult, bool) {
 		switch e.Kind {
 		case ui.PointerMove, ui.PointerUp:
 			width := state.monitorRect.X + state.monitorRect.Width - 1 - e.X + state.monitorResizeGrab
-			if c, _ := state.deck.Context(state.deck.ActiveWorkspace()); c.Side == layoutcore.ContextLeft {
+			if c, _ := state.deck.Context(state.deck.ActiveWorkspace()); c.MonitorLeft {
 				width = e.X - state.monitorResizeGrab - state.monitorRect.X
 			}
 			state.resizeMonitor(width)
@@ -96,7 +96,7 @@ func (state *State) monitorKey(e ui.KeyEvent) (ui.EventResult, bool) {
 			width = monitorWidth
 		}
 		step := float32(16)
-		if context.Side == layoutcore.ContextLeft {
+		if context.MonitorLeft {
 			step = -step
 		}
 		switch e.Key {
@@ -156,7 +156,7 @@ func (state *State) monitorKey(e ui.KeyEvent) (ui.EventResult, bool) {
 }
 
 func (state *State) monitorDividerX() float32 {
-	if c, _ := state.deck.Context(state.deck.ActiveWorkspace()); c.Side == layoutcore.ContextLeft {
+	if c, _ := state.deck.Context(state.deck.ActiveWorkspace()); c.MonitorLeft {
 		return state.monitorRect.X + state.monitorRect.Width
 	}
 	return state.monitorRect.X - 1

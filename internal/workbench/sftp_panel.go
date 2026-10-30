@@ -35,12 +35,6 @@ func (state *State) initializeSFTPPanel(id layoutcore.WorkspaceID, restoring boo
 
 func (state *State) sftpPanelMoveAction() (uint8, string) {
 	context, _ := state.deck.Context(state.deck.ActiveWorkspace())
-	if context.MonitorOpen {
-		if context.Side == layoutcore.ContextRight {
-			return iconChevronLeft, state.messages.Monitor.MoveLeft
-		}
-		return iconChevronRight, state.messages.Monitor.MoveRight
-	}
 	if context.Side == layoutcore.ContextRight {
 		return iconChevronLeft, state.messages.Tools.FilesMoveLeft
 	}
@@ -53,17 +47,6 @@ func (state *State) toggleSFTPPanelSide() {
 	if !ok || !context.Open || context.Kind != layoutcore.ContextSFTP {
 		return
 	}
-	state.toggleConnectionPanelSide()
-}
-
-// The monitor is outermost and files stay beside the terminal. A single
-// workspace-owned side keeps both panel entry points consistent.
-func (state *State) toggleConnectionPanelSide() {
-	id := state.deck.ActiveWorkspace()
-	context, ok := state.deck.Context(id)
-	if !ok {
-		return
-	}
 	if context.Side == layoutcore.ContextLeft {
 		context.Side = layoutcore.ContextRight
 	} else {
@@ -73,9 +56,6 @@ func (state *State) toggleConnectionPanelSide() {
 		return
 	}
 	state.draggedContextDivider = false
-	state.monitorResizing = false
-	state.monitorMenu = false
-	state.monitorRect = ui.Rect{}
 	state.contextRect = ui.Rect{}
 	state.fitWorkspaceTerminals(id)
 	state.fitSFTP(state.viewport)
@@ -91,7 +71,7 @@ func (state *State) sftpPanelResizable(canvas *ui.Canvas, size ui.Size, context 
 	maximum := state.contextPanelExtent(base, layoutcore.MaxContextWidth)
 	base.Width -= state.aiReserve(state.deck.ActiveWorkspace(), size)
 	base.Width -= state.independentMonitorReserve(state.deck.ActiveWorkspace(), size)
-	if context.Side == layoutcore.ContextLeft {
+	if context.MonitorLeft {
 		base.X += state.independentMonitorReserve(state.deck.ActiveWorkspace(), size)
 	}
 	usable := max(base.Width-1, 1)
