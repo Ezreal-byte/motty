@@ -31,11 +31,12 @@ func (state *State) saveTerminalOutput(session *Session) {
 	if errors.Is(err, app.ErrCanceled) || err == nil && path == "" {
 		return
 	}
-	if err == nil {
-		err = writePrivateAtomic(path, data)
-	}
 	if err != nil {
-		state.showActionError(m.OutputSaveTitle, fmt.Sprintf(m.OutputSaveFailedFmt, err))
+		state.showActionFailure(m.OutputSaveTitle, err, state.messages.ActionFeedback.FilePickerFailed)
+		return
+	}
+	if err = writePrivateAtomic(path, data); err != nil {
+		state.showFileSaveFailure(m.OutputSaveTitle, err)
 		return
 	}
 	state.status = fmt.Sprintf(m.OutputSavedFmt, path)

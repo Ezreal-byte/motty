@@ -128,7 +128,7 @@ func (state *State) importKeys() {
 		return
 	}
 	if err != nil {
-		state.showActionError(state.messages.KeyImportTitle, fmt.Sprintf(state.messages.KeyImportFailedFmt, err))
+		state.showActionFailure(state.messages.KeyImportTitle, err, state.messages.ActionFeedback.FilePickerFailed)
 		return
 	}
 	added := 0
@@ -140,7 +140,7 @@ func (state *State) importKeys() {
 		record := inspectIdentity(state.nextIdentityID, path, state.keyMessages())
 		if record.Error != "" {
 			hadError = true
-			state.showActionError(state.messages.KeyImportTitle, fmt.Sprintf(state.messages.KeyInvalidFmt, filepath.Base(path), record.Error))
+			state.showActionFailure(state.messages.KeyImportTitle, errors.New(record.Error), fmt.Sprintf(state.messages.ActionFeedback.ImportPrivateKeyFailedFmt, elideMiddleRunes(filepath.Base(path), 64)))
 			continue
 		}
 		state.identities = append(state.identities, record)

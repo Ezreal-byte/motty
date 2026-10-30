@@ -3,8 +3,9 @@ package i18n
 // The Chinese catalog lives here, one file per language.
 
 var ChineseMessages = Messages{
-	Monitor:   chineseMonitor,
-	Dashboard: chineseDashboard,
+	ActionFeedback: chineseActionFeedback,
+	Monitor:        chineseMonitor,
+	Dashboard:      chineseDashboard,
 	SFTPWindow: SFTPWindowMessages{
 		LocalPlaces: "收藏与快捷位置", DirectoryFavorites: "目录收藏", CommonFolders: "常用目录", LocalDrives: "磁盘", FavoriteAdd: "收藏当前目录", FavoriteRemove: "取消收藏当前目录", FavoriteLimit: "目录收藏已达上限，请先移除不再使用的收藏。",
 		LocalHome: "主目录", LocalDesktop: "桌面", LocalDownloads: "下载", LocalDocuments: "文档", LocalPictures: "图片", LocalMusic: "音乐", LocalVideos: "视频", LocalMovies: "影片", LocalApplications: "应用程序",
@@ -326,9 +327,9 @@ var ChineseMessages = Messages{
 	DeleteHostTitle:             "删除主机",
 	DeleteHostDescriptionFmt:    "删除选中的 %d 台主机？此操作无法撤销。",
 	DeleteHostConfirm:           "删除",
-	HostDeleteBlockedProxyFmt:   "无法删除 %s，因为跳板路由正在引用它。",
-	HostDeleteBlockedForwardFmt: "无法删除 %s，因为端口转发正在引用它。",
-	HostDeleteBlockedSessionFmt: "无法删除 %s，因为打开或恢复的会话正在引用它。",
+	HostDeleteBlockedProxyFmt:   "“%s”正在用于跳板连接，请先删除相关路由。",
+	HostDeleteBlockedForwardFmt: "“%s”正在用于端口转发，请先删除相关转发规则。",
+	HostDeleteBlockedSessionFmt: "请先关闭“%s”的相关会话，再删除此主机。",
 	HostDeletedFmt:              "已删除 %d 台主机",
 	HostUpdated:                 "已更新主机 · ",
 	HostCopied:                  "已复制主机 · ",
@@ -504,7 +505,7 @@ var ChineseMessages = Messages{
 	KeyImportFailedFmt:          "无法选择密钥:%s",
 	KeyInvalidFmt:               "%s 不是可用的 SSH 私钥:%s",
 	KeyImportedFmt:              "已导入 %d 个密钥",
-	KeyNothingImported:          "没有导入新密钥",
+	KeyNothingImported:          "没有新增密钥，已存在的密钥会自动跳过。",
 	KeySelected:                 "已选择密钥 · ",
 	KeyRemoved:                  "已移除密钥引用 · ",
 	KeyInUseFmt:                 "主机 %s 正在使用此密钥，请先为它选择其他认证方式或密钥。",
@@ -575,7 +576,7 @@ var ChineseMessages = Messages{
 	ForwardRemoteListenerFmt:      "远程 · %s",
 	ForwardCreate:                 "添加转发",
 	ErrForwardNameRequired:        "必须填写转发名称",
-	ErrForwardHostRequired:        "请先添加并选择 SSH 主机",
+	ErrForwardHostRequired:        "请先添加一台 SSH 主机。",
 	ErrForwardPortInvalid:         "端口必须为 1-65535",
 	ErrForwardDestinationRequired: "请输入不含空格的目标主机",
 	ErrForwardNameTaken:           "已有转发使用该名称",
@@ -604,7 +605,7 @@ var ChineseMessages = Messages{
 	ErrProxyJumpRequired:       "请选择跳板主机",
 	ErrProxySameHost:           "目标主机和跳板主机必须不同",
 	ErrProxyCycle:              "该跳板路由会形成环路",
-	ErrProxyTargetTaken:        "该目标主机已有跳板路由",
+	ErrProxyTargetTaken:        "该主机已有跳板路由，请先移除原有路由。",
 	ConnDetailConnectingViaFmt: "%s，经由 %s",
 
 	SFTPFiles:                   "文件",
@@ -1156,7 +1157,7 @@ var chineseTools = ToolsMessages{
 	SnippetPaletteFmt:         "快捷命令：%s",
 	StatusSnippetSentFmt:      "已发送“%s”到“%s”。",
 	StatusSnippetNoTerminal:   "请先打开一个终端再发送快捷命令。",
-	StatusSnippetNotConnected: "该终端尚未连接。",
+	StatusSnippetNotConnected: "终端未连接，请连接后再发送。",
 
 	CatGeneral:    "通用",
 	CatTerminal:   "终端",
@@ -1267,7 +1268,7 @@ var chineseTools = ToolsMessages{
 	BroadcastStop:             "停止同时输入",
 	StatusBroadcastOnFmt:      "现在输入的内容会发送到本标签页的全部 %d 个窗格。",
 	StatusBroadcastOff:        "广播已关闭。",
-	StatusBroadcastNeedsSplit: "请先拆分标签页：广播会把输入发送到其中的每个窗格。",
+	StatusBroadcastNeedsSplit: "请先将终端分屏，再开启广播输入。",
 
 	ProtocolSSH:            "SSH",
 	ProtocolTelnet:         "Telnet",
@@ -1504,7 +1505,7 @@ var chineseTools = ToolsMessages{
 	BackupErrWrong:                  "密码错误，或文件已被改动。",
 	BackupErrNotBackup:              "这不是 Motty 的备份文件。",
 	BackupErrTooNew:                 "这份备份由更新版本的 Motty 创建。",
-	BackupErrSessions:               "请先关闭所有会话：恢复会替换会话所属的主机。",
+	BackupErrSessions:               "请先关闭所有终端和连接标签页，再恢复备份。",
 	BackupErrVault:                  "已保存的密码还由旧主密码加锁,请先输入一次旧主密码。",
 	BackupSecretsFailedFmt:          "已保存的密码未能恢复：%s",
 	SyncRow:                         "服务器",
@@ -1834,7 +1835,7 @@ var chineseHistory = HistoryMessages{
 	StatusClearFailedFmt:  "无法清除命令历史:%s",
 	StatusUnavailableFmt:  "命令历史不可用:%s",
 	StatusNoTerminal:      "请先打开一个终端。",
-	StatusNotConnected:    "终端尚未连接。",
+	StatusNotConnected:    "终端未连接，请连接后重试。",
 	StatusRemovedFmt:      "已从历史中移除:%s",
 	StatusRemoveFailedFmt: "无法从历史中移除:%s",
 }

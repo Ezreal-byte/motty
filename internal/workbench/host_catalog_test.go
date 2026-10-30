@@ -179,7 +179,7 @@ func TestHostCatalogExportsCheckedSubsetAndHandlesPickerErrors(t *testing.T) {
 	options.OpenFiles = func(app.OpenFileOptions) ([]string, error) { return nil, errors.New("picker failed") }
 	state = newTestState(t, options)
 	state.Click(hitImportHostCatalog)
-	if len(state.hosts) != 0 || !strings.Contains(state.status, "picker failed") {
+	if len(state.hosts) != 0 || state.status != state.messages.ActionFeedback.FilePickerFailed {
 		t.Fatalf("failed import hosts=%d status=%q", len(state.hosts), state.status)
 	}
 }

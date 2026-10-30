@@ -1397,7 +1397,7 @@ func (state *State) openNewWindow() {
 		return
 	}
 	if err := state.options.NewWindow(); err != nil {
-		state.showActionError(state.messages.NewWindow, fmt.Sprintf(state.messages.StatusNewWindowFailedFmt, err))
+		state.showActionFailure(state.messages.NewWindow, err, state.messages.ActionFeedback.NewWindowFailed)
 	}
 }
 
@@ -1668,7 +1668,7 @@ func (state *State) connectTyped() {
 	}
 	parsed, err := parseConnection(query)
 	if err != nil {
-		state.showActionWarning(state.messages.Connect, fmt.Sprintf(state.messages.ErrBadTargetFmt, query))
+		state.showActionWarning(state.messages.Connect, state.messages.ActionFeedback.InvalidConnection)
 		return
 	}
 	state.connectParsed(parsed)

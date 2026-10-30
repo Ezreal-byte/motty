@@ -376,7 +376,7 @@ func (state *State) openRestoreBackup() {
 		return
 	}
 	if err != nil {
-		state.showActionError(m.BackupRestoreTitle, fmt.Sprintf(m.BackupFailedFmt, err))
+		state.showActionFailure(m.BackupRestoreTitle, err, state.messages.ActionFeedback.FilePickerFailed)
 		return
 	}
 	info, err := os.Stat(paths[0])
@@ -388,7 +388,11 @@ func (state *State) openRestoreBackup() {
 		data, err = os.ReadFile(paths[0])
 	}
 	if err != nil {
-		state.showActionError(m.BackupRestoreTitle, fmt.Sprintf(m.BackupFailedFmt, err))
+		detail := state.messages.ActionFeedback.ReadFailed
+		if errors.Is(err, backup.ErrTooLarge) {
+			detail = state.messages.ActionFeedback.BackupTooLarge
+		}
+		state.showFileReadFailure(m.BackupRestoreTitle, err, detail)
 		return
 	}
 	state.openForm(formDialog{

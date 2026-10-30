@@ -28,11 +28,12 @@ func (language Language) String() string {
 // Messages is the complete set of user-visible workbench strings. Adding a
 // language means adding one field initialization, not touching call sites.
 type Messages struct {
-	Monitor    MonitorMessages
-	Dashboard  DashboardMessages
-	FileWindow FileWindowMessages
-	SFTPWindow SFTPWindowMessages
-	Transfers  TransferCenterMessages
+	ActionFeedback ActionFeedbackMessages
+	Monitor        MonitorMessages
+	Dashboard      DashboardMessages
+	FileWindow     FileWindowMessages
+	SFTPWindow     SFTPWindowMessages
+	Transfers      TransferCenterMessages
 	// AIPanel and AISettings hold the assistant's texts; see ai_panel.go and
 	// ai_settings.go.
 	AIPanel    AIPanelMessages

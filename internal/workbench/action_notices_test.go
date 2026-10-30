@@ -109,7 +109,7 @@ func TestMissingActionPrerequisitesHaveVisibleFeedback(t *testing.T) {
 		{"history/no terminal", nil, (*State).openHistoryActive, func(s *State) string { return s.messages.History.StatusNoTerminal }},
 		{"backup/open session", func(s *State) { s.sessions = []Session{{ID: 1}} }, (*State).openRestoreBackup, func(s *State) string { return s.messages.Tools.BackupErrSessions }},
 		{"broadcast/no workspace", nil, (*State).toggleBroadcast, func(s *State) string { return s.messages.Tools.StatusBroadcastNeedsSplit }},
-		{"connection/invalid address", func(s *State) { s.search.Insert("bad host name") }, (*State).connectTyped, func(s *State) string { return fmt.Sprintf(s.messages.ErrBadTargetFmt, "bad host name") }},
+		{"connection/invalid address", func(s *State) { s.search.Insert("bad host name") }, (*State).connectTyped, func(s *State) string { return s.messages.ActionFeedback.InvalidConnection }},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			_, options := newWorld(t)
@@ -181,9 +181,13 @@ func TestForegroundPickerFailuresUseTheSFTPToastQueue(t *testing.T) {
 			o.NewWindow = func() error { return failure }
 			s := newTestState(t, o)
 			test.run(s)
-			requireActionNotice(t, s, s.status, components.ToastError)
-			if !strings.Contains(s.status, failure.Error()) {
-				t.Fatalf("failure reason was lost: %q", s.status)
+			want := s.messages.ActionFeedback.FilePickerFailed
+			if test.name == "new window" {
+				want = s.messages.ActionFeedback.NewWindowFailed
+			}
+			requireActionNotice(t, s, want, components.ToastError)
+			if strings.Contains(s.status, failure.Error()) {
+				t.Fatalf("native error leaked into the notice: %q", s.status)
 			}
 		})
 	}

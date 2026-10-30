@@ -75,12 +75,12 @@ func (state *State) importSessions(client sessionimport.Client) {
 		return
 	}
 	if err != nil {
-		state.showActionError(fmt.Sprintf(m.ImportPickerFmt, importClientName(client)), fmt.Sprintf(m.ImportFailedFmt, err))
+		state.showActionFailure(fmt.Sprintf(m.ImportPickerFmt, importClientName(client)), err, state.messages.ActionFeedback.FilePickerFailed)
 		return
 	}
 	result, err := sessionimport.Parse(client, paths)
 	if err != nil {
-		state.showActionError(fmt.Sprintf(m.ImportPickerFmt, importClientName(client)), fmt.Sprintf(m.ImportFailedFmt, err))
+		state.showFileReadFailure(fmt.Sprintf(m.ImportPickerFmt, importClientName(client)), err, fmt.Sprintf(state.messages.ActionFeedback.ImportSessionsFailedFmt, importClientName(client)))
 		return
 	}
 	plan := state.sessionImportPlan(result)
