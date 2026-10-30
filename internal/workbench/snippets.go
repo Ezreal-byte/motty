@@ -242,7 +242,7 @@ func (state *State) deleteSnippet(index int) {
 func (state *State) sendSnippet(index int) bool {
 	session, ok := state.sessionByIDPointer(state.activeSessionID)
 	if !ok || session.term == nil {
-		state.status = state.messages.Tools.StatusSnippetNoTerminal
+		state.showActionWarning(state.messages.Tools.SnippetsTitle, state.messages.Tools.StatusSnippetNoTerminal)
 		return false
 	}
 	return state.sendSnippetTo(index, session)
@@ -262,7 +262,7 @@ func (state *State) sendSnippetTo(index int, session *Session) bool {
 		input = append(input, '\r')
 	}
 	if !state.typed(session, input) {
-		state.status = m.StatusSnippetNotConnected
+		state.showActionWarning(m.SnippetsTitle, m.StatusSnippetNotConnected)
 		return false
 	}
 	state.status = fmt.Sprintf(m.StatusSnippetSentFmt, entry.Name, session.Title)
@@ -273,7 +273,7 @@ func (state *State) sendSnippetTo(index int, session *Session) bool {
 // no terminal of its own, so with one terminal open that is the target; with
 // several, the menu of terminals opens at `at` and the user says which. The
 // terminal it went to is shown; when nothing can be sent the page stays, with the
-// reason in the status line.
+// reason in a global notice.
 func (state *State) sendSnippetFromPage(index int, at ui.Point) {
 	if index < 0 || index >= len(state.snippets.list) {
 		return
@@ -288,7 +288,7 @@ func (state *State) sendSnippetFromPage(index int, at ui.Point) {
 	}
 	switch {
 	case terminals == 0:
-		state.status = state.messages.Tools.StatusSnippetNoTerminal
+		state.showActionWarning(state.messages.Tools.SnippetsTitle, state.messages.Tools.StatusSnippetNoTerminal)
 	case terminals == 1:
 		state.sendSnippetPicked(index, only)
 	default:

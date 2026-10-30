@@ -211,7 +211,7 @@ func (state *State) askClearHistory() {
 func (state *State) openHistoryActive() {
 	session, ok := state.sessionByIDPointer(state.activeSessionID)
 	if !ok {
-		state.status = state.messages.History.StatusNoTerminal
+		state.showActionWarning(state.messages.History.Title, state.messages.History.StatusNoTerminal)
 		return
 	}
 	state.openHistory(session)
@@ -220,7 +220,7 @@ func (state *State) openHistoryActive() {
 func (state *State) openHistory(session *Session) {
 	h := &state.history
 	if session == nil || session.term == nil {
-		state.status = state.messages.History.StatusNoTerminal
+		state.showActionWarning(state.messages.History.Title, state.messages.History.StatusNoTerminal)
 		return
 	}
 	h.sessionID, h.host = session.ID, historyKey(session)
@@ -338,7 +338,7 @@ func (state *State) chooseHistory(run bool) {
 	key := h.host
 	state.closeHistoryPicker()
 	if !found || session.term == nil {
-		state.status = m.StatusNoTerminal
+		state.showActionWarning(m.Title, m.StatusNoTerminal)
 		return
 	}
 	input := make([]byte, 0, len(entry.Command)+1)
@@ -347,7 +347,7 @@ func (state *State) chooseHistory(run bool) {
 		input = append(input, '\r')
 	}
 	if !state.typed(session, input) {
-		state.status = m.StatusNotConnected
+		state.showActionWarning(m.Title, m.StatusNotConnected)
 		return
 	}
 	if run && state.history.on && !session.host.NoHistory {

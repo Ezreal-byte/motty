@@ -59,14 +59,14 @@ func (state *State) broadcasting(sessionID uint32) bool {
 func (state *State) toggleBroadcast() {
 	m := state.messages.Tools
 	workspaceID := state.deck.ActiveWorkspace()
-	if state.broadcast == workspaceID {
+	if workspaceID != 0 && state.broadcast == workspaceID {
 		state.broadcast = 0
 		state.status = m.StatusBroadcastOff
 		return
 	}
 	panes := len(state.deck.Panes(workspaceID, nil))
 	if workspaceID == 0 || panes < 2 {
-		state.status = m.StatusBroadcastNeedsSplit
+		state.showActionWarning(m.BroadcastStart, m.StatusBroadcastNeedsSplit)
 		return
 	}
 	state.broadcast = workspaceID
