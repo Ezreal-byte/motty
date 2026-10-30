@@ -12,6 +12,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/vivaui/viva/components"
+	"github.com/vivaui/viva/flex"
 	"github.com/vivaui/viva/text"
 	"github.com/vivaui/viva/ui"
 	"motty/internal/monitoring"
@@ -85,6 +86,7 @@ type dashboardState struct {
 	scroll, content float32
 	width           int
 	refresh         monitorView
+	emptyLayout     flex.View
 	scrollX         float32
 	dragging        bool
 	dragX           bool
