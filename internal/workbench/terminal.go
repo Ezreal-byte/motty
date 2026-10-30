@@ -78,10 +78,13 @@ type terminal struct {
 	commandReporting      bool
 	submittedLines        int
 	blink                 cursorBlink
-	wheelX                float32 // horizontal wheel travel not yet worth a whole cell
-	wheelY                float32 // vertical wheel travel not yet worth a whole cell
-	barDragging           bool    // the scrollbar thumb is held
-	barGrab               float32 // where on the thumb it was taken
+	wheelX                float32       // horizontal wheel travel not yet worth a whole cell
+	wheelY                float32       // vertical wheel travel not yet worth a whole cell
+	barDragging           bool          // the scrollbar thumb is held
+	barGrab               float32       // where on the thumb it was taken
+	barOffset             int           // view offset the scrollbar last saw, to notice the view moving
+	barSince              time.Duration // when the scrollbar was last lit
+	barLit                bool          // the scrollbar is lit or still lingering
 
 	// label is the accessible name of the terminal, rebuilt only when the
 	// language or the address it is made from changes.

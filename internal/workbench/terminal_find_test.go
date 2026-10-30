@@ -161,10 +161,17 @@ func TestPaintingAnUnchangedTerminalFindAllocatesNothing(t *testing.T) {
 	typeTerminalFind(t, state, "needle")
 
 	var canvas ui.Canvas
+	// Scrolling to a match lights the scrollbar for a while; time has to pass
+	// for the application to be at rest.
+	var at time.Duration
+	canvas.SetClock(func() time.Duration { return at })
 	size := ui.Size{Width: 1400, Height: 900}
 	paint := func() {
+		at += 10 * time.Second
 		canvas.Reset()
+		canvas.BeginFrame()
 		state.Paint(&canvas, size)
+		canvas.EndFrame()
 	}
 	paint()
 	paint()
