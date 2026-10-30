@@ -271,6 +271,7 @@ func (state *State) configureTerminal(session *Session) {
 	session.term.screen.SetNotify(func(note term.Notification) {
 		state.terminalNotification(sessionID, note)
 	})
+	session.term.screen.SetBell(func() { state.terminalBell(sessionID) })
 	session.term.screen.SetCwdReport(func(cwd term.Cwd) {
 		state.recordTerminalDirectory(sessionID, cwd, false)
 	})

@@ -211,6 +211,10 @@ func (t *Terminal) ground(b byte) {
 // control executes a C0 control character.
 func (t *Terminal) control(b byte) {
 	switch b {
+	case 0x07: // BEL
+		if t.bellFn != nil {
+			t.bellFn()
+		}
 	case 0x08: // BS
 		t.pend = false
 		if t.cx > 0 {

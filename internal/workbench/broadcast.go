@@ -102,6 +102,12 @@ func (state *State) clickTerminalTools(id ui.ID) bool {
 	case id == hitSettingsRightClickPaste:
 		state.terminalRightClickPaste = !state.terminalRightClickPaste
 		state.save()
+	case id == hitSettingsBellToggle:
+		state.terminalBellOff = !state.terminalBellOff
+		state.save()
+	case id == hitSettingsLinkPlainClick:
+		state.terminalLinkPlainClick = !state.terminalLinkPlainClick
+		state.save()
 	case id == hitSettingsNotifyToggle:
 		if state.setNotifications(state.notifyOff) {
 			state.save()

@@ -1184,6 +1184,10 @@ var chineseTools = ToolsMessages{
 	CopyOnSelectDescription:    "用鼠标选中文字后立即复制到剪贴板，不必再按复制快捷键。",
 	RightClickPasteRow:         "右键粘贴",
 	RightClickPasteDescription: "在终端中点右键直接粘贴剪贴板内容；按住 Shift 点右键仍然打开菜单。",
+	LinkPlainClickRow:          "单击直接打开链接",
+	LinkPlainClickDescription:  "关闭时，需按住 Cmd（Windows 和 Linux 为 Ctrl）再点击才会打开链接，单击只用来选择和复制。",
+	BellRow:                    "终端响铃",
+	BellDescription:            "终端里的程序输出响铃字符（如 printf '\\a'、tput bel）时，在本机播放系统提示音，可用来提醒远程命令已完成。",
 	TabTitleRow:                "标签页跟随终端标题",
 	TabTitleDescription:        "标签页显示程序设置的标题，例如 tmux 的会话与窗口名。手动重命名过的标签页保持原名。",
 

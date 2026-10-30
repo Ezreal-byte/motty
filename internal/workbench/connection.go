@@ -258,6 +258,8 @@ type Options struct {
 	// Notify shows a desktop notification a terminal's program asked for. Nil
 	// uses app.SendNotification.
 	Notify func(app.Notification) error
+	// Bell sounds the terminal bell. Nil plays the system alert sound.
+	Bell func() error
 	// MonoFamilies lists the installed fixed-pitch font families. Nil uses
 	// app.MonospaceFamilies.
 	MonoFamilies func() []string
@@ -329,6 +331,9 @@ func (options Options) withDefaults() Options {
 	}
 	if options.Notify == nil {
 		options.Notify = app.SendNotification
+	}
+	if options.Bell == nil {
+		options.Bell = playBell
 	}
 	if options.MonoFamilies == nil {
 		options.MonoFamilies = app.MonospaceFamilies

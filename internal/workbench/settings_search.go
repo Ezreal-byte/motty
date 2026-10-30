@@ -150,6 +150,8 @@ func (state *State) eachSettingsEntry(add func(settingsEntry)) {
 	row(settingsTerminal, m.SettingsTerminalClipboard, m.SettingsTerminalClipboardDescription)
 	row(settingsTerminal, tools.CopyOnSelectRow, tools.CopyOnSelectDescription)
 	row(settingsTerminal, tools.RightClickPasteRow, tools.RightClickPasteDescription)
+	row(settingsTerminal, tools.LinkPlainClickRow, tools.LinkPlainClickDescription)
+	row(settingsTerminal, tools.BellRow, tools.BellDescription)
 	row(settingsTerminal, tools.TabTitleRow, tools.TabTitleDescription)
 	row(settingsTerminal, tools.PasteImageRow, tools.PasteImageDescription)
 	row(settingsTerminal, tools.NotifyRow, tools.NotifyDescription)

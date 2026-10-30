@@ -176,6 +176,8 @@ var syncedSettings = map[string]bool{
 	"terminal_copy_on_select":      true,
 	"terminal_right_click_paste":   true,
 	"terminal_tab_title":           true,
+	"terminal_bell_off":            true,
+	"terminal_link_plain_click":    true,
 	"terminal_scheme":              true,
 	"terminal_scheme_dark":         true,
 	"terminal_scheme_light":        true,
