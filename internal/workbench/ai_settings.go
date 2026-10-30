@@ -496,7 +496,7 @@ func (state *State) aiSettingsPointer(event ui.PointerEvent) (ui.EventResult, bo
 
 func (state *State) aiSettingsScroll(event ui.ScrollEvent) (ui.EventResult, bool) {
 	if state.ai.login != nil && state.ai.cfg.dialog == aiDialogCLILogin {
-		state.ai.login.term.screen.Scroll(int(event.DeltaY / max(state.cellHeight, 1)))
+		state.ai.login.term.screen.Scroll(int(event.StepY(state.cellHeight) / max(state.cellHeight, 1)))
 		return ui.EventResult{Handled: true, Repaint: true}, true
 	}
 	return ui.EventResult{}, false

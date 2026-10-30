@@ -1340,12 +1340,7 @@ func (state *State) hostListHeight(width float32) float32 {
 
 // scrollHosts moves the hosts list with the wheel.
 func (state *State) scrollHosts(event ui.ScrollEvent) ui.EventResult {
-	step := event.DeltaY
-	if !event.Precise && step > 0 && step < 24 {
-		step = 24
-	} else if !event.Precise && step < 0 && step > -24 {
-		step = -24
-	}
+	step := event.StepY(24)
 	before := state.hostsScroll
 	visible := state.chrome.hostList.Height
 	state.hostsScroll = min(max(before+step, 0), max(state.hostsContent-visible, 0))

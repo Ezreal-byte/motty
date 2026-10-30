@@ -792,13 +792,7 @@ func (state *State) aiPanelScroll(event ui.ScrollEvent) (ui.EventResult, bool) {
 	if !pointInRect(event.X, event.Y, panel.list) {
 		return ui.EventResult{Handled: true}, true
 	}
-	step := event.DeltaY
-	if !event.Precise && step > 0 && step < 24 {
-		step = 24
-	} else if !event.Precise && step < 0 && step > -24 {
-		step = -24
-	}
-	return state.aiPanelScrollBy(step), true
+	return state.aiPanelScrollBy(event.StepY(24)), true
 }
 
 // aiPanelScrollBy moves the list by step pixels. Reaching the end of the

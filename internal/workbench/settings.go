@@ -171,12 +171,7 @@ func (state *State) openSettings() {
 // delta reveals content below. A wheel notch is worth at least a row's height
 // of travel; a trackpad moves it by exactly what it reports.
 func (state *State) scrollSettings(event ui.ScrollEvent) ui.EventResult {
-	step := event.DeltaY
-	if !event.Precise && step > 0 && step < 24 {
-		step = 24
-	} else if !event.Precise && step < 0 && step > -24 {
-		step = -24
-	}
+	step := event.StepY(24)
 	view := &state.settings
 	nav := view.navRect
 	if nav.Width > 0 && event.X >= nav.X && event.X < nav.X+nav.Width && event.Y >= nav.Y && event.Y < nav.Y+nav.Height {

@@ -378,3 +378,19 @@ func TestScrollingKeepsTheSelectionOnItsText(t *testing.T) {
 		t.Fatalf("scrolling changed the selection: %q, want %q", terminal.selection.text(terminal.screen), want)
 	}
 }
+
+// macOS reports a slow notch of a classic mouse wheel as a fraction of a line,
+// which is a few pixels once scaled: every notch must still move a row.
+func TestSlowMouseWheelNotchScrollsOneTerminalRow(t *testing.T) {
+	state, session, geometry := selectionState()
+	for line := 0; line < 40; line++ {
+		session.term.screen.Write([]byte("line\r\n"))
+	}
+	x, y := cellPoint(geometry, 2, 7, state.cellWidth, state.cellHeight)
+	for notch := 1; notch <= 3; notch++ {
+		state.Scroll(ui.ScrollEvent{X: x, Y: y, DeltaY: -1, Viewport: state.viewport, Target: hitTerminalList.At(int(session.ID))})
+		if got := session.term.screen.ViewOffset(); got != notch {
+			t.Fatalf("after %d slow notches the view is %d rows back", notch, got)
+		}
+	}
+}

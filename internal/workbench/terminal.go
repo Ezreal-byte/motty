@@ -1224,7 +1224,7 @@ func (state *State) scroll(event ui.ScrollEvent) ui.EventResult {
 			return ui.EventResult{Handled: true}
 		}
 	}
-	t.wheelY += event.DeltaY / state.cellHeight
+	t.wheelY += event.StepY(state.cellHeight) / state.cellHeight
 	lines := int(t.wheelY)
 	if lines == 0 {
 		return ui.EventResult{Handled: true}
@@ -1250,7 +1250,7 @@ func (state *State) scroll(event ui.ScrollEvent) ui.EventResult {
 func (state *State) terminalMouseScroll(terminal *terminal, event ui.ScrollEvent) ui.EventResult {
 	position := state.terminalPositionAt(event.Viewport, event.X, event.Y)
 	repaint := false
-	terminal.wheelY += event.DeltaY / state.cellHeight
+	terminal.wheelY += event.StepY(state.cellHeight) / state.cellHeight
 	vertical := int(terminal.wheelY)
 	terminal.wheelY -= float32(vertical)
 	button := term.MouseWheelDown
@@ -1264,7 +1264,7 @@ func (state *State) terminalMouseScroll(terminal *terminal, event ui.ScrollEvent
 		}) || repaint
 	}
 
-	terminal.wheelX += event.DeltaX / state.cellWidth
+	terminal.wheelX += event.StepX(state.cellWidth) / state.cellWidth
 	horizontal := int(terminal.wheelX)
 	terminal.wheelX -= float32(horizontal)
 	button = term.MouseWheelRight

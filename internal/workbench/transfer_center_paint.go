@@ -285,14 +285,7 @@ func (state *State) transferCenterScroll(event ui.ScrollEvent) (ui.EventResult, 
 	if !center.open || !state.transferCenterAvailable() || !pointInRect(event.X, event.Y, center.surface) {
 		return ui.EventResult{}, false
 	}
-	before, step := center.scroll, event.DeltaY
-	if !event.Precise && step != 0 && step > -36 && step < 36 {
-		if step < 0 {
-			step = -36
-		} else {
-			step = 36
-		}
-	}
+	before, step := center.scroll, event.StepY(36)
 	center.scroll = min(max(center.scroll+step, 0), center.geometry.MaxOffsetY)
 	return ui.EventResult{Handled: true, Repaint: before != center.scroll}, true
 }
