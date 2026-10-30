@@ -1662,7 +1662,7 @@ var chineseTools = ToolsMessages{
 	RemoteSnapshotStaleFmt:          "已过期 · 采集于 %s · 刷新成功后可操作",
 	RemoteRefreshRequired:           "请先刷新成功，再进行变更操作。",
 	RemoteProcessChanged:            "该进程实例已变化或退出。请刷新并重新选择后重试。",
-	RemoteProcessUnverifiable:       "无法验证进程身份（procfs 不可读或本次读取失败）。请刷新并重新选择。",
+	RemoteProcessUnverifiable:       "无法安全验证进程实例，本次列表仅支持查看。可刷新重试，或在终端管理进程。",
 	RemoteNeedSelection:             "请先选择一行。",
 	RemoteSignalSentFmt:             "已向进程 %[2]d 发送 %[1]s。",
 	RemoteActionDoneFmt:             "已完成：%s。",
