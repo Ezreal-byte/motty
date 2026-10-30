@@ -30,6 +30,8 @@ type Network struct {
 	Received, Sent                  uint64
 	ReceivePerSecond, SendPerSecond uint64
 	HasRate                         bool
+	// Windows formatted performance counters expose rates, not byte totals.
+	TotalsUnavailable bool
 }
 
 type Details struct {
@@ -58,6 +60,14 @@ type DetailsWorker struct {
 }
 
 func StartDetails(runner DetailRunner, notify func()) *DetailsWorker {
+	return StartDetailsWithInterval(runner, notify, 5)
+}
+
+// StartDetailsWithInterval keeps slow metadata independent of fast streaming.
+func StartDetailsWithInterval(runner DetailRunner, notify func(), seconds int) *DetailsWorker {
+	if !validInterval(seconds) {
+		seconds = 5
+	}
 	ctx, cancel := context.WithCancel(context.Background())
 	w := &DetailsWorker{results: make(chan DetailResult, 1), cancel: cancel, done: make(chan struct{})}
 	go func() {
@@ -91,7 +101,7 @@ func StartDetails(runner DetailRunner, notify func()) *DetailsWorker {
 			if notify != nil {
 				notify()
 			}
-			timer := time.NewTimer(5 * time.Second)
+			timer := time.NewTimer(time.Duration(seconds) * time.Second)
 			select {
 			case <-ctx.Done():
 				timer.Stop()

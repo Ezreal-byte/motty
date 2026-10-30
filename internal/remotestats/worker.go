@@ -49,7 +49,7 @@ func start(runner Runner, notify func(), first, next time.Duration) *Worker {
 // StartWithInterval changes the remote sampling interval without adding a
 // second timer or SSH stream. The initial quarter-second warmup stays fast.
 func StartWithInterval(runner Runner, notify func(), seconds int) *Worker {
-	if seconds != 1 && seconds != 2 && seconds != 5 {
+	if !validInterval(seconds) {
 		seconds = 2
 	}
 	script := strings.TrimSuffix(command, "sleep 1\ndone") + "sleep " + strconv.Itoa(seconds) + "\ndone"
@@ -64,6 +64,10 @@ func startCommand(runner Runner, notify func(), first, next time.Duration, scrip
 	}
 	go worker.run(first, next)
 	return worker
+}
+
+func validInterval(seconds int) bool {
+	return seconds == 1 || seconds == 2 || seconds == 5 || seconds == 10 || seconds == 30 || seconds == 60
 }
 
 // Results is the completion stream drained by the window thread. It holds only

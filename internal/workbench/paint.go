@@ -131,6 +131,9 @@ func (state *State) Paint(canvas *ui.Canvas, size ui.Size) {
 		state.ai.cfg.agentSelectOpen = false
 	}
 	state.aiPanelBeginPaint()
+	// A running dashboard keeps sampling on every page, but only the page it is
+	// on needs the repaint each sample triggers.
+	state.dashboard.visible.Store(state.activeSection == sectionDashboard)
 	// The terminal layout follows the window and the font; remember what it
 	// was painted with so a resize can work out the rows and columns.
 	state.viewport = size
@@ -188,6 +191,8 @@ func (state *State) Paint(canvas *ui.Canvas, size ui.Size) {
 		canvas.Clip(workspace)
 		if !state.devPaintPage(canvas, workspace) {
 			switch state.activeSection {
+			case sectionDashboard:
+				state.paintDashboard(canvas, workspace)
 			case sectionKeys:
 				state.paintKeysWorkspace(canvas, workspace)
 			case sectionForwards:
@@ -212,6 +217,7 @@ func (state *State) Paint(canvas *ui.Canvas, size ui.Size) {
 	state.paintMCPClientSelect(canvas)
 	state.paintLocalShellSelect(canvas)
 	state.paintMonitorIntervalMenu(canvas)
+	state.paintDashboardMenu(canvas)
 	state.paintTransferCenter(canvas)
 	// The gallery's select is painted here, outside the workspace's clip and
 	// inside the frame's menu pass, so its popup can leave the page and keeps the
@@ -220,6 +226,10 @@ func (state *State) Paint(canvas *ui.Canvas, size ui.Size) {
 	switch state.modal {
 	case modalTerminalInput:
 		state.paintTerminalInputConfirm(canvas, viewport)
+	case modalDashboardAdd:
+		state.paintDashboardAddMenu(canvas)
+	case modalDashboard:
+		state.paintDashboardDialog(canvas, viewport)
 	case modalNewHost:
 		state.paintHostDialog(canvas, viewport)
 	case modalDeleteHost:
@@ -665,6 +675,7 @@ func (state *State) declareNavigation(f *flex.Frame) {
 		active bool
 	}{
 		{hitHosts, iconHosts, m.NavHosts, state.activeSection == sectionHosts},
+		{hitDashboard, iconActivity, m.Dashboard.Title, state.activeSection == sectionDashboard},
 		{hitKeychain, iconKey, m.NavKeychain, state.activeSection == sectionKeys},
 		{hitProxies, iconGlobe, m.NavProxies, state.activeSection == sectionProxies},
 		{hitPortForwarding, iconForward, m.NavPortForwarding, state.activeSection == sectionForwards},
@@ -788,6 +799,7 @@ func (state *State) paintHostsHeader(canvas *ui.Canvas, bounds ui.Rect) ui.Rect 
 		{hitEditHost, m.EditHost, iconPencil, false, false},
 		{hitCopyHost, m.CopyHost, iconCopy, false, false},
 		{hitMoveHostGroup, m.MoveHostGroup, iconFolderOpen, false, false},
+		{hitDashboardAddHosts, state.messages.Dashboard.AddHosts, iconActivity, false, false},
 		{hitDeleteHost, m.DeleteHost, iconTrash, false, true},
 	}
 	var actionWidths [len(actions)]float32
@@ -797,7 +809,16 @@ func (state *State) paintHostsHeader(canvas *ui.Canvas, bounds ui.Rect) ui.Rect 
 	if anySelected {
 		enabled := state.selectedHostID != 0
 		single := enabled && len(state.hostSelections) <= 1
-		actions[1].enabled, actions[2].enabled, actions[3].enabled, actions[4].enabled = single, single, enabled, enabled
+		for i := range actions {
+			switch actions[i].id {
+			case hitEditHost, hitCopyHost:
+				actions[i].enabled = single
+			case hitMoveHostGroup, hitDeleteHost:
+				actions[i].enabled = enabled
+			case hitDashboardAddHosts:
+				actions[i].enabled = state.dashboardCanAddHosts()
+			}
+		}
 		used := canvas.TextWidthWeight(state.hostSelectionText, metrics.FontSizeS, ui.WeightMedium) + toggleWidth + 3*rowGap
 		for _, action := range actions {
 			used += canvas.TextWidthWeight(action.label, metrics.FontSizeS, ui.WeightSemibold) + 4 + 2*quietPadding + actionGap
@@ -887,14 +908,22 @@ func (state *State) paintHostsHeader(canvas *ui.Canvas, bounds ui.Rect) ui.Rect 
 	state.paintHostViewToggle(canvas, toggle.Rect().X, toggle.Rect().Y+toggle.Rect().Height/2)
 	if anySelected {
 		for index, action := range actions {
+			theme := state.Theme()
+			theme.Metrics.ControlHeight = rowHeight
+			theme.Metrics.FontSizeM = metrics.FontSizeS
+			if action.danger {
+				theme.Foreground = theme.Danger
+			}
+			button := components.BeginButton(canvas, theme, action.id, buttons[index].Rect())
 			if actionsCondensed {
-				style := iconButtonQuiet
-				if action.danger {
-					style = iconButtonDanger
-				}
-				state.paintIconButton(canvas, action.id, action.icon, buttons[index].Rect(), action.label, !action.enabled, style, pal.workspace)
-			} else {
-				state.paintQuietButton(canvas, action.id, buttons[index].Rect(), action.label, action.danger, action.enabled)
+				button = button.WithIcon(lucideIcons[action.icon]).Icon()
+			}
+			if !action.enabled {
+				button = button.Disabled()
+			}
+			button.Ghost(action.label)
+			if action.id == hitDashboardAddHosts {
+				state.dashboard.addAnchor = buttons[index].Rect()
 			}
 			if action.id == hitMoveHostGroup {
 				state.groupMenu.button = buttons[index].Rect()
@@ -1050,35 +1079,6 @@ func (state *State) paintHostFilterMenu(canvas *ui.Canvas, viewport ui.Rect) {
 		menu.AddItem(components.DropdownMenuItem{ID: hitHostFilterMenuList.At(index), Label: state.hostGroupLabel(state.hostGroups[index])})
 	}
 	menu.End()
-}
-
-// paintQuietButton is a text button with no edge or fill until the pointer is on
-// it: for a row of actions on a selection, where five bordered boxes in a line
-// would be louder than the list they act on.
-func (state *State) paintQuietButton(canvas *ui.Canvas, id ui.ID, bounds ui.Rect, label string, danger, enabled bool) {
-	pal := state.pal
-	foreground := pal.text
-	if danger {
-		foreground = pal.danger
-	}
-	var fill ui.Color
-	switch {
-	case !enabled:
-		foreground = pal.faint
-	case canvas.Pressed() == id:
-		fill = pal.surfaceHot
-	case canvas.Hovered() == id:
-		fill = pal.surfaceSoft
-	}
-	f := state.chrome.widget.Begin(canvas, state.Theme(), bounds)
-	f.Row().Fill().Center().Radius(radius.control).Background(fill).
-		HitWith(id, label, ui.HitOptions{Role: ui.RoleButton, Disabled: !enabled}).Children(func() {
-		f.Text(label).FontSize(metrics.FontSizeS).Weight(ui.WeightSemibold).Color(foreground)
-	})
-	f.End()
-	if canvas.FocusVisible() == id {
-		canvas.RoundedBorder(bounds, radius.control, 1.5, pal.accent, ui.Color{})
-	}
 }
 
 func (state *State) paintHostGroupMenu(canvas *ui.Canvas, bounds, viewport ui.Rect) {

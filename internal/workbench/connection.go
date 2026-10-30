@@ -381,6 +381,8 @@ const (
 	modalHistory
 	modalUpdate
 	modalUpdateProgress
+	modalDashboard
+	modalDashboardAdd
 	modalToolbarSettings
 	modalTerminalInput
 )
@@ -615,6 +617,7 @@ func (state *State) Wake() {
 		state.scheduleUpdateCheck(state.update.firstDelay)
 	}
 	state.pumpSFTPConnections()
+	state.pumpDashboard()
 	state.showNextPrompt()
 	state.drainAI()
 	state.syncSFTPWindows()
@@ -973,6 +976,12 @@ func (state *State) closeModal() {
 	if state.modal == modalTerminalInput {
 		state.inputConfirmation = terminalInputConfirmation{}
 	}
+	if state.modal == modalDashboard {
+		state.dashboard.editor.order.Cancel()
+	}
+	if state.modal == modalDashboardAdd {
+		state.dashboard.addHosts = nil
+	}
 	if state.modal == modalToolbarSettings {
 		state.toolbarEditor.list.Cancel()
 	}
@@ -1000,6 +1009,11 @@ func (state *State) closeModal() {
 
 // promptSession returns the session the open prompt belongs to.
 func (state *State) promptSession() *Session {
+	for _, source := range state.dashboard.sources {
+		if source.session.ID == state.modalSession {
+			return &source.session
+		}
+	}
 	for index := range state.sessions {
 		if state.sessions[index].ID == state.modalSession {
 			return &state.sessions[index]
