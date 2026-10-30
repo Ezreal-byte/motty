@@ -218,6 +218,7 @@ var (
 	hitSettingsCursorToggle     = tree.ID(settingsHits, "settings-cursor-blink")
 	hitSettingsCopyOnSelect     = tree.ID(settingsHits, "settings-copy-on-select")
 	hitSettingsRightClickPaste  = tree.ID(settingsHits, "settings-right-click-paste")
+	hitSettingsTabTitle         = tree.ID(settingsHits, "settings-tab-title")
 	hitSettingsClipboardAsk     = tree.ID(settingsHits, "settings-clipboard-ask")
 	hitSettingsClipboardAllow   = tree.ID(settingsHits, "settings-clipboard-allow")
 	hitSettingsRestoreActive    = tree.ID(settingsHits, "settings-restore-active")
@@ -572,6 +573,9 @@ type State struct {
 	// and terminalRightClickPaste makes a right click paste instead of opening
 	// the terminal menu.
 	terminalCopyOnSelect, terminalRightClickPaste bool
+	// terminalTabTitle lets a tab show the title its terminal reports instead
+	// of the host's name (see tabLabel).
+	terminalTabTitle bool
 
 	// settingsScroll is how far the settings page is scrolled, in pixels, and
 	// settingsContent how tall it was when last painted.

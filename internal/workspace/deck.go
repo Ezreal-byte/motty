@@ -73,9 +73,12 @@ type Pane struct {
 
 // WorkspaceInfo is the stable metadata needed to paint workspace tabs.
 type WorkspaceInfo struct {
-	ID         WorkspaceID
-	Title      string
-	Locked     bool
+	ID     WorkspaceID
+	Title  string
+	Locked bool
+	// Named is set once the user chose Title; a title the terminal reports then
+	// no longer takes its place on the tab.
+	Named      bool
 	ActivePane PaneID
 	PaneCount  int
 }
@@ -84,6 +87,7 @@ type workspaceRecord struct {
 	id         WorkspaceID
 	title      string
 	locked     bool
+	named      bool
 	layout     Layout
 	panes      []Pane
 	activePane PaneID
@@ -125,7 +129,7 @@ func (deck *Deck) Workspaces(dst []WorkspaceInfo) []WorkspaceInfo {
 	for index := range deck.workspaces {
 		workspace := &deck.workspaces[index]
 		dst = append(dst, WorkspaceInfo{
-			ID: workspace.id, Title: workspace.title, Locked: workspace.locked,
+			ID: workspace.id, Title: workspace.title, Locked: workspace.locked, Named: workspace.named,
 			ActivePane: workspace.activePane, PaneCount: len(workspace.panes),
 		})
 	}
@@ -148,6 +152,16 @@ func (deck *Deck) SetLocked(id WorkspaceID, locked bool) error {
 		return ErrWorkspaceNotFound
 	}
 	workspace.locked = locked
+	return nil
+}
+
+// SetNamed records whether the user chose this workspace's title.
+func (deck *Deck) SetNamed(id WorkspaceID, named bool) error {
+	workspace, ok := deck.workspace(id)
+	if !ok {
+		return ErrWorkspaceNotFound
+	}
+	workspace.named = named
 	return nil
 }
 

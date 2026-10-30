@@ -480,15 +480,16 @@ func (state *State) declareWindowBar(f *flex.Frame, bar *windowBar, probe, pictu
 						if index == 0 {
 							first = -scroll
 						}
+						label := state.tabLabel(workspace)
 						tabOptions := ui.HitOptions{Role: ui.RoleTab, Selected: active}
 						if workspace.Locked {
 							tabOptions.Hint = m.TabLockedHint
 						}
 						f.Row().Size(geometry.tabWidth, barTabHeight).Shrink(0).MarginSides(0, barGap, 0, first).
 							PadSides(0, 3, 0, 4).Items(flex.Center).Radius(radius.item).Border(1, edge).Background(fill).
-							HitWith(id, workspace.Title, tabOptions).Children(func() {
+							HitWith(id, label, tabOptions).Children(func() {
 							entry.badge = f.Slot().Size(20, 20).MarginSides(0, 7, 0, 0)
-							f.Text(workspace.Title).FontSize(metrics.FontSizeS).Weight(ui.WeightMedium).Color(foreground).LineHeight(20).Ellipsis()
+							f.Text(label).FontSize(metrics.FontSizeS).Weight(ui.WeightMedium).Color(foreground).LineHeight(20).Ellipsis()
 							if workspace.Locked {
 								f.Icon(lucideIcons[iconLock]).Size(13, 13).Shrink(0).MarginSides(0, 0, 0, 5).Color(foreground)
 							}

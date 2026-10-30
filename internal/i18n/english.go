@@ -1183,6 +1183,8 @@ var englishTools = ToolsMessages{
 	CopyOnSelectDescription:    "Copies text to the clipboard as soon as you select it with the mouse.",
 	RightClickPasteRow:         "Right-click to paste",
 	RightClickPasteDescription: "A right click in the terminal pastes the clipboard. Hold Shift to open the menu instead.",
+	TabTitleRow:                "Tab title follows terminal",
+	TabTitleDescription:        "Shows the title a program sets, such as tmux's session and window, on the tab. Tabs you renamed keep their name.",
 
 	FontChoose:              "Choose",
 	FontCurrentFmt:          "Now: %s. Any installed fixed-pitch font can be used.",

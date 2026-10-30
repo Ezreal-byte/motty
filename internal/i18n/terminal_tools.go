@@ -105,6 +105,8 @@ type ToolsMessages struct {
 	CopyOnSelectDescription    string
 	RightClickPasteRow         string
 	RightClickPasteDescription string
+	TabTitleRow                string
+	TabTitleDescription        string
 
 	// The terminal's font.
 	FontChoose              string

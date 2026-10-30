@@ -96,6 +96,9 @@ func (state *State) clickTerminalTools(id ui.ID) bool {
 	case id == hitSettingsCopyOnSelect:
 		state.terminalCopyOnSelect = !state.terminalCopyOnSelect
 		state.save()
+	case id == hitSettingsTabTitle:
+		state.terminalTabTitle = !state.terminalTabTitle
+		state.save()
 	case id == hitSettingsRightClickPaste:
 		state.terminalRightClickPaste = !state.terminalRightClickPaste
 		state.save()
