@@ -39,7 +39,7 @@ const (
 // The page is a column: the window bar's room, the pane's bar, then the terminal
 // whose cells paintGrid draws.
 func (state *State) paintTerminalPage(canvas *ui.Canvas, size ui.Size, session *Session) {
-	state.maybeProbeLatency(session, canvas)
+	state.wantLatencyProbe(session, canvas)
 	pal := state.pal
 	showStats := session.stats != nil && (session.ID != state.activeSessionID || !state.monitorShown(state.deck.ActiveWorkspace()))
 	barHeight := state.terminalInfoBarHeight(session.ID)

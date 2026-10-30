@@ -152,7 +152,7 @@ func TestMaybeProbeLatency(t *testing.T) {
 		phase: sshconn.PhaseConnected,
 	}
 
-	state.maybeProbeLatency(session, nil)
+	state.maybeProbeLatency(session)
 
 	// 等待异步 goroutine 完成
 	deadline := time.Now().Add(2 * time.Second)
@@ -177,22 +177,22 @@ func TestLatencyProbeRateLimitsAndStopsAfterAFailure(t *testing.T) {
 	conn := &mockPingerConn{rtt: 12 * time.Millisecond}
 	session := &Session{ID: 1, conn: conn, phase: sshconn.PhaseConnected}
 
-	state.maybeProbeLatency(session, nil)
+	state.maybeProbeLatency(session)
 	waitForLatency(t, session, 1)
 	// The next paint is inside the interval: no second request.
-	state.maybeProbeLatency(session, nil)
+	state.maybeProbeLatency(session)
 	if got := atomic.LoadInt32(&conn.calls); got != 1 {
 		t.Fatalf("probes = %d, want 1", got)
 	}
 
 	failing := &mockPingerConn{err: errors.New("no reply")}
 	fallingSession := &Session{ID: 2, conn: failing, phase: sshconn.PhaseConnected}
-	state.maybeProbeLatency(fallingSession, nil)
+	state.maybeProbeLatency(fallingSession)
 	waitForLatencyBroken(t, fallingSession)
 	// A broken connection is not probed again until it reconnects.
 	session = fallingSession
 	session.resetLatency()
-	state.maybeProbeLatency(session, nil)
+	state.maybeProbeLatency(session)
 	waitForLatencyBroken(t, session)
 	if got := atomic.LoadInt32(&failing.calls); got != 2 {
 		t.Fatalf("probes after reconnect = %d, want 2", got)

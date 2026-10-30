@@ -585,8 +585,11 @@ type State struct {
 	// terminalTabTitle lets a tab show the title its terminal reports instead
 	// of the host's name (see tabLabel).
 	terminalTabTitle bool
-	// terminalShowLatency displays connection RTT latency in the terminal panel.
+	// terminalShowLatency displays connection RTT latency in the terminal panel,
+	// and latencyProbe names the sessions Paint saw that need a sample; Wake
+	// starts their requests so a repaint never sends network work.
 	terminalShowLatency bool
+	latencyProbe        []uint32
 	// terminalBellOff silences the terminal bell, and terminalLinkPlainClick
 	// opens a link on a click without the modifier key (see terminalLinkOpens).
 	terminalBellOff, terminalLinkPlainClick bool

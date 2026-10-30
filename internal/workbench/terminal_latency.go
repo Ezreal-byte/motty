@@ -13,11 +13,45 @@ import (
 
 const latencyProbeInterval = 3 * time.Second
 
+// wantLatencyProbe records a session Paint saw that may need a sample and
+// keeps the refresh frame coming; the request itself is sent from Wake.
+func (state *State) wantLatencyProbe(session *Session, canvas *ui.Canvas) {
+	if !state.terminalShowLatency || session == nil || session.isLocal() || session.phase != sshconn.PhaseConnected {
+		return
+	}
+	if _, ok := session.conn.(pinger); !ok {
+		return
+	}
+	state.latencyProbe = append(state.latencyProbe, session.ID)
+	// A broken request cannot be canceled; stop waking for this connection
+	// instead of asking every few seconds for a sample that cannot come back.
+	if canvas == nil || atomic.LoadInt32(&session.rttBroken) == 1 {
+		return
+	}
+	// Probe on the next frame when there is no sample yet, otherwise when the
+	// current one is old enough to refresh.
+	delay := latencyProbeInterval - time.Since(session.rttLastPing)
+	if delay < 0 || session.rttLastPing.IsZero() {
+		delay = 0
+	}
+	canvas.RequestFrameIn(delay)
+}
+
+// probeLatency starts the requests Paint asked for. Wake runs on the window
+// thread before a repaint, so the network call is not made from Paint.
+func (state *State) probeLatency() {
+	for _, id := range state.latencyProbe {
+		if session, ok := state.sessionByIDPointer(id); ok {
+			state.maybeProbeLatency(session)
+		}
+	}
+	state.latencyProbe = state.latencyProbe[:0]
+}
+
 // maybeProbeLatency starts one asynchronous ping when the latency display is
 // enabled and the previous sample is old enough. The ping runs on its own
-// goroutine and publishes through the session's atomics, so paint never waits
-// for the network.
-func (state *State) maybeProbeLatency(session *Session, canvas *ui.Canvas) {
+// goroutine and publishes through the session's atomics.
+func (state *State) maybeProbeLatency(session *Session) {
 	if !state.terminalShowLatency || session == nil || session.isLocal() || session.phase != sshconn.PhaseConnected {
 		return
 	}
@@ -33,10 +67,7 @@ func (state *State) maybeProbeLatency(session *Session, canvas *ui.Canvas) {
 		return
 	}
 	now := time.Now()
-	if elapsed := now.Sub(session.rttLastPing); elapsed < latencyProbeInterval {
-		if canvas != nil && atomic.LoadInt32(&session.rttAvailable) == 1 {
-			canvas.RequestFrameIn(latencyProbeInterval - elapsed)
-		}
+	if now.Sub(session.rttLastPing) < latencyProbeInterval {
 		return
 	}
 	if !atomic.CompareAndSwapInt32(&session.rttMeasuring, 0, 1) {
