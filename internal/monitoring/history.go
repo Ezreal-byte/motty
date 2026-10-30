@@ -109,6 +109,13 @@ func (e *Engine) Set(p Panel, running bool) {
 		r = &runtime{hosts: make(map[string]*history)}
 		e.panels[p.ID] = r
 	}
+	if r.running == running && sameCollection(r.config, p) {
+		// Editing another host reconciles every panel through Set; when this
+		// panel still collects exactly the same hosts on the same schedule its
+		// history must keep its revision, or every chart would be rebuilt.
+		r.config = p
+		return
+	}
 	for id := range r.hosts {
 		if !slices.Contains(p.Hosts, id) {
 			delete(r.hosts, id)
@@ -149,6 +156,13 @@ func (e *Engine) Set(p Panel, running bool) {
 	}
 	r.config = p
 	r.running = running
+}
+
+// sameCollection reports whether p collects exactly like previous: the same
+// hosts at the same cadence and retention. Name, note and display mode never
+// reach the history, so changing them alone does not invalidate it.
+func sameCollection(previous, p Panel) bool {
+	return previous.Interval == p.Interval && previous.Retention == p.Retention && slices.Equal(previous.Hosts, p.Hosts)
 }
 func (e *Engine) Remove(id string) { e.mu.Lock(); defer e.mu.Unlock(); delete(e.panels, id) }
 func (e *Engine) Wanted() map[string]int {

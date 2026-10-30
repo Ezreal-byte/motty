@@ -24,6 +24,29 @@ func read(t *testing.T, e *Engine, id string) Snapshot {
 	return s
 }
 
+func TestReconcileKeepsRevisionsUntilCollectionChanges(t *testing.T) {
+	var e Engine
+	p := panel("p", 5)
+	e.Set(p, true)
+	e.Publish("host", time.Now(), reading(10))
+	s, ok := e.Read("p", "host", 100, 0)
+	if !ok {
+		t.Fatal("missing snapshot after the first sample")
+	}
+	// Editing another host reconciles every panel; the same collection must
+	// keep the retained history and its revision.
+	e.Set(p, true)
+	if _, ok := e.Read("p", "host", 100, s.Version); ok {
+		t.Fatal("an unchanged reconcile invalidated the retained history")
+	}
+	slower := p
+	slower.Interval = 10
+	e.Set(slower, true)
+	if _, ok := e.Read("p", "host", 100, s.Version); !ok {
+		t.Fatal("a changed cadence kept the old revision")
+	}
+}
+
 func TestSharedSubscriptionsKeepTheirOwnCadenceAndStopIndependently(t *testing.T) {
 	var e Engine
 	a, b := panel("fast", 2), panel("slow", 5)
