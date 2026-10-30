@@ -75,12 +75,12 @@ func (state *State) importSessions(client sessionimport.Client) {
 		return
 	}
 	if err != nil {
-		state.status = fmt.Sprintf(m.ImportFailedFmt, err)
+		state.showActionError(fmt.Sprintf(m.ImportPickerFmt, importClientName(client)), fmt.Sprintf(m.ImportFailedFmt, err))
 		return
 	}
 	result, err := sessionimport.Parse(client, paths)
 	if err != nil {
-		state.status = fmt.Sprintf(m.ImportFailedFmt, err)
+		state.showActionError(fmt.Sprintf(m.ImportPickerFmt, importClientName(client)), fmt.Sprintf(m.ImportFailedFmt, err))
 		return
 	}
 	plan := state.sessionImportPlan(result)

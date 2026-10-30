@@ -599,7 +599,7 @@ var ChineseMessages = Messages{
 	ProxyFieldTarget:           "目标主机",
 	ProxyFieldJump:             "跳板主机",
 	ProxyCreate:                "添加路由",
-	ErrProxyHostsRequired:      "至少保存两台主机后才能添加跳板路由",
+	ErrProxyHostsRequired:      "请先添加至少两台 SSH 主机，再创建跳板路由。",
 	ErrProxyTargetRequired:     "请选择目标主机",
 	ErrProxyJumpRequired:       "请选择跳板主机",
 	ErrProxySameHost:           "目标主机和跳板主机必须不同",

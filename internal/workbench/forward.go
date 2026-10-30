@@ -250,7 +250,7 @@ func (editor *forwardEditor) record(id uint32, host Host) forwardRecord {
 
 func (state *State) openForwardDialog() {
 	if len(state.hosts) == 0 {
-		state.status = state.messages.ErrForwardHostRequired
+		state.showActionWarning(state.messages.ForwardDialogTitle, state.messages.ErrForwardHostRequired)
 		return
 	}
 	hostID := state.selectedHostID
@@ -264,7 +264,7 @@ func (state *State) openForwardDialog() {
 		}
 	}
 	if hostID == 0 {
-		state.status = state.messages.ErrForwardHostRequired
+		state.showActionWarning(state.messages.ForwardDialogTitle, state.messages.ErrForwardHostRequired)
 		return
 	}
 	state.forwardEditor.reset(hostID)
@@ -422,7 +422,7 @@ func (state *State) toggleSelectedForward() {
 	if !ok {
 		forward.lastError = state.messages.ForwardHostUnavailable
 		forward.refresh(state.messages, false)
-		state.status = state.messages.ForwardHostUnavailable
+		state.showActionWarning(state.messages.ForwardTitle, state.messages.ForwardHostUnavailable)
 		return
 	}
 	if session := state.connectedSessionForHost(host); session != nil {

@@ -18,7 +18,7 @@ func (state *State) saveTerminalOutput(session *Session) {
 	m := state.messages.Tools
 	data := session.term.screen.AppendRetainedText(nil)
 	if len(data) == 0 {
-		state.status = m.OutputEmpty
+		state.showActionWarning(m.OutputSaveTitle, m.OutputEmpty)
 		return
 	}
 	data = append(data, '\n')
@@ -35,7 +35,7 @@ func (state *State) saveTerminalOutput(session *Session) {
 		err = writePrivateAtomic(path, data)
 	}
 	if err != nil {
-		state.status = fmt.Sprintf(m.OutputSaveFailedFmt, err)
+		state.showActionError(m.OutputSaveTitle, fmt.Sprintf(m.OutputSaveFailedFmt, err))
 		return
 	}
 	state.status = fmt.Sprintf(m.OutputSavedFmt, path)

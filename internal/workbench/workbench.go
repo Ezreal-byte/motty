@@ -1397,7 +1397,7 @@ func (state *State) openNewWindow() {
 		return
 	}
 	if err := state.options.NewWindow(); err != nil {
-		state.status = fmt.Sprintf(state.messages.StatusNewWindowFailedFmt, err)
+		state.showActionError(state.messages.NewWindow, fmt.Sprintf(state.messages.StatusNewWindowFailedFmt, err))
 	}
 }
 
@@ -1642,7 +1642,7 @@ func (state *State) typedQuery() string {
 
 // connectTyped connects to what the search box holds: a saved host named
 // exactly by its label or address, or else a target written as
-// [user@]host[:port]. Text that is neither says so in the status line and
+// [user@]host[:port]. Text that is neither shows a warning and
 // connects nowhere.
 func (state *State) connectTyped() {
 	query := state.typedQuery()
@@ -1668,7 +1668,7 @@ func (state *State) connectTyped() {
 	}
 	parsed, err := parseConnection(query)
 	if err != nil {
-		state.status = fmt.Sprintf(state.messages.ErrBadTargetFmt, query)
+		state.showActionWarning(state.messages.Connect, fmt.Sprintf(state.messages.ErrBadTargetFmt, query))
 		return
 	}
 	state.connectParsed(parsed)

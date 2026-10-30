@@ -70,7 +70,7 @@ func (state *State) openProxyDialog() {
 		}
 	}
 	if sshHosts < 2 {
-		state.status = state.messages.ErrProxyHostsRequired
+		state.showActionWarning(state.messages.ProxyDialogTitle, state.messages.ErrProxyHostsRequired)
 		return
 	}
 	targetID := state.selectedHostID
@@ -84,7 +84,7 @@ func (state *State) openProxyDialog() {
 		}
 	}
 	if targetID == 0 {
-		state.status = state.messages.ErrProxyTargetTaken
+		state.showActionWarning(state.messages.ProxyDialogTitle, state.messages.ErrProxyTargetTaken)
 		return
 	}
 	jumpID := uint32(0)

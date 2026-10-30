@@ -34,7 +34,7 @@ func (state *State) exportHostCatalog() {
 		return
 	}
 	if err != nil {
-		state.status = fmt.Sprintf(state.messages.HostCatalogExportFailedFmt, err)
+		state.showActionError(state.messages.ExportHosts, fmt.Sprintf(state.messages.HostCatalogExportFailedFmt, err))
 		return
 	}
 	document := hostCatalogDocument{
@@ -55,7 +55,7 @@ func (state *State) exportHostCatalog() {
 		err = writePrivateAtomic(path, data)
 	}
 	if err != nil {
-		state.status = fmt.Sprintf(state.messages.HostCatalogExportFailedFmt, err)
+		state.showActionError(state.messages.ExportHosts, fmt.Sprintf(state.messages.HostCatalogExportFailedFmt, err))
 		return
 	}
 	state.status = fmt.Sprintf(state.messages.HostCatalogExportedFmt, len(document.Hosts), path)
@@ -101,12 +101,12 @@ func (state *State) importHostCatalog() {
 		return
 	}
 	if err != nil {
-		state.status = fmt.Sprintf(state.messages.HostCatalogImportFailedFmt, err)
+		state.showActionError(state.messages.HostCatalogPickerTitle, fmt.Sprintf(state.messages.HostCatalogImportFailedFmt, err))
 		return
 	}
 	document, err := readHostCatalog(paths[0])
 	if err != nil {
-		state.status = fmt.Sprintf(state.messages.HostCatalogImportFailedFmt, err)
+		state.showActionError(state.messages.HostCatalogPickerTitle, fmt.Sprintf(state.messages.HostCatalogImportFailedFmt, err))
 		return
 	}
 	added, duplicates := state.applyHostCatalog(document)

@@ -257,7 +257,7 @@ func (state *State) openExportDiagnostics() {
 		err = writePrivateAtomic(path, []byte(state.diagnosticReport()))
 	}
 	if err != nil {
-		state.status = fmt.Sprintf(m.DiagnosticsFailedFmt, err)
+		state.showActionError(m.DiagnosticsSaveTitle, fmt.Sprintf(m.DiagnosticsFailedFmt, err))
 		return
 	}
 	state.status = fmt.Sprintf(m.DiagnosticsSavedFmt, path)

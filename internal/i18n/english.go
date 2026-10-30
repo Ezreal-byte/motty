@@ -599,7 +599,7 @@ var EnglishMessages = Messages{
 	ProxyFieldTarget:           "Target Host",
 	ProxyFieldJump:             "Jump Host",
 	ProxyCreate:                "Add Route",
-	ErrProxyHostsRequired:      "Save at least two hosts before adding a jump route",
+	ErrProxyHostsRequired:      "Add at least two SSH hosts before creating a jump route.",
 	ErrProxyTargetRequired:     "Choose a target host",
 	ErrProxyJumpRequired:       "Choose a jump host",
 	ErrProxySameHost:           "The target and jump host must be different",

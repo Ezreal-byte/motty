@@ -488,7 +488,7 @@ func (state *State) openDeleteCapturedHosts() {
 		return
 	}
 	if message := state.hostReferenceError(state.hostActionIDs); message != "" {
-		state.status = message
+		state.showActionWarning(state.messages.DeleteHostTitle, message)
 		return
 	}
 	state.dialogError = ""

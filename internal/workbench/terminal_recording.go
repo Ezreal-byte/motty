@@ -177,7 +177,7 @@ func (state *State) exportTerminalRecording(session *Session) {
 		err = writePrivateAtomic(path, encodeTerminalRecording(&session.term.recording))
 	}
 	if err != nil {
-		state.status = fmt.Sprintf(state.messages.RecordingExportFailedFmt, err)
+		state.showActionError(state.messages.RecordingExport, fmt.Sprintf(state.messages.RecordingExportFailedFmt, err))
 		return
 	}
 	state.status = fmt.Sprintf(state.messages.RecordingExportedFmt, path)
