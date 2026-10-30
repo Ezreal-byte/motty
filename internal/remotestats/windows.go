@@ -19,7 +19,7 @@ const maxWindowsLineBytes = 32 << 10
 // PowerShell's encoded command works with both cmd.exe and PowerShell as an
 // OpenSSH default shell. No paths, host names or credentials enter the script.
 func WindowsCommand(seconds int) string {
-	if seconds != 1 && seconds != 2 && seconds != 5 {
+	if !validInterval(seconds) {
 		seconds = 2
 	}
 	script := strings.ReplaceAll(windowsScript, "__INTERVAL__", strconv.Itoa(seconds))
@@ -41,7 +41,10 @@ func encodeWindowsScript(script string) string {
 }
 
 func StartWindows(runner Runner, notify func(), seconds int) *Worker {
-	return startCommand(runner, notify, 20*time.Second, 15*time.Second, WindowsCommand(seconds))
+	if !validInterval(seconds) {
+		seconds = 2
+	}
+	return startCommand(runner, notify, 20*time.Second, time.Duration(seconds)*time.Second+15*time.Second, WindowsCommand(seconds))
 }
 
 const windowsScript = `# motty-monitor-windows-v1
@@ -144,7 +147,7 @@ func parseWindows(line []byte) (Result, error) {
 		}
 		s.ReceiveBytesPerSecond += n.RX
 		s.SendBytesPerSecond += n.TX
-		d.Networks = append(d.Networks, Network{Name: detailText(n.Name, 64), ReceivePerSecond: n.RX, SendPerSecond: n.TX, HasRate: true})
+		d.Networks = append(d.Networks, Network{Name: detailText(n.Name, 64), ReceivePerSecond: n.RX, SendPerSecond: n.TX, HasRate: true, TotalsUnavailable: true})
 	}
 	for _, disk := range r.Meta.Disks {
 		if disk.Total == 0 || disk.Free > disk.Total {

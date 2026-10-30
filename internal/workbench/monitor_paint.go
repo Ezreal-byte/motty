@@ -121,10 +121,24 @@ func monitorLabel(c *ui.Canvas, text string, b ui.Rect, size float32, color ui.C
 // The existing remote-tools clock frames are shared; only local paint timing
 // changes here. Sampling remains owned by the cancellable remote worker.
 func (state *State) paintMonitorRefresh(c *ui.Canvas, p *monitorView, b ui.Rect, live bool) {
+	state.paintIntervalClock(c, p, b, live, hitMonitorInterval, state.messages.Monitor.Interval, state.monitorMenu)
+}
+
+// Both monitoring surfaces use the same SVG clock frames and scheduling rules.
+func (state *State) paintIntervalClock(c *ui.Canvas, p *monitorView, b ui.Rect, live bool, id ui.ID, label string, expanded bool) {
 	theme := state.Theme()
 	theme.Metrics.ControlHeight = b.Height
-	components.BeginButton(c, theme, ui.ID{}, b).WithState(components.ButtonState{Hovered: c.Hovered() == hitMonitorInterval, Pressed: c.Pressed() == hitMonitorInterval, Focused: c.FocusVisible() == hitMonitorInterval}).Ghost("")
-	c.HitWithOptions(hitMonitorInterval, b, state.messages.Monitor.Interval, ui.HitOptions{Role: ui.RoleButton, Expandable: true, Expanded: state.monitorMenu, Value: p.intervalText})
+	components.BeginButton(c, theme, ui.ID{}, b).WithState(components.ButtonState{Hovered: c.Hovered() == id, Pressed: c.Pressed() == id, Focused: c.FocusVisible() == id}).Ghost("")
+	c.HitWithOptions(id, b, label, ui.HitOptions{Role: ui.RoleButton, Expandable: true, Expanded: expanded, Value: p.intervalText})
+	frame := monitorRefreshFrame(c, p, live)
+	clock := ui.Rect{X: b.X + 6, Y: b.Y + (b.Height-16)/2, Width: 16, Height: 16}
+	c.DrawIcon(remoteRefreshClock, clock, theme.MutedForeground)
+	c.DrawIcon(remoteRefreshHands[frame], clock, theme.MutedForeground)
+	monitorLabel(c, p.intervalText, ui.Rect{X: b.X + 27, Y: b.Y, Width: b.Width - 43, Height: b.Height}, 12, theme.Foreground, ui.WeightMedium)
+	c.DrawIcon(icons.ChevronDown, ui.Rect{X: b.X + b.Width - 15, Y: b.Y + (b.Height-11)/2, Width: 11, Height: 11}, theme.MutedForeground)
+}
+
+func monitorRefreshFrame(c *ui.Canvas, p *monitorView, live bool) int {
 	running := live && !p.paused && p.count > 0
 	now := c.Now()
 	if p.refreshReset || running != p.refreshRunning || p.refreshVersion != p.version {
@@ -138,11 +152,7 @@ func (state *State) paintMonitorRefresh(c *ui.Canvas, p *monitorView, b ui.Rect,
 		frame = int(elapsed*60/period) % 60
 		c.RequestFrameIn(step - elapsed%step)
 	}
-	clock := ui.Rect{X: b.X + 6, Y: b.Y + (b.Height-16)/2, Width: 16, Height: 16}
-	c.DrawIcon(remoteRefreshClock, clock, theme.MutedForeground)
-	c.DrawIcon(remoteRefreshHands[frame], clock, theme.MutedForeground)
-	monitorLabel(c, p.intervalText, ui.Rect{X: b.X + 27, Y: b.Y, Width: b.Width - 43, Height: b.Height}, 12, theme.Foreground, ui.WeightMedium)
-	c.DrawIcon(icons.ChevronDown, ui.Rect{X: b.X + b.Width - 15, Y: b.Y + (b.Height-11)/2, Width: 11, Height: 11}, theme.MutedForeground)
+	return frame
 }
 
 func (state *State) paintMonitorIntervalMenu(c *ui.Canvas) {
