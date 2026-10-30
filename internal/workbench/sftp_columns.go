@@ -145,11 +145,15 @@ func restoreSFTPColumnPreferences(value string) sftpColumnPreferences {
 	}
 	var result sftpColumnPreferences
 	seen := [sftpColumnCount]bool{}
+	recognized := 0
 	result.entries[0] = sftpColumnEntry{Key: sftpColumnName, Enabled: true}
 	count := 1
 	for _, token := range strings.Split(value, ",") {
 		name, state, hasState := strings.Cut(strings.TrimSpace(token), ":")
 		key, ok := sftpColumnKeyFromName(name)
+		if ok {
+			recognized++
+		}
 		if !ok || seen[key] {
 			continue
 		}
@@ -168,6 +172,12 @@ func restoreSFTPColumnPreferences(value string) sftpColumnPreferences {
 		seen[key] = true
 		result.entries[count] = sftpColumnEntry{Key: key, Enabled: enabled}
 		count++
+	}
+	// A value with no recognizable token at all is damaged rather than an empty
+	// choice; restoring the default columns reads better than hiding every
+	// optional column.
+	if recognized == 0 {
+		return defaultSFTPColumnPreferences()
 	}
 	for _, key := range [...]sftpColumnKey{sftpColumnSize, sftpColumnModified} {
 		if seen[key] {

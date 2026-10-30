@@ -108,12 +108,15 @@ type sftpView struct {
 	preparingID       uint64
 	acceptedListID    uint64
 	preparingPath     string // the large listing whose rows are being prepared
-	followUpPath      string // a follow-up that arrived before those rows were ready
-	followUpEntries   []sftpclient.Entry
-	busy              bool
-	approximate       bool // the listing came from `ls` over SCP
-	operation         sftpclient.Operation
-	status            string
+	// refreshAfterListing names the folder to read again once the foreground
+	// listing that started before a save lands.
+	refreshAfterListing string
+	followUpPath        string // a follow-up that arrived before those rows were ready
+	followUpEntries     []sftpclient.Entry
+	busy                bool
+	approximate         bool // the listing came from `ls` over SCP
+	operation           sftpclient.Operation
+	status              string
 	// listingStatus is the listing message status still holds, so a completed
 	// listing can retire it without dropping the feedback that replaced it.
 	listingStatus         string
@@ -766,17 +769,29 @@ func (state *State) refreshSFTPAfterRemoteSave(view *sftpView, remotePath string
 	}
 	directory := path.Dir(remotePath)
 	if view.path == directory {
+		if view.busy && view.navigation.id != 0 && view.navigation.path == directory {
+			// A listing that started before the save is still in flight. Read
+			// the folder again after it lands, or its older metadata would be
+			// what stays on screen.
+			view.refreshAfterListing = directory
+			return
+		}
 		// Force a second read even when a prefetch was already in flight. That
 		// read may have started before the save and must not be allowed to put
 		// the old metadata back into the cache.
-		view.navigationID++
-		id := view.navigationID
-		if view.worker.PrefetchWithID(directory, id) {
-			view.markPrefetching(directory, id)
-		}
+		state.refreshSFTPDirectory(view, directory)
 		return
 	}
 	view.forgetListings()
+}
+
+// refreshSFTPDirectory reads a shown folder again without disturbing the view.
+func (state *State) refreshSFTPDirectory(view *sftpView, directory string) {
+	view.navigationID++
+	id := view.navigationID
+	if view.worker.PrefetchWithID(directory, id) {
+		view.markPrefetching(directory, id)
+	}
 }
 
 // showSFTPListing puts a folder on screen.
@@ -814,6 +829,12 @@ func (state *State) applySFTPListingNavigation(view *sftpView, remotePath string
 	view.remoteSeq++ // a shown listing invalidates an older one still being prepared
 	view.busy = false
 	view.path = remotePath
+	if view.refreshAfterListing == remotePath {
+		// A save landed while this listing was in flight; read the folder again
+		// so the older metadata it brought back is not the last word.
+		view.refreshAfterListing = ""
+		state.refreshSFTPDirectory(view, remotePath)
+	}
 	view.allRows = rows
 	view.crumbs = prepareSFTPCrumbs(view.crumbs, remotePath)
 	state.applySFTPFilter(view, &view.sftpFolder, true)

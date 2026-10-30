@@ -170,6 +170,9 @@ func TestSFTPColumnAndDownloadSettingsPersistAndUpgrade(t *testing.T) {
 	if columns := restoreSFTPColumnPreferences("name,modified"); columns.enabled(sftpColumnSize) || !columns.enabled(sftpColumnModified) {
 		t.Fatalf("the legacy column value did not migrate: %+v", columns)
 	}
+	if columns := restoreSFTPColumnPreferences("bogus"); !columns.enabled(sftpColumnSize) || !columns.enabled(sftpColumnModified) {
+		t.Fatalf("a damaged column value hid every optional column: %+v", columns)
+	}
 	if got := restoreSFTPDownloadDirectory(""); got != defaultDownloadDirectory() {
 		t.Fatalf("an older state download directory = %q, want %q", got, defaultDownloadDirectory())
 	}
@@ -341,5 +344,26 @@ func TestSFTPSaveRefreshesTheShownDirectoryAndReportsSuccess(t *testing.T) {
 	}
 	if view.selected >= len(view.rows) || view.rows[view.selected].entry.Name != "notes.txt" {
 		t.Fatalf("refresh lost the selected file: selected=%d rows=%v", view.selected, view.rows)
+	}
+}
+
+func TestSFTPRefreshAfterSaveWaitsForTheListingInFlight(t *testing.T) {
+	state, session, _, _ := openTestSFTP(t)
+	view := session.files
+	// Keep a listing that started before the save in flight: its answer is
+	// older than the save and must not be the last thing on screen.
+	state.listSFTP(view, "/home/test")
+	if !view.busy || view.navigation.path != "/home/test" {
+		t.Fatalf("listing did not start: busy=%t navigation=%q", view.busy, view.navigation.path)
+	}
+	state.refreshSFTPAfterRemoteSave(view, "/home/test/notes.txt")
+	if view.refreshAfterListing != "/home/test" {
+		t.Fatalf("refresh was not deferred: %q", view.refreshAfterListing)
+	}
+	waitSFTP(t, state, session, func(view *sftpView) bool {
+		return !view.busy && view.refreshAfterListing == ""
+	})
+	if view.path != "/home/test" || len(view.rows) != 2 {
+		t.Fatalf("view = %q rows=%d", view.path, len(view.rows))
 	}
 }
