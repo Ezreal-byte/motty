@@ -205,7 +205,7 @@ func TestFilesSettingsApplyToTheWorkerAndAreSaved(t *testing.T) {
 	state.Paint(&canvas, ui.Size{Width: 1400, Height: 900})
 	for _, id := range []ui.ID{
 		hitSettingsParallel1, hitSettingsParallel4, hitSettingsKeepTimesToggle, hitSettingsFollowToggle, hitSettingsFollowSetup,
-		hitSettingsShowSizeColumn, hitSettingsShowModifiedColumn, hitSettingsDownloadDirectory, hitSettingsDownloadAsk,
+		hitSettingsConfigureColumns, hitSettingsDownloadDirectory, hitSettingsDownloadAsk,
 	} {
 		if _, ok := hitByID(&canvas, id); !ok {
 			t.Errorf("settings control %d is not painted", id)
@@ -226,8 +226,9 @@ func TestFilesSettingsApplyToTheWorkerAndAreSaved(t *testing.T) {
 	}
 	state.Click(hitSettingsParallel4)
 	state.Click(hitSettingsKeepTimesToggle)
-	state.Click(hitSettingsShowSizeColumn)
-	state.Click(hitSettingsShowModifiedColumn)
+	state.Click(hitSettingsConfigureColumns)
+	state.Click(hitSFTPColumnSettingsToggles.At(int(sftpColumnSize)))
+	state.Click(hitSFTPColumnSettingsClose)
 	state.Click(hitSettingsDownloadAsk)
 	if state.sftpDownloadDirectory != "" {
 		t.Fatal("ask-every-time setting did not clear the default folder")
@@ -238,16 +239,41 @@ func TestFilesSettingsApplyToTheWorkerAndAreSaved(t *testing.T) {
 		t.Fatal(err)
 	}
 	if saved.SFTPParallel != 4 || saved.SFTPKeepTimes != "off" || saved.SFTPFollow != "" ||
-		saved.SFTPColumns != "name" || saved.SFTPDownloadDirectory != downloadDirectory {
+		saved.SFTPColumns != "name:1,size:0,modified:1" || saved.SFTPDownloadDirectory != downloadDirectory {
 		t.Fatalf("saved = %d %q %q %q %q", saved.SFTPParallel, saved.SFTPKeepTimes, saved.SFTPFollow, saved.SFTPColumns, saved.SFTPDownloadDirectory)
 	}
 	restarted := newTestState(t, state.options)
 	if restarted.sftpParallel != 4 || !restarted.sftpKeepTimesOff || restarted.sftpFollowOff ||
-		restarted.sftpShowSize || restarted.sftpShowModified || restarted.sftpDownloadDirectory != downloadDirectory {
-		t.Fatalf("restored = %d %v %v %v %v %q", restarted.sftpParallel, restarted.sftpKeepTimesOff, restarted.sftpFollowOff,
-			restarted.sftpShowSize, restarted.sftpShowModified, restarted.sftpDownloadDirectory)
+		restarted.sftpColumns.enabled(sftpColumnSize) || !restarted.sftpColumns.enabled(sftpColumnModified) ||
+		restarted.sftpDownloadDirectory != downloadDirectory {
+		t.Fatalf("restored = %d %v %v %+v %q", restarted.sftpParallel, restarted.sftpKeepTimesOff, restarted.sftpFollowOff,
+			restarted.sftpColumns, restarted.sftpDownloadDirectory)
 	}
 	_ = session
+}
+
+func TestSFTPColumnSettingsReorderFromTheKeyboardAndSave(t *testing.T) {
+	state := newTestState(t, testOptions(t))
+	state.Click(hitSettings)
+	state.selectSettingsCategory(settingsFiles)
+	state.Click(hitSettingsConfigureColumns)
+	var canvas ui.Canvas
+	state.Paint(&canvas, ui.Size{Width: 1400, Height: 900})
+	handle := hitSFTPColumnSettingsHandles.At(int(sftpColumnSize))
+	if _, ok := hitByID(&canvas, handle); !ok {
+		t.Fatal("the size column has no reorder handle")
+	}
+	result := state.Key(ui.KeyEvent{Target: handle, Key: ui.KeyDown})
+	if !result.Handled || result.Focus != handle {
+		t.Fatalf("keyboard move = %+v", result)
+	}
+	if got, want := state.sftpColumns.String(), "name:1,modified:1,size:1"; got != want {
+		t.Fatalf("column order = %q, want %q", got, want)
+	}
+	saved, _, err := loadState(state.options.StatePath)
+	if err != nil || saved.SFTPColumns != state.sftpColumns.String() {
+		t.Fatalf("saved columns = %q, %v", saved.SFTPColumns, err)
+	}
 }
 
 func TestExtractCommandsQuoteEverythingAndNeverOverwrite(t *testing.T) {

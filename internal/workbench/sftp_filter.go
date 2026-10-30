@@ -143,7 +143,17 @@ func (state *State) paintSFTPHeaderMenu(canvas *ui.Canvas, viewport ui.Size, anc
 		Selected: folder.showHidden,
 	})
 	menu.AddSeparator()
-	for column, label := range []string{state.messages.SFTPWindow.Name, state.messages.SFTPWindow.Size, state.messages.SFTPWindow.Modified} {
+	for _, entry := range state.sftpColumns.entries {
+		if !entry.Enabled {
+			continue
+		}
+		column, label := int(entry.Key), state.messages.SFTPWindow.Name
+		switch entry.Key {
+		case sftpColumnSize:
+			label = state.messages.SFTPWindow.Size
+		case sftpColumnModified:
+			label = state.messages.SFTPWindow.Modified
+		}
 		icon := uint8(iconArrowUp)
 		if folder.sortOrder.descending {
 			icon = iconChevronDown

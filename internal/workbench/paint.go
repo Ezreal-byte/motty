@@ -278,6 +278,8 @@ func (state *State) Paint(canvas *ui.Canvas, size ui.Size) {
 		state.paintRemoteTools(canvas, viewport)
 	case modalToolbarSettings:
 		state.paintToolbarSettings(canvas, viewport)
+	case modalSFTPColumns:
+		state.paintSFTPColumnSettings(canvas, viewport)
 	case modalRemoteClipboard:
 		state.paintRemoteClipboardDialog(canvas, viewport)
 	case modalFileTransfer:

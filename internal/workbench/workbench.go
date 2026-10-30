@@ -552,8 +552,8 @@ type State struct {
 	sftpTerminalFollow     bool
 	sftpPathInput          bool
 	sftpPanelAutoOpen      bool
-	sftpShowSize           bool
-	sftpShowModified       bool
+	sftpColumns            sftpColumnPreferences
+	sftpFilesSettings      sftpFilesSettingsCache
 	sftpDownloadDirectory  string
 	monitorRect            ui.Rect
 	monitorMenu            bool
@@ -596,6 +596,7 @@ type State struct {
 	settings         settingsUI
 	toolbars         toolbarPreferences
 	toolbarEditor    toolbarSettingsUI
+	sftpColumnEditor sftpColumnSettingsUI
 
 	// area: settings
 	settingsPage flex.View // the whole settings workspace
@@ -626,6 +627,7 @@ type State struct {
 	pasteImageOff bool
 	fonts         fontsUI
 	proxyForm     outboundProxyForm
+	agentSetting  agentDescriptionCache
 	form          formDialog
 	formSerial    uint32
 	closeAsked    bool
@@ -787,8 +789,7 @@ func New(options Options) *State {
 		terminalScrollback:    scrollbackLines,
 		hostCatalog:           hostCatalog{systemUser: systemLogin(), connectionTimeout: 10 * time.Second},
 		sftpParallel:          DefaultSFTPParallel,
-		sftpShowSize:          true,
-		sftpShowModified:      true,
+		sftpColumns:           defaultSFTPColumnPreferences(),
 		sftpDownloadDirectory: defaultDownloadDirectory(),
 		terminalClipboard:     defaultTerminalClipboard,
 		shortcuts:             defaultShortcuts(),
@@ -1201,6 +1202,9 @@ func (state *State) Click(id ui.ID) {
 		return
 	case modalToolbarSettings:
 		state.clickToolbarSettings(id)
+		return
+	case modalSFTPColumns:
+		state.clickSFTPColumnSettings(id)
 		return
 	case modalVaultForget:
 		state.clickVaultForget(id)
@@ -1723,6 +1727,9 @@ func (state *State) Pointer(event ui.PointerEvent) (outcome ui.EventResult) {
 	if result := state.toolbarSettingsPointer(event); result.Handled {
 		return result
 	}
+	if result := state.sftpColumnSettingsPointer(event); result.Handled {
+		return result
+	}
 	if result, handled := state.transferCenterPointer(event); handled {
 		return result
 	}
@@ -1964,6 +1971,9 @@ func (state *State) key(event ui.KeyEvent) ui.EventResult {
 		return result
 	}
 	if result := state.toolbarSettingsKey(event); result.Handled {
+		return result
+	}
+	if result := state.sftpColumnSettingsKey(event); result.Handled {
 		return result
 	}
 	if result := state.remoteRefreshKey(event); result.Handled {

@@ -392,7 +392,7 @@ func (state *State) snapshot() savedState {
 		SFTPPathInput:              state.sftpPathInput,
 		SFTPPanelAutoOpen:          state.sftpPanelAutoOpen,
 		SFTPPanelSide:              sftpPanelSideString(state.sftpPanelSide),
-		SFTPColumns:                sftpColumnsString(state.sftpShowSize, state.sftpShowModified),
+		SFTPColumns:                state.sftpColumns.String(),
 		SFTPDownloadDirectory:      savedSFTPDownloadDirectory(state.sftpDownloadDirectory),
 		Toolbars:                   state.toolbars.snapshot(),
 		UpdateCheck:                updateCheckString(state.updateAtStart),

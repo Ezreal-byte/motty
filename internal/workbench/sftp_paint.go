@@ -282,14 +282,13 @@ func (state *State) paintSFTPList(canvas *ui.Canvas, size ui.Size, list ui.Rect,
 	if scrolls {
 		rowWidth = max(rowWidth-10, 0)
 	}
-	showSize, showModified := state.sftpShowSize, state.sftpShowModified
 	sizeWidth, modifiedWidth := sftpColumnWidths(rowWidth)
 	empty := len(folder.rows) == 0 && (!view.busy || local) && view.errorText == ""
 	loading := len(folder.rows) == 0 && view.busy && !local && view.operation == sftpclient.OperationList && view.errorText == ""
 	boxes := state.filesRowBoxes[:0]
 	var dropColumn flex.Box
 
-	state.paintSFTPColumnHeader(canvas, ui.Rect{X: list.X, Y: list.Y, Width: list.Width, Height: headerHeight}, folder, showSize, showModified, sizeWidth, modifiedWidth, scrolls)
+	state.paintSFTPColumnHeader(canvas, ui.Rect{X: list.X, Y: list.Y, Width: list.Width, Height: headerHeight}, folder, sizeWidth, modifiedWidth, scrolls)
 
 	if !view.scrollDrag {
 		folder.scrollOffset = float32(folder.first) * sftpRowHeight
@@ -312,7 +311,7 @@ func (state *State) paintSFTPList(canvas *ui.Canvas, size ui.Size, list ui.Rect,
 		dropColumn.Children(func() {
 			for index := first; index < last; index++ {
 				boxes = append(boxes, state.declareSFTPRow(
-					f, &folder.rows[index], hitSFTPEntryList.At(index-first), showSize, showModified, sizeWidth, modifiedWidth,
+					f, &folder.rows[index], hitSFTPEntryList.At(index-first), sizeWidth, modifiedWidth,
 				))
 			}
 		})
@@ -362,7 +361,7 @@ func sftpColumnWidths(width float32) (size, modified float32) {
 	return
 }
 
-func (state *State) paintSFTPColumnHeader(canvas *ui.Canvas, bounds ui.Rect, folder *sftpFolder, showSize, showModified bool, sizeWidth, modifiedWidth float32, scrolls bool) {
+func (state *State) paintSFTPColumnHeader(canvas *ui.Canvas, bounds ui.Rect, folder *sftpFolder, sizeWidth, modifiedWidth float32, scrolls bool) {
 	if bounds.Height <= 0 {
 		return
 	}
@@ -373,11 +372,15 @@ func (state *State) paintSFTPColumnHeader(canvas *ui.Canvas, bounds ui.Rect, fol
 	f := state.filesHeader.Begin(canvas, state.Theme(), ui.Rect{X: bounds.X, Y: bounds.Y, Width: width, Height: bounds.Height})
 	f.Row().Fill().PadX(8).Items(flex.Center).Children(func() {
 		state.declareSFTPColumnHeader(f, folder, 0, state.messages.SFTPWindow.Name, 0, true)
-		if showSize {
-			state.declareSFTPColumnHeader(f, folder, 1, state.messages.SFTPWindow.Size, sizeWidth, false)
-		}
-		if showModified {
-			state.declareSFTPColumnHeader(f, folder, 2, state.messages.SFTPWindow.Modified, modifiedWidth, false)
+		for _, entry := range state.sftpColumns.entries[1:] {
+			if !entry.Enabled {
+				continue
+			}
+			label, width := state.messages.SFTPWindow.Size, sizeWidth
+			if entry.Key == sftpColumnModified {
+				label, width = state.messages.SFTPWindow.Modified, modifiedWidth
+			}
+			state.declareSFTPColumnHeader(f, folder, int(entry.Key), label, width, false)
 		}
 	})
 	f.End()
@@ -419,7 +422,7 @@ func (state *State) declareSFTPColumnHeader(f *flex.Frame, folder *sftpFolder, c
 // declareSFTPRow declares one entry: its type icon, its name, which takes the
 // room and ends with an ellipsis, and, when there is room, its modification
 // time. A selected row is tinted; the pointer lightens one. It returns the row.
-func (state *State) declareSFTPRow(f *flex.Frame, row *sftpRow, id ui.ID, showSize, showModified bool, sizeWidth, modifiedWidth float32) flex.Box {
+func (state *State) declareSFTPRow(f *flex.Frame, row *sftpRow, id ui.ID, sizeWidth, modifiedWidth float32) flex.Box {
 	pal, canvas := state.pal, f.Canvas()
 	name := row.cells[1]
 	if row.entry.IsLink() && row.entry.LinkTarget != "" {
@@ -462,15 +465,21 @@ func (state *State) declareSFTPRow(f *flex.Frame, row *sftpRow, id ui.ID, showSi
 			}
 			f.Text(name).FontSize(metrics.FontSizeM).Color(nameColor).Ellipsis().Grow(1)
 		})
-		if showSize {
-			f.Text(row.cells[2]).FontSize(metrics.FontSizeS).Color(pal.muted).Width(sizeWidth).TextEnd().Shrink(0)
-		}
-		if showModified {
-			date := row.cells[3]
-			if modifiedWidth < 100 && len(date) > 5 {
-				date = date[5:] // drop the year
+		for _, entry := range state.sftpColumns.entries[1:] {
+			if !entry.Enabled {
+				continue
 			}
-			f.Text(date).FontSize(metrics.FontSizeS).Color(pal.muted).Width(modifiedWidth).TextEnd().Shrink(0)
+			if entry.Key == sftpColumnSize {
+				f.Text(row.cells[2]).FontSize(metrics.FontSizeS).Color(pal.muted).Width(sizeWidth).TextEnd().Shrink(0)
+				continue
+			}
+			if entry.Key == sftpColumnModified {
+				date := row.cells[3]
+				if modifiedWidth < 100 && len(date) > 5 {
+					date = date[5:] // drop the year
+				}
+				f.Text(date).FontSize(metrics.FontSizeS).Color(pal.muted).Width(modifiedWidth).TextEnd().Shrink(0)
+			}
 		}
 	}
 	if background.Alpha == 0 && canvas.FocusVisible() != id {

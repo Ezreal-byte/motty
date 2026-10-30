@@ -692,10 +692,18 @@ type ToolsMessages struct {
 	LoginFailedFmt                  string
 
 	// The file list's configurable columns and default download destination.
-	FilesShowSizeColumn                  string
-	FilesShowSizeColumnDescription       string
-	FilesShowModifiedColumn              string
-	FilesShowModifiedColumnDescription   string
+	FilesColumns                         string
+	FilesColumnsDescription              string
+	FilesColumnsEnabledFmt               string
+	FilesColumnsCustomize                string
+	FilesColumnsTitle                    string
+	FilesColumnsHint                     string
+	FilesColumnDragFmt                   string
+	FilesColumnName                      string
+	FilesColumnSize                      string
+	FilesColumnModified                  string
+	FilesColumnsReset                    string
+	FilesColumnsClose                    string
 	FilesDownloadDirectory               string
 	FilesDownloadAskDescription          string
 	FilesDownloadCurrentFmt              string

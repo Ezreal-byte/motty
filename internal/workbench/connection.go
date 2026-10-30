@@ -389,6 +389,7 @@ const (
 	modalDashboard
 	modalDashboardAdd
 	modalToolbarSettings
+	modalSFTPColumns
 	modalTerminalInput
 )
 
@@ -990,6 +991,9 @@ func (state *State) closeModal() {
 	}
 	if state.modal == modalToolbarSettings {
 		state.toolbarEditor.list.Cancel()
+	}
+	if state.modal == modalSFTPColumns {
+		state.sftpColumnEditor.list.Cancel()
 	}
 	if state.modal == modalRemoteClipboard {
 		state.clipboardRequest = remoteClipboardRequest{}

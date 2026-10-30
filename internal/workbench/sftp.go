@@ -314,7 +314,7 @@ func (state *State) clickSFTP(id ui.ID) {
 		}
 		return
 	}
-	if column, ok := id.In(hitSFTPColumnList); ok && column < 3 && (column != 1 || state.sftpShowSize) && (column != 2 || state.sftpShowModified) {
+	if column, ok := id.In(hitSFTPColumnList); ok && column < int(sftpColumnCount) && state.sftpColumns.enabled(sftpColumnKey(column)) {
 		state.toggleSFTPSidebarSort(folder, column)
 		return
 	}

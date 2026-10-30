@@ -83,7 +83,8 @@ func TestSFTPSidebarHeadersSortEveryColumnWithFoldersFirst(t *testing.T) {
 
 func TestSFTPSidebarColumnVisibilityTracksSettings(t *testing.T) {
 	state, _, _, _ := openTestSFTP(t)
-	state.sftpShowSize, state.sftpShowModified = false, false
+	state.sftpColumns.setEnabled(sftpColumnSize, false)
+	state.sftpColumns.setEnabled(sftpColumnModified, false)
 	var canvas ui.Canvas
 	state.Paint(&canvas, ui.Size{Width: 1400, Height: 900})
 	if _, ok := hitByID(&canvas, contextID(hitSFTPColumnList.At(0))); !ok {
@@ -96,11 +97,47 @@ func TestSFTPSidebarColumnVisibilityTracksSettings(t *testing.T) {
 	}
 }
 
+func TestSFTPColumnOrderAppliesToSidebarAndDetachedWindow(t *testing.T) {
+	state, session, _, _ := openTestSFTP(t)
+	if !state.sftpColumns.moveOptional(1, 2) {
+		t.Fatal("the size column did not move after modified time")
+	}
+	if got, want := state.sftpColumns.String(), "name:1,modified:1,size:1"; got != want {
+		t.Fatalf("column order = %q, want %q", got, want)
+	}
+
+	var canvas ui.Canvas
+	state.Paint(&canvas, ui.Size{Width: 1400, Height: 900})
+	sizeHeader, sizeOK := hitByID(&canvas, contextID(hitSFTPColumnList.At(int(sftpColumnSize))))
+	modifiedHeader, modifiedOK := hitByID(&canvas, contextID(hitSFTPColumnList.At(int(sftpColumnModified))))
+	if !sizeOK || !modifiedOK || modifiedHeader.Bounds.X >= sizeHeader.Bounds.X {
+		t.Fatalf("sidebar headers size=%+v/%t modified=%+v/%t", sizeHeader, sizeOK, modifiedHeader, modifiedOK)
+	}
+
+	w := &sftpWindow{owner: state, session: *session, view: session.files}
+	canvas = ui.Canvas{}
+	w.paintPane(&canvas, ui.Rect{Width: 600, Height: 500}, false)
+	sizeHeader, sizeOK = hitByID(&canvas, sftpWindowSortHits[1].At(int(sftpColumnSize)))
+	modifiedHeader, modifiedOK = hitByID(&canvas, sftpWindowSortHits[1].At(int(sftpColumnModified)))
+	if !sizeOK || !modifiedOK || modifiedHeader.Bounds.X >= sizeHeader.Bounds.X {
+		t.Fatalf("window headers size=%+v/%t modified=%+v/%t", sizeHeader, sizeOK, modifiedHeader, modifiedOK)
+	}
+}
+
+func TestSFTPColumnPreferencesKeepNameFirstAndIgnoreInvalidEntries(t *testing.T) {
+	columns := restoreSFTPColumnPreferences("modified:false,size:true,name:false,size:true,unknown:true")
+	if got, want := columns.String(), "name:1,modified:0,size:1"; got != want {
+		t.Fatalf("normalized columns = %q, want %q", got, want)
+	}
+	if !columns.enabled(sftpColumnName) || columns.enabled(sftpColumnModified) || !columns.enabled(sftpColumnSize) {
+		t.Fatalf("normalized visibility = %+v", columns)
+	}
+}
+
 func TestSFTPColumnAndDownloadSettingsPersistAndUpgrade(t *testing.T) {
 	options := testOptions(t)
 	state := newTestState(t, options)
-	state.sftpShowSize = false
-	state.sftpShowModified = true
+	state.sftpColumns.setEnabled(sftpColumnSize, false)
 	state.sftpDownloadDirectory = t.TempDir()
 	state.save()
 
@@ -108,16 +145,17 @@ func TestSFTPColumnAndDownloadSettingsPersistAndUpgrade(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if saved.SFTPColumns != "name,modified" || saved.SFTPDownloadDirectory != state.sftpDownloadDirectory {
+	if saved.SFTPColumns != "name:1,size:0,modified:1" || saved.SFTPDownloadDirectory != state.sftpDownloadDirectory {
 		t.Fatalf("saved columns=%q directory=%q", saved.SFTPColumns, saved.SFTPDownloadDirectory)
 	}
 	restored, _, err := loadState(options.StatePath)
 	if err != nil {
 		t.Fatalf("restore = %+v, %v", restored, err)
 	}
-	size, modified := restoreSFTPColumns(restored.SFTPColumns)
-	if size || !modified || restoreSFTPDownloadDirectory(restored.SFTPDownloadDirectory) != state.sftpDownloadDirectory {
-		t.Fatalf("restored size=%t modified=%t directory=%q", size, modified, restoreSFTPDownloadDirectory(restored.SFTPDownloadDirectory))
+	columns := restoreSFTPColumnPreferences(restored.SFTPColumns)
+	if columns.enabled(sftpColumnSize) || !columns.enabled(sftpColumnModified) ||
+		restoreSFTPDownloadDirectory(restored.SFTPDownloadDirectory) != state.sftpDownloadDirectory {
+		t.Fatalf("restored columns=%+v directory=%q", columns, restoreSFTPDownloadDirectory(restored.SFTPDownloadDirectory))
 	}
 
 	state.sftpDownloadDirectory = ""
@@ -126,8 +164,11 @@ func TestSFTPColumnAndDownloadSettingsPersistAndUpgrade(t *testing.T) {
 	if err != nil || saved.SFTPDownloadDirectory != sftpDownloadAsk {
 		t.Fatalf("ask setting saved as %q, %v", saved.SFTPDownloadDirectory, err)
 	}
-	if size, modified := restoreSFTPColumns(""); !size || !modified {
-		t.Fatalf("an older state did not gain both optional columns: size=%t modified=%t", size, modified)
+	if columns := restoreSFTPColumnPreferences(""); !columns.enabled(sftpColumnSize) || !columns.enabled(sftpColumnModified) {
+		t.Fatalf("an older state did not gain both optional columns: %+v", columns)
+	}
+	if columns := restoreSFTPColumnPreferences("name,modified"); columns.enabled(sftpColumnSize) || !columns.enabled(sftpColumnModified) {
+		t.Fatalf("the legacy column value did not migrate: %+v", columns)
 	}
 	if got := restoreSFTPDownloadDirectory(""); got != defaultDownloadDirectory() {
 		t.Fatalf("an older state download directory = %q, want %q", got, defaultDownloadDirectory())
@@ -190,7 +231,8 @@ func TestSFTPWindowColumnVisibilityMatchesSidebarSettings(t *testing.T) {
 		return &canvas, texts
 	}
 
-	state.sftpShowSize, state.sftpShowModified = false, false
+	state.sftpColumns.setEnabled(sftpColumnSize, false)
+	state.sftpColumns.setEnabled(sftpColumnModified, false)
 	canvas, texts := paint()
 	for column := 1; column < 3; column++ {
 		if _, ok := hitByID(canvas, sftpWindowSortHits[1].At(column)); ok {
@@ -203,7 +245,8 @@ func TestSFTPWindowColumnVisibilityMatchesSidebarSettings(t *testing.T) {
 		}
 	}
 
-	state.sftpShowSize, state.sftpShowModified = true, true
+	state.sftpColumns.setEnabled(sftpColumnSize, true)
+	state.sftpColumns.setEnabled(sftpColumnModified, true)
 	canvas, texts = paint()
 	for column := 1; column < 3; column++ {
 		if _, ok := hitByID(canvas, sftpWindowSortHits[1].At(column)); !ok {
