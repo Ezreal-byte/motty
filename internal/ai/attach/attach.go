@@ -1,5 +1,6 @@
 // Package attach turns a file the user dropped on the assistant into something a
-// model can read: its text, or a picture in a format every vision endpoint takes.
+// model can read: its text (from a text file or a Word, Excel or PowerPoint
+// document), or a picture in a format every vision endpoint takes.
 // It decides nothing about the conversation; the caller says where the result goes.
 package attach
 
@@ -115,7 +116,10 @@ func Decode(name string, data []byte) (File, error) {
 		file.Kind, file.Image = KindImage, picture
 		return file, nil
 	}
-	text, err := decodeText(data)
+	text, err := officeText(data)
+	if errors.Is(err, errNotOffice) {
+		text, err = decodeText(data)
+	}
 	if err != nil {
 		return File{}, err
 	}

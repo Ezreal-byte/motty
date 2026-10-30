@@ -811,7 +811,7 @@ var englishAIPanel = AIPanelMessages{
 	AttachEmptyFmt:       "%s is empty.",
 	AttachTextTooBigFmt:  "%s is larger than %s, the most of a text file the assistant is sent.",
 	AttachTooLargeFmt:    "%s is too large to attach.",
-	AttachUnsupportedFmt: "%s is neither a text file nor a PNG, JPEG, GIF, WebP, BMP or TIFF picture.",
+	AttachUnsupportedFmt: "%s is not a text file, a Word, Excel or PowerPoint document (.docx, .xlsx, .pptx) or a PNG, JPEG, GIF, WebP, BMP or TIFF picture.",
 	AttachTotalTextFmt:   "%s would take the attached text past %s for one message.",
 	AttachFailedFmt:      "%s could not be read: %s",
 
