@@ -1,5 +1,9 @@
 package remotetools
 
+// These tests only build on Windows. The default CI runs Linux, so this file
+// is a Windows developer-machine check; the Windows job in .github/workflows/
+// tests.yml runs the package with -short, which skips the real CIM query and
+// leaves the command-and-parser tests there.
 import (
 	"context"
 	"os"
@@ -22,6 +26,9 @@ func (r windowsCommandRunner) RunCommand(ctx context.Context, c string, _ int) (
 	return exec.CommandContext(ctx, args[0], args[1:]...).CombinedOutput()
 }
 func TestWindowsRemoteProcessScriptOnRealCIM(t *testing.T) {
+	if testing.Short() {
+		t.Skip("real CIM queries do not run in the short Windows CI job")
+	}
 	for _, shell := range []string{"cmd", "powershell"} {
 		t.Run(shell, func(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)

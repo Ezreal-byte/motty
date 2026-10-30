@@ -10,6 +10,9 @@ import (
 
 // ForSystem applies the remote host's command syntax, independently of the
 // client's OS. Unknown systems retain the existing portable Unix fallback.
+// Only the package's fixed-text commands may pass through it: a Docker command
+// is spliced into a PowerShell script and a POSIX shell chain, so a caller that
+// put user text in it would turn that text into remote shell syntax.
 func ForSystem(runner Runner, system string) Runner {
 	return &systemRunner{Runner: runner, system: system}
 }
@@ -36,7 +39,10 @@ func (r *systemRunner) RunCommand(ctx context.Context, command string, limit int
 				"; elif [ -x /usr/local/bin/docker ]; then /usr/local/bin/docker " + args +
 				"; elif [ -x /opt/homebrew/bin/docker ]; then /opt/homebrew/bin/docker " + args +
 				"; elif [ -x /Applications/Docker.app/Contents/Resources/bin/docker ]; then /Applications/Docker.app/Contents/Resources/bin/docker " + args +
-				"; else printf 'motty-docker-missing\\n' >&2; exit 127; fi"
+				// The marker must reach standard output: a command runner
+				// returns stdout only, so a stderr marker would be lost and the
+				// missing CLI would surface as a bare exit status instead.
+				"; else printf 'motty-docker-missing\\n'; exit 127; fi"
 		}
 	}
 	return r.Runner.RunCommand(ctx, command, limit)

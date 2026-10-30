@@ -9,6 +9,10 @@ import (
 	"strings"
 )
 
+// windowsProcessScript reads processes through CIM so any Windows OpenSSH
+// default shell works. The account pass needs an elevated session: without it
+// every user reads as the placeholder, which keeps the list usable and
+// read-only rather than failing.
 const windowsProcessScript = `$ErrorActionPreference='Stop'
 $ProgressPreference='SilentlyContinue'
 [Console]::OutputEncoding=New-Object System.Text.UTF8Encoding($false)
@@ -60,8 +64,11 @@ func parseWindowsProcesses(output []byte, key SortKey) (ProcessSnapshot, error) 
 	result := ProcessSnapshot{Truncated: len(rows) > maxSnapshotProcesses}
 	seen := make(map[int]bool, len(rows))
 	for _, r := range rows {
+		// A row can be malformed without the whole machine being unreadable: a
+		// process may exit between the CIM and the perf-counter query, and one
+		// duplicate or zeroed row must not throw away every other process.
 		if r.PID <= 0 || seen[r.PID] || r.CPU == nil || math.IsNaN(*r.CPU) || math.IsInf(*r.CPU, 0) || *r.CPU < 0 || math.IsNaN(r.Memory) || math.IsInf(r.Memory, 0) || r.Memory < 0 || r.Memory > 100 || r.Elapsed > uint64(1000*366*86400) {
-			return ProcessSnapshot{}, ErrMalformed
+			continue
 		}
 		seen[r.PID] = true
 		command := strings.ToValidUTF8(r.Command, "�")
@@ -76,6 +83,9 @@ func parseWindowsProcesses(output []byte, key SortKey) (ProcessSnapshot, error) 
 			elapsed = fmt.Sprintf("%d-%02d:%02d:%02d", seconds/86400, seconds/3600%24, seconds/60%60, seconds%60)
 		}
 		result.Processes = append(result.Processes, Process{PID: r.PID, User: r.User, CPU: *r.CPU, Memory: r.Memory, Elapsed: elapsed, Command: command})
+	}
+	if len(result.Processes) == 0 && len(rows) > 0 {
+		return ProcessSnapshot{}, ErrMalformed
 	}
 	sort.SliceStable(result.Processes, func(i, j int) bool {
 		if key == SortMemory {
