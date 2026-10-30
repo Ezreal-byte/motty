@@ -110,7 +110,7 @@ func (state *State) terminalPointer(session *Session, event ui.PointerEvent) ui.
 		position.Column--
 	}
 	linkPosition := terminalLinkPosition(terminal.screen, position)
-	linksEnabled := terminal.screen.Modes().Mouse == term.MouseOff && event.Modifiers&ui.ModifierShift == 0
+	linksEnabled := terminal.screen.Modes().Mouse == term.MouseOff && state.terminalLinkOpens(event.Modifiers)
 	switch event.Kind {
 	case ui.PointerDown:
 		if event.Button == ui.PointerButtonSecondary {

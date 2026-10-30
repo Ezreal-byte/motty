@@ -253,11 +253,12 @@ func (state *State) openExportDiagnostics() {
 	if errors.Is(err, app.ErrCanceled) || err == nil && path == "" {
 		return
 	}
-	if err == nil {
-		err = writePrivateAtomic(path, []byte(state.diagnosticReport()))
-	}
 	if err != nil {
-		state.status = fmt.Sprintf(m.DiagnosticsFailedFmt, err)
+		state.showActionFailure(m.DiagnosticsSaveTitle, err, state.messages.ActionFeedback.FilePickerFailed)
+		return
+	}
+	if err = writePrivateAtomic(path, []byte(state.diagnosticReport())); err != nil {
+		state.showFileSaveFailure(m.DiagnosticsSaveTitle, err)
 		return
 	}
 	state.status = fmt.Sprintf(m.DiagnosticsSavedFmt, path)

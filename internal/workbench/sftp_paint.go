@@ -516,9 +516,22 @@ func (state *State) paintSFTPDialog(canvas *ui.Canvas, viewport ui.Rect, view *s
 	description := ""
 	fieldLabel := ""
 	submitLabel := ""
+	cancelLabel := messages.Cancel
 	initialFocus := hitSFTPDialogField
 	submitVariant := components.ButtonDefault
 	switch view.dialog {
+	case sftpDialogBrowseCreateDirectory:
+		m := messages.SFTPWindow
+		title, submitLabel, cancelLabel = m.BrowseCreateTitle, m.BrowseCreateConfirm, m.BrowsePause
+		initialFocus = hitSFTPDialogCancel
+		if w := view.detached; w != nil && w.browse.pending != nil {
+			request := w.browse.pending
+			side := m.Remote
+			if request.side == 0 {
+				side = m.Local
+			}
+			description = fmt.Sprintf(m.BrowseCreateDescriptionFmt, side, request.paths[request.side])
+		}
 	case sftpDialogCreateDirectory:
 		title = messages.SFTPNewDirectoryTitle
 		fieldLabel = messages.SFTPDirectoryName
@@ -642,7 +655,7 @@ func (state *State) paintSFTPDialog(canvas *ui.Canvas, viewport ui.Rect, view *s
 		}
 	}
 	dialog.Actions(layout,
-		components.ButtonAction{ID: hitSFTPDialogCancel, Label: messages.Cancel, Variant: components.ButtonSecondary},
+		components.ButtonAction{ID: hitSFTPDialogCancel, Label: cancelLabel, Variant: components.ButtonSecondary},
 		components.ButtonAction{ID: hitSFTPDialogSubmit, Label: submitLabel, Variant: submitVariant},
 	)
 	dialog.End()

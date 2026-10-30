@@ -59,14 +59,14 @@ func (state *State) broadcasting(sessionID uint32) bool {
 func (state *State) toggleBroadcast() {
 	m := state.messages.Tools
 	workspaceID := state.deck.ActiveWorkspace()
-	if state.broadcast == workspaceID {
+	if workspaceID != 0 && state.broadcast == workspaceID {
 		state.broadcast = 0
 		state.status = m.StatusBroadcastOff
 		return
 	}
 	panes := len(state.deck.Panes(workspaceID, nil))
 	if workspaceID == 0 || panes < 2 {
-		state.status = m.StatusBroadcastNeedsSplit
+		state.showActionWarning(m.BroadcastStart, m.StatusBroadcastNeedsSplit)
 		return
 	}
 	state.broadcast = workspaceID
@@ -101,6 +101,12 @@ func (state *State) clickTerminalTools(id ui.ID) bool {
 		state.save()
 	case id == hitSettingsRightClickPaste:
 		state.terminalRightClickPaste = !state.terminalRightClickPaste
+		state.save()
+	case id == hitSettingsBellToggle:
+		state.terminalBellOff = !state.terminalBellOff
+		state.save()
+	case id == hitSettingsLinkPlainClick:
+		state.terminalLinkPlainClick = !state.terminalLinkPlainClick
 		state.save()
 	case id == hitSettingsNotifyToggle:
 		if state.setNotifications(state.notifyOff) {

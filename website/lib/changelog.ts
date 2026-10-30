@@ -21,6 +21,103 @@ export type ChangelogEntry = {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '0.2.0',
+    date: '2026-10-30',
+    sections: [
+      {
+        title: { en: 'New', zh: '新功能' },
+        items: [
+          {
+            en: 'Monitoring dashboards group several SSH hosts and show their CPU, memory, disks and network on one screen.',
+            zh: '可以新建监控面板，把多台 SSH 主机的 CPU、内存、磁盘和网络放到一屏。',
+          },
+          {
+            en: 'A dashboard has simple and detailed views, group filters, drag ordering, and its own sampling interval and retention.',
+            zh: '面板支持简洁和详细视图、分组筛选、拖动排序，以及采集间隔和保留时长。',
+          },
+          {
+            en: 'Dashboards start and stop collection, retry failures, and open a host’s terminal.',
+            zh: '面板可以开始和停止采集，失败能重试，并直接从面板打开终端。',
+          },
+          {
+            en: 'A remote bell plays the system alert sound and can be switched off.',
+            zh: '远程发来的响铃会播放系统提示音，设置里可以关闭。',
+          },
+          {
+            en: 'Links open with Cmd/Ctrl held; a plain click selects and copies, and a setting restores the old behavior.',
+            zh: '终端链接默认要按住 Cmd/Ctrl 才打开，普通点击改为选中复制，设置里可恢复旧行为。',
+          },
+          {
+            en: 'The alternate screen scrolls with the wheel by default, so pagers and editors get arrow keys.',
+            zh: '备用屏滚轮默认开启，在 less、vim 里滚动会发送方向键。',
+          },
+          {
+            en: 'Tabs can follow the title a program reports with OSC 0/2.',
+            zh: '终端标签可以跟随程序的 OSC 0/2 标题，改过名的标签不受影响。',
+          },
+          {
+            en: 'On macOS, Command+Left/Right/Delete send Ctrl+A/E/U.',
+            zh: 'macOS 上 Command+←/→/Delete 会按 Ctrl+A/E/U 发送。',
+          },
+          {
+            en: 'Host secret fields have show/hide buttons, and the host form asks for a single key’s passphrase.',
+            zh: '主机表单的密码框有了显示/隐藏按钮，并新增单把密钥的口令字段。',
+          },
+          {
+            en: 'Passwords and one-time code secrets follow the host: editing the address keeps them, and deleting the host removes them.',
+            zh: '口令和验证码密钥改为跟随主机保存，改地址不会丢，删主机一起删。',
+          },
+        ],
+      },
+      {
+        title: { en: 'Improvements', zh: '改进' },
+        items: [
+          {
+            en: 'The vault no longer uses a master password: its key lives in the system secret store, or in a vault.key beside the data when there is none (and in portable copies).',
+            zh: '密码库不再使用主密码：密钥存进系统密钥链，没有时（和便携版）存在程序旁的 `vault.key`。',
+          },
+          {
+            en: 'Data saved with a master password is converted once on first launch; older builds can no longer open the new data.',
+            zh: '旧版用主密码保存的数据首次启动会弹窗转换一次，之后旧版本无法再打开这份数据。',
+          },
+          {
+            en: 'The terminal scrollbar appears only under the pointer and lights up briefly after keyboard scrolling.',
+            zh: '终端滚动条只在指针悬停时出现，键盘滚动后会亮一秒。',
+          },
+          {
+            en: 'Monitor panels page with PageUp/PageDown and collect with less overhead.',
+            zh: '监控面板的翻页键可以滚动整页，采集开销也更低。',
+          },
+        ],
+      },
+      {
+        title: { en: 'Fixes', zh: '修复' },
+        items: [
+          {
+            en: 'Dragging a selection past the edge scrolls the view and keeps the selection on its text.',
+            zh: '选区拖到终端外会自动滚动并继续扩展，滚动时选区不再消失。',
+          },
+          {
+            en: 'Long selections copy through OSC 52 in chunks instead of failing.',
+            zh: '很长的选区改用 OSC 52 分块复制，不再复制失败。',
+          },
+          {
+            en: 'The send confirmation no longer appears while output is still unparsed.',
+            zh: '输出还在解析时不再弹出待发送确认。',
+          },
+          {
+            en: 'zsh history survives across sessions on macOS.',
+            zh: 'macOS 上 zsh 的跨会话历史不再丢失。',
+          },
+          {
+            en: 'Option and Command editing keys work in the assistant composer.',
+            zh: '助手输入框里的 Option/Command 编辑键生效。',
+          },
+        ],
+      },
+    ],
+  },
+  {
     version: '0.1.9',
     date: '2026-10-29',
     sections: [

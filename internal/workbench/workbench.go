@@ -219,6 +219,7 @@ var (
 	hitSettingsCopyOnSelect     = tree.ID(settingsHits, "settings-copy-on-select")
 	hitSettingsRightClickPaste  = tree.ID(settingsHits, "settings-right-click-paste")
 	hitSettingsTabTitle         = tree.ID(settingsHits, "settings-tab-title")
+	hitSettingsLinkPlainClick   = tree.ID(settingsHits, "settings-link-plain-click")
 	hitSettingsClipboardAsk     = tree.ID(settingsHits, "settings-clipboard-ask")
 	hitSettingsClipboardAllow   = tree.ID(settingsHits, "settings-clipboard-allow")
 	hitSettingsRestoreActive    = tree.ID(settingsHits, "settings-restore-active")
@@ -578,6 +579,9 @@ type State struct {
 	// terminalTabTitle lets a tab show the title its terminal reports instead
 	// of the host's name (see tabLabel).
 	terminalTabTitle bool
+	// terminalBellOff silences the terminal bell, and terminalLinkPlainClick
+	// opens a link on a click without the modifier key (see terminalLinkOpens).
+	terminalBellOff, terminalLinkPlainClick bool
 
 	// settingsScroll is how far the settings page is scrolled, in pixels, and
 	// settingsContent how tall it was when last painted.
@@ -1395,7 +1399,7 @@ func (state *State) openNewWindow() {
 		return
 	}
 	if err := state.options.NewWindow(); err != nil {
-		state.status = fmt.Sprintf(state.messages.StatusNewWindowFailedFmt, err)
+		state.showActionFailure(state.messages.NewWindow, err, state.messages.ActionFeedback.NewWindowFailed)
 	}
 }
 
@@ -1640,7 +1644,7 @@ func (state *State) typedQuery() string {
 
 // connectTyped connects to what the search box holds: a saved host named
 // exactly by its label or address, or else a target written as
-// [user@]host[:port]. Text that is neither says so in the status line and
+// [user@]host[:port]. Text that is neither shows a warning and
 // connects nowhere.
 func (state *State) connectTyped() {
 	query := state.typedQuery()
@@ -1666,7 +1670,7 @@ func (state *State) connectTyped() {
 	}
 	parsed, err := parseConnection(query)
 	if err != nil {
-		state.status = fmt.Sprintf(state.messages.ErrBadTargetFmt, query)
+		state.showActionWarning(state.messages.Connect, state.messages.ActionFeedback.InvalidConnection)
 		return
 	}
 	state.connectParsed(parsed)

@@ -52,6 +52,8 @@ type savedState struct {
 	TerminalCopyOnSelect       bool                `json:"terminal_copy_on_select,omitempty"`
 	TerminalRightClickPaste    bool                `json:"terminal_right_click_paste,omitempty"`
 	TerminalTabTitle           bool                `json:"terminal_tab_title,omitempty"`
+	TerminalBellOff            bool                `json:"terminal_bell_off,omitempty"`
+	TerminalLinkPlainClick     bool                `json:"terminal_link_plain_click,omitempty"`
 	AIPanelWidth               float32             `json:"ai_panel_width,omitempty"`
 	WindowX                    int                 `json:"window_x,omitempty"`
 	WindowY                    int                 `json:"window_y,omitempty"`
@@ -370,6 +372,8 @@ func (state *State) snapshot() savedState {
 		TerminalCopyOnSelect:       state.terminalCopyOnSelect,
 		TerminalRightClickPaste:    state.terminalRightClickPaste,
 		TerminalTabTitle:           state.terminalTabTitle,
+		TerminalBellOff:            state.terminalBellOff,
+		TerminalLinkPlainClick:     state.terminalLinkPlainClick,
 		AIPanelWidth:               state.ai.panelWidth,
 		TerminalSchemeDark:         state.terminalSchemes[appearanceDark],
 		TerminalSchemeLight:        state.terminalSchemes[appearanceLight],
@@ -645,6 +649,8 @@ func (state *State) restoreShared(saved savedState) {
 	state.terminalCopyOnSelect = saved.TerminalCopyOnSelect
 	state.terminalRightClickPaste = saved.TerminalRightClickPaste
 	state.terminalTabTitle = saved.TerminalTabTitle
+	state.terminalBellOff = saved.TerminalBellOff
+	state.terminalLinkPlainClick = saved.TerminalLinkPlainClick
 	if saved.TerminalSchemeDark == "" && saved.TerminalSchemeLight == "" && saved.TerminalScheme != "" {
 		state.terminalSchemes[appearanceDark], state.terminalSchemes[appearanceLight] = migrateTerminalScheme(saved.TerminalScheme)
 	} else {

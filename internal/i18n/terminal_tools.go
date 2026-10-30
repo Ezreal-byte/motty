@@ -105,6 +105,10 @@ type ToolsMessages struct {
 	CopyOnSelectDescription    string
 	RightClickPasteRow         string
 	RightClickPasteDescription string
+	LinkPlainClickRow          string
+	LinkPlainClickDescription  string
+	BellRow                    string
+	BellDescription            string
 	TabTitleRow                string
 	TabTitleDescription        string
 

@@ -180,6 +180,7 @@ type Terminal struct {
 	replyFn            func([]byte)
 	clipboardFn        func(ClipboardWrite)
 	notifyFn           func(Notification)
+	bellFn             func()
 	cwdFn              func(Cwd)
 	cwdReportFn        func(Cwd)
 	promptReadyFn      func()

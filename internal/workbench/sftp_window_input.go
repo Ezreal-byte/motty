@@ -407,7 +407,7 @@ func (w *sftpWindow) click(id ui.ID) {
 			w.navigate(local, parent)
 			return
 		case sftpWindowNewFolder[side]:
-			if local && w.pendingLocal != "" || !local && (w.view.busy || !w.connected()) {
+			if w.browse.pending != nil || local && w.pendingLocal != "" || !local && (w.view.busy || !w.connected()) {
 				return
 			}
 			w.activeLocal, w.view.local = local, local

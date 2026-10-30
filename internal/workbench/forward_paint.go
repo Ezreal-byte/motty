@@ -11,6 +11,7 @@ const forwardHostPageSize = 6
 
 func (state *State) paintForwardsWorkspace(canvas *ui.Canvas, bounds ui.Rect) {
 	pal, messages := state.pal, state.messages
+	canAdd := state.sshHostCount() > 0
 	selected, hasSelection := state.forwardByID(state.selectedForwardID)
 	actionLabel := messages.ForwardStart
 	actionIcon := uint8(iconPlay)
@@ -65,10 +66,10 @@ func (state *State) paintForwardsWorkspace(canvas *ui.Canvas, bounds ui.Rect) {
 
 	state.paintToolbarButton(canvas, hitForwardRemove, remove.Rect().X, remove.Rect().Y, removeWidth, messages.ForwardRemove, removeIcon, false, hasSelection, condensed)
 	state.paintToolbarButton(canvas, hitForwardStartStop, action.Rect().X, action.Rect().Y, actionWidth, actionLabel, realActionIcon, false, hasSelection, condensed)
-	state.paintToolbarButton(canvas, hitForwardAdd, add.Rect().X, add.Rect().Y, addWidth, messages.ForwardAdd, addIcon, true, true, condensed)
+	state.paintToolbarButton(canvas, hitForwardAdd, add.Rect().X, add.Rect().Y, addWidth, messages.ForwardAdd, addIcon, true, canAdd, condensed)
 
 	if len(state.forwards) == 0 {
-		state.paintEmptyPage(canvas, emptyIcon, emptyAdd, iconForward, hitForwardAdd, messages.ForwardAdd, true)
+		state.paintEmptyPage(canvas, emptyIcon, emptyAdd, iconForward, hitForwardAdd, messages.ForwardAdd, canAdd)
 		return
 	}
 	columns := [...]components.TableColumn{{Width: 180}, {Width: 160}, {Width: 170}, {Width: 210}, {Width: 0}}

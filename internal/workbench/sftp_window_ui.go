@@ -210,7 +210,7 @@ func (w *sftpWindow) paintPane(canvas *ui.Canvas, bounds ui.Rect, local bool) {
 				buttons[buttonCount-1].style = iconButtonActive
 			}
 			if local {
-				icon(hitSFTPLocationProfiles, iconSFTPProfiles, m.SFTPWindow.BookmarkTitle, false)
+				icon(hitSFTPLocationProfiles, iconSFTPProfiles, m.SFTPWindow.BookmarkTitle, w.browse.pending != nil)
 				hint := m.SFTPWindow.BrowseSync
 				if w.browse.enabled {
 					hint = w.browseDescription()
@@ -289,7 +289,7 @@ func (w *sftpWindow) paintPane(canvas *ui.Canvas, bounds ui.Rect, local bool) {
 					return
 				}
 				for _, action := range w.selectionActions(local) {
-					icon(sftpWindowActions[side].At(action.index), action.glyph, action.label, w.view.busy && !local || !local && !w.connected())
+					icon(sftpWindowActions[side].At(action.index), action.glyph, action.label, w.browse.pending != nil || w.view.busy && !local || !local && !w.connected())
 					if sftpWindowActionIDs[action.index] == hitSFTPDelete {
 						buttons[buttonCount-1].style = iconButtonDanger
 					}
@@ -458,7 +458,7 @@ func (w *sftpWindow) paintMenu(canvas *ui.Canvas) {
 		}
 		if index := sftpWindowActionIndex(action); index >= 0 {
 			item.ID = sftpWindowMenuActions.At(index)
-			item.Disabled = w.pendingLocal != "" || !w.activeLocal && (!w.connected() || w.view.busy)
+			item.Disabled = w.browse.pending != nil || w.pendingLocal != "" || !w.activeLocal && (!w.connected() || w.view.busy)
 		}
 	}
 	theme := w.owner.contextMenuTheme()

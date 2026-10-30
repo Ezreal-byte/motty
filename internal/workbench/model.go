@@ -105,6 +105,9 @@ type Session struct {
 	// notified is when this terminal last had a notification shown.
 	notified  time.Duration
 	didNotify bool
+	// belled is when this terminal last rang the bell.
+	belled  time.Duration
+	didBell bool
 	// filledSecret is the saved secret the last question was answered with, to be
 	// forgotten if the server refuses it. pendingSecret* is what the user asked
 	// to save, kept until the server accepts it.
