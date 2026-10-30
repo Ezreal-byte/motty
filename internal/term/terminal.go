@@ -462,7 +462,10 @@ func (t *Terminal) resetState() {
 	t.top, t.bot = 0, t.rows-1
 	t.charsets, t.gl = [4]charset{}, 0
 	t.cursor, t.cursorSteady = CursorBlock, false
-	t.modes = Modes{CursorVisible: true, Autowrap: true}
+	// Alternate scroll starts on, as in VTE, kitty and Windows Terminal: a pager
+	// or editor that did not ask for the mouse still scrolls with the wheel. A
+	// program turns it off with 1007 reset.
+	t.modes = Modes{CursorVisible: true, Autowrap: true, AlternateScroll: true}
 	t.resetKeyboard()
 	t.tabs = defaultTabs(t.cols, nil)
 	t.version++

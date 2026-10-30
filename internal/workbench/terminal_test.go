@@ -436,22 +436,22 @@ func TestTheWheelScrollsBackAndTypingReturnsToTheBottom(t *testing.T) {
 		t.Fatalf("Shift+PageUp: offset %d, sent %q", t0.screen.ViewOffset(), shell.typed()[typed:])
 	}
 
-	// On the alternate screen the wheel is arrow keys only when the program
-	// explicitly asks for alternate scroll mode.
+	// On the alternate screen the wheel is arrow keys unless the program turned
+	// alternate scroll mode off or asked for the mouse itself.
 	t0.screen.ScrollToBottom()
 	shell.say("\x1b[?1049h")
 	state.Wake()
 	typed = len(shell.typed())
 	state.Scroll(ui.ScrollEvent{DeltaY: 2 * state.cellHeight, Precise: true})
-	if got := shell.typed()[typed:]; got != "" {
-		t.Fatalf("wheel without alternate-scroll mode sent %q", got)
+	if got := shell.typed()[typed:]; got != "\x1b[B\x1b[B" {
+		t.Fatalf("wheel on the alternate screen sent %q", got)
 	}
-	shell.say("\x1b[?1007h")
+	shell.say("\x1b[?1007l")
 	state.Wake()
 	typed = len(shell.typed())
 	state.Scroll(ui.ScrollEvent{DeltaY: 2 * state.cellHeight, Precise: true})
-	if got := shell.typed()[typed:]; got != "\x1b[B\x1b[B" {
-		t.Fatalf("wheel on the alternate screen sent %q", got)
+	if got := shell.typed()[typed:]; got != "" {
+		t.Fatalf("wheel with alternate-scroll mode reset sent %q", got)
 	}
 	// The wheel does not reach the terminal off the terminal page: the host list
 	// may take it, but the terminal's view stays where it was.
