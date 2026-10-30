@@ -188,6 +188,17 @@ func (s *State) dashboardKey(e ui.KeyEvent) ui.EventResult {
 			return ui.EventResult{Handled: true, Repaint: true}
 		}
 	}
+	// Page keys scroll the page from any of its controls, so following a long
+	// panel does not first require Tab-ing to the scroll viewport. A text field
+	// keeps its own page keys.
+	if (e.Key == ui.KeyPageUp || e.Key == ui.KeyPageDown) && s.EditorFor(e.Target) == nil {
+		g := s.dashboardArea()
+		if x, y, handled := g.ScrollForKey(s.dashboard.scrollX, s.dashboard.scroll, e.Key, 32); handled {
+			s.dashboard.scrollX = x
+			s.dashboard.scroll = y
+			return ui.EventResult{Handled: true, Repaint: true}
+		}
+	}
 	return ui.EventResult{}
 }
 func (s *State) dashboardPointer(e ui.PointerEvent) (ui.EventResult, bool) {

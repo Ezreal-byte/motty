@@ -419,3 +419,28 @@ func TestDashboardStartupUsesAnObservableTimeRangeWithoutInventingPoints(t *test
 		t.Fatal("lost current panel")
 	}
 }
+
+func TestDashboardPageKeysScrollThePageFromAnyControl(t *testing.T) {
+	s, _, _ := dashboardTestState(t)
+	for i := 2; i <= 6; i++ {
+		catalog := fmt.Sprintf("host%d", i)
+		s.hosts = append(s.hosts, Host{ID: uint32(i), CatalogID: catalog, Label: catalog, Address: "10.0.0.1", Port: 22, User: "deploy", System: sshconn.SystemUbuntu})
+	}
+	createDashboard(t, s, "A")
+	p := s.dashboardPanel()
+	p.Hosts = append(p.Hosts, "host2", "host3", "host4", "host5", "host6")
+	s.dashboard.engine.Set(*p, true)
+	paintAt(s, ui.Size{Width: 900, Height: 520})
+	if s.dashboard.content <= s.dashboard.body.Height {
+		t.Fatalf("content %v fits the body %v; the scroll check would prove nothing", s.dashboard.content, s.dashboard.body.Height)
+	}
+	if s.dashboard.scroll != 0 {
+		t.Fatal("the page did not start at the top")
+	}
+	// The page switch button holds the focus; page keys must still scroll the
+	// panel instead of requiring a Tab stop on the scroll viewport first.
+	result := s.Key(ui.KeyEvent{Key: ui.KeyPageDown, Target: hitDashboardSwitch})
+	if !result.Handled || s.dashboard.scroll <= 0 {
+		t.Fatalf("PageDown on a control did not scroll the page: handled=%v scroll=%v", result.Handled, s.dashboard.scroll)
+	}
+}
