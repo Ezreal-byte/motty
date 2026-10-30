@@ -36,13 +36,14 @@ func (state *State) sftpListPointer(event ui.PointerEvent) (ui.EventResult, bool
 		}
 	case ui.PointerUp:
 		view.scrollDrag = false
-		folder.first = min(max(0, int(math.Round(float64(folder.scrollOffset/sftpRowHeight)))), max(0, len(folder.rows)-max(folder.visibleRows, 1)))
-		folder.scrollOffset = float32(folder.first) * sftpRowHeight
+		// The row above the pointer keeps the offset the drag left: paint derives
+		// the same row from it with floor, so releasing over a partial row no
+		// longer snaps the list back by up to half a row.
+		folder.first = min(max(0, int(math.Floor(float64(folder.scrollOffset/sftpRowHeight)))), max(0, len(folder.rows)-max(folder.visibleRows, 1)))
 		return ui.EventResult{Handled: true, Repaint: true}, true
 	case ui.PointerExit:
 		if !event.Captured {
 			view.scrollDrag = false
-			folder.scrollOffset = float32(folder.first) * sftpRowHeight
 		}
 		return ui.EventResult{Handled: true}, true
 	default:
