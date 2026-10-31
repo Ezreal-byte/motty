@@ -10,6 +10,7 @@ import (
 	"github.com/vivaui/viva/ui"
 	"motty/internal/sessionimport"
 	"motty/internal/sshconfig"
+	"motty/internal/workbench/icons"
 )
 
 // Importing the saved sessions of PuTTY, Xshell, MobaXterm, WindTerm, Electerm
@@ -31,6 +32,7 @@ var (
 	hitImportWindTerm        = tree.ID(sessionImportHits, "import-wind-term")
 	hitImportElecterm        = tree.ID(sessionImportHits, "import-electerm")
 	hitImportNetcatty        = tree.ID(sessionImportHits, "import-netcatty")
+	hitImportGuide           = tree.ID(sessionImportHits, "import-guide")
 )
 
 func importClientName(client sessionimport.Client) string {
@@ -63,6 +65,8 @@ func (state *State) clickImportSessions(id ui.ID) {
 		state.importSessions(sessionimport.Electerm)
 	case hitImportNetcatty:
 		state.importSessions(sessionimport.Netcatty)
+	case hitImportGuide:
+		state.openExternal(state.messages.Tools.ImportGuideURL)
 	case hitImportSessionsCancel, hitImportSessionsClose, hitImportSessionsDismiss:
 		state.modal = modalNone
 	}
@@ -175,6 +179,10 @@ func (state *State) paintImportSessionsDialog(canvas *ui.Canvas, viewport ui.Rec
 		}
 		components.BeginButton(canvas, theme, choice.id, cell).Large().Outline(choice.label)
 	}
+	// Where each client keeps what this dialog reads is told in the docs, which
+	// the link opens; it sits at the footer's left, across from Cancel.
+	components.BeginButton(canvas, theme, hitImportGuide, ui.Rect{X: layout.Footer.X, Y: layout.Footer.Y}).
+		WithIcon(icons.BookOpen).SizeToFit(m.ImportGuide).Link(m.ImportGuide)
 	dialog.Actions(layout,
 		components.ButtonAction{ID: hitImportSessionsCancel, Label: state.messages.Cancel, Variant: components.ButtonSecondary},
 	)

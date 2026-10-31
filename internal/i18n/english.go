@@ -1318,6 +1318,8 @@ var englishTools = ToolsMessages{
 	ImportSessions:            "Import from",
 	ImportChooserTitle:        "Import sessions",
 	ImportChooserBody:         "Choose a client, then pick its saved session files.",
+	ImportGuide:               "Import guide",
+	ImportGuideURL:            "https://motty.page/en/docs/connections/hosts-and-authentication#import",
 	ImportPickerFmt:           "Import %s sessions",
 	ImportCanceled:            "Import canceled.",
 	ImportFailedFmt:           "Could not import: %v",

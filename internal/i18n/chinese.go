@@ -1318,6 +1318,8 @@ var chineseTools = ToolsMessages{
 	ImportSessions:            "从其他软件导入",
 	ImportChooserTitle:        "导入会话",
 	ImportChooserBody:         "选择导入来源，再选取它保存会话的文件。",
+	ImportGuide:               "导入指南",
+	ImportGuideURL:            "https://motty.page/zh/docs/connections/hosts-and-authentication#导入",
 	ImportPickerFmt:           "导入 %s 会话",
 	ImportCanceled:            "已取消导入。",
 	ImportFailedFmt:           "无法导入：%v",

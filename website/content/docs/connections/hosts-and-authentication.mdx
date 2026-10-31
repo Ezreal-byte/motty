@@ -60,15 +60,25 @@ Hosts can be grouped, tagged and searched.
 
 ### Import
 
-Motty reads the saved sessions of other clients:
+Open **Import > Import from** and choose the client, then the file it saved.
+Motty takes each session's name, folder, address, port and user; protocols it
+cannot open are counted as skipped. Passwords, key passphrases and key files
+are never imported, so add them to the host afterwards. A host whose address,
+user and port are already saved is left out.
 
-- OpenSSH config
-- PuTTY
-- Xshell
-- MobaXterm
-- WindTerm
-- Electerm
-- Netcatty (the hosts CSV from its **Export** button)
+| Client | File to choose |
+| --- | --- |
+| OpenSSH config | `~/.ssh/config` (**Import > Import SSH Config**) |
+| PuTTY | On Windows, a registry export: `reg export HKCU\Software\SimonTatham\PuTTY\Sessions putty.reg`. On Linux and macOS, the files in `~/.putty/sessions`. |
+| Xshell | The `.xsh` session files, or the `.xts` archive Xshell exports. |
+| MobaXterm | The `.mxtsessions` file exported from the sessions panel, or `MobaXterm.ini`. |
+| WindTerm | `user.sessions` in the `terminal` folder of WindTerm's profile. |
+| Electerm | The bookmarks JSON exported from Electerm's bookmark manager. |
+| Netcatty | The CSV from the **Export** button on Netcatty's hosts page. Netcatty keeps its own vault encrypted, so only this export can be read. |
+
+Electerm and Netcatty write saved passwords into the export in clear text.
+Motty does not import them and says so after the import; delete the file when
+you are done.
 
 ## Syncing with your SSH config
 

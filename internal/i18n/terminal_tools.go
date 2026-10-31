@@ -194,6 +194,8 @@ type ToolsMessages struct {
 	ImportSessions            string
 	ImportChooserTitle        string
 	ImportChooserBody         string
+	ImportGuide               string // the link to the docs on exporting from each client
+	ImportGuideURL            string
 	ImportPickerFmt           string // the client's name
 	ImportCanceled            string
 	ImportFailedFmt           string

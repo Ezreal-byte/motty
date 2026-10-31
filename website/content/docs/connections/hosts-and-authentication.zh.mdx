@@ -53,15 +53,23 @@ TOTP 和 HOTP 种子可以存进保险库，服务器要求验证码时自动填
 
 ### 导入
 
-Motty 可以读取其他客户端保存的会话：
+点击**导入 > 从其他软件导入**，选择来源客户端，再选取它保存的文件。Motty 读取每个
+会话的名称、文件夹、地址、端口和用户；打不开的协议会计入“已跳过”。密码、密钥口令
+和密钥文件一律不导入，请在导入后补到主机上。地址、用户和端口都与已保存主机相同的
+主机会被略过。
 
-- OpenSSH 配置
-- PuTTY
-- Xshell
-- MobaXterm
-- WindTerm
-- Electerm
-- Netcatty（主机页「导出」得到的 CSV）
+| 来源 | 要选择的文件 |
+| --- | --- |
+| OpenSSH 配置 | `~/.ssh/config`（**导入 > 导入 SSH Config**） |
+| PuTTY | Windows 上选注册表导出：`reg export HKCU\Software\SimonTatham\PuTTY\Sessions putty.reg`；Linux 和 macOS 上选 `~/.putty/sessions` 里的文件。 |
+| Xshell | `.xsh` 会话文件，或 Xshell 导出的 `.xts` 压缩包。 |
+| MobaXterm | 从会话面板导出的 `.mxtsessions` 文件，或 `MobaXterm.ini`。 |
+| WindTerm | WindTerm 配置目录下 `terminal` 文件夹里的 `user.sessions`。 |
+| Electerm | 在 Electerm 书签管理里导出的书签 JSON。 |
+| Netcatty | Netcatty 主机页**导出**按钮得到的 CSV。Netcatty 自己的保险库是加密的，只有这份导出能被读取。 |
+
+Electerm 和 Netcatty 会把已保存的密码以明文写进导出文件。Motty 不会导入它们，
+并会在导入后提示；用完请删除该文件。
 
 ## 与 SSH 配置同步
 

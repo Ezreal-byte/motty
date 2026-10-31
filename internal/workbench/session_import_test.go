@@ -141,6 +141,21 @@ func TestImportingElectermBookmarksAddsHostsWithTheirNestedGroups(t *testing.T) 
 	}
 }
 
+func TestImportGuideLinkOpensTheDocsAndKeepsTheChooserOpen(t *testing.T) {
+	var opened []string
+	options := freshOptions(t)
+	options.OpenURL = func(url string) error { opened = append(opened, url); return nil }
+	state := newTestState(t, options)
+	state.Click(hitImportSessions)
+	state.Click(hitImportGuide)
+	if len(opened) != 1 || !strings.HasPrefix(opened[0], "https://motty.page/") {
+		t.Fatalf("opened %q", opened)
+	}
+	if state.modal != modalImportSessions {
+		t.Fatalf("modal = %d, want the chooser to stay open", state.modal)
+	}
+}
+
 func TestImportingNetcattyHostsAddsHostsWithTheirGroups(t *testing.T) {
 	file := filepath.Join(t.TempDir(), "hosts_export_2026-10-31.csv")
 	content := "Groups,Label,Tags,Notes,Hostname/IP,Protocol,Port,Username,Password,KeyPath,Passphrase\r\n" +
