@@ -879,6 +879,7 @@ var chineseAIPanel = AIPanelMessages{
 	EscalationCancelled: "已保持问答模式。",
 	EscalationMissing:   "无法重试：没有找到这条请求。",
 	NoticeStoreError:    "无法打开助手的数据库:%s",
+	AnswerTruncated:     "回答达到了模型的输出上限，末尾被截断。",
 
 	MenuAskSelection:  "就所选内容询问助手",
 	MenuExplainOutput: "解释最近的输出",

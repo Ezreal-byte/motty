@@ -856,6 +856,10 @@ func (state *State) aiEvent(run *aiRun, event agent.Event) {
 	case agent.EventDone:
 		ai.lastUsage = event.Usage
 		ai.totalUsage = ai.totalUsage.Add(event.Usage)
+		if llm.StopsAtLimit(event.StopReason) {
+			// Half an answer must not look like the whole of it.
+			ai.items = append(ai.items, aiItem{kind: aiNotice, text: state.messages.AIPanel.AnswerTruncated})
+		}
 	case agent.EventError:
 		ai.items = append(ai.items, aiItem{kind: aiNotice, text: errorText(event.Text)})
 	}

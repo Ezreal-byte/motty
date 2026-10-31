@@ -879,6 +879,7 @@ var englishAIPanel = AIPanelMessages{
 	EscalationCancelled: "Stayed in Ask mode.",
 	EscalationMissing:   "Could not retry: the request was not found.",
 	NoticeStoreError:    "The assistant's database could not be opened: %s",
+	AnswerTruncated:     "The answer reached the model's output limit and was cut off.",
 
 	MenuAskSelection:  "Ask the assistant about the selection",
 	MenuExplainOutput: "Explain recent output",

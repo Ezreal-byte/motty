@@ -141,6 +141,9 @@ type AIPanelMessages struct {
 	EscalationCancelled string
 	EscalationMissing   string
 	NoticeStoreError    string
+	// AnswerTruncated explains a reply the provider cut off at its output
+	// limit, so a half answer is not read as a finished one.
+	AnswerTruncated string
 
 	MenuAskSelection  string
 	MenuExplainOutput string
