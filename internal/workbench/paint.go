@@ -114,6 +114,7 @@ func (state *State) terminalPage() bool {
 // Paint renders the application from state using stable hit identities.
 func (state *State) Paint(canvas *ui.Canvas, size ui.Size) {
 	canvas.SetTree(&tree)
+	state.pixelScale = canvas.PixelScale()
 	// Motty keeps one central click handler. The event pass of a click names its
 	// target here; the handler runs once this paint has returned, outside it,
 	// because it may open a native dialog or block. The repaint that follows

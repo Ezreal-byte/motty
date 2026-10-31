@@ -700,7 +700,10 @@ type State struct {
 	dev devState
 	// viewport and the terminal cell are the layout inputs of the last paint,
 	// kept so a resize can work out how many rows and columns fit.
-	viewport              ui.Size
+	viewport ui.Size
+	// pixelScale is the device pixels per logical pixel of the display, as the last
+	// paint saw it; zero before the first.
+	pixelScale            float32
 	cellWidth, cellHeight float32
 	paneCanvas            ui.Canvas
 	contextCanvas         ui.Canvas
