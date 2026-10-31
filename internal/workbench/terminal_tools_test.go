@@ -89,6 +89,18 @@ func TestHighlightingNothingCostsNoExtraWork(t *testing.T) {
 	}
 }
 
+// schemeCard is the Settings card showing the color scheme with this id.
+func schemeCard(t *testing.T, id string) ui.ID {
+	t.Helper()
+	for index := range colorSchemes {
+		if colorSchemes[index].id == id {
+			return hitSettingsSchemeList.At(index + 1)
+		}
+	}
+	t.Fatalf("no color scheme %q", id)
+	return ui.ID{}
+}
+
 func TestSchemeChangesTheTerminalNotTheWindow(t *testing.T) {
 	_, options := newWorld(t)
 	state := newTestState(t, options)
@@ -96,7 +108,7 @@ func TestSchemeChangesTheTerminalNotTheWindow(t *testing.T) {
 	epoch := state.termPal.epoch
 
 	state.Click(hitSettings)
-	state.Click(hitSettingsSchemeList.At(1)) // Dracula, the first after Default
+	state.Click(schemeCard(t, "dracula"))
 	if state.activeScheme() != "dracula" {
 		t.Fatalf("scheme = %q", state.activeScheme())
 	}
@@ -145,7 +157,7 @@ func TestEachLookKeepsItsOwnTerminalScheme(t *testing.T) {
 	}
 
 	state.Click(hitSettings)
-	state.Click(hitSettingsSchemeList.At(1)) // Dracula for the dark look
+	state.Click(schemeCard(t, "dracula"))
 	darkTerminal := state.termPal.terminal
 
 	state.Click(hitTheme) // the window turns light and so does the terminal
