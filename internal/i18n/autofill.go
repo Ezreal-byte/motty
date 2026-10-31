@@ -7,6 +7,10 @@ type AutofillMessages struct {
 	Row                string
 	RowDescription     string
 	Add                string
+	PresetSudo         string
+	PresetSu           string
+	PresetSudoName     string
+	PresetSuName       string
 	Edit               string
 	Delete             string
 	TurnOn             string

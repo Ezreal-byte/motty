@@ -1038,6 +1038,9 @@ func (state *State) EditorFor(hit ui.ID) *text.Editor {
 		if hit == hitDialogAlgorithms && state.editor.protocol == protocolSSH && state.editor.algoMode == algoCustom {
 			return &state.editor.algorithms
 		}
+		if hit == hitDialogLoginCommand && state.editor.protocol == protocolSSH {
+			return &state.editor.loginCommand
+		}
 		if hit == hitDialogOTP && state.editor.protocol == protocolSSH {
 			return &state.editor.otp
 		}

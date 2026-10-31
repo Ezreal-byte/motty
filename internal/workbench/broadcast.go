@@ -133,6 +133,10 @@ func (state *State) clickTerminalTools(id ui.ID) bool {
 		state.modal = modalImportSessions
 	case id == hitSettingsAutofillAdd:
 		state.openAutofillDialog(nil)
+	case id == hitSettingsAutofillSudo:
+		state.openAutofillSudoPreset()
+	case id == hitSettingsAutofillSu:
+		state.openAutofillSuPreset()
 	case id.Scope() == hitAutofillToggleList:
 		state.toggleAutofillRule(item(id))
 	case id.Scope() == hitAutofillEditList:
