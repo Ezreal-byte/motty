@@ -14,6 +14,7 @@ import (
 	"motty/internal/autofill"
 	"motty/internal/cmdhistory"
 	"motty/internal/i18n"
+	"motty/internal/sessionlog"
 	"motty/internal/sshconn"
 	"motty/internal/term"
 	layoutcore "motty/internal/workspace"
@@ -615,11 +616,17 @@ func (state *State) shellOpened(session *Session, shell Shell, err error) {
 		session.tone = toneFail
 		session.err, session.shellFailed = err, true
 		session.finished = state.now()
+		// The transport is up but no usable shell came out of it: the session
+		// never became usable, and the journal says so without the error text.
+		state.submitSessionLogEvent(session, sessionlog.EventShellFailed, 0)
+		state.finishSessionLog(session, sessionlog.StatusFailed, sessionlog.ReasonShellFailed)
 		state.describe(session)
 		return
 	}
 	t.shell = shell
 	t.shellOpened = state.now()
+	state.submitSessionLogEvent(session, sessionlog.EventShellOpened, 0)
+	session.logStatus = sessionlog.StatusActive
 	forwardNotes := 0
 	if reporter, ok := shell.(interface{ X11Err() error }); ok && session.host.ForwardX11 {
 		if err := reporter.X11Err(); err != nil {
@@ -1249,6 +1256,9 @@ func (state *State) scroll(event ui.ScrollEvent) ui.EventResult {
 	}
 	if state.activeSection == sectionHosts && state.modal == modalNone && state.hostsContent > 0 {
 		return state.scrollHosts(event)
+	}
+	if state.activeSection == sectionSessionLogs && state.modal == modalNone {
+		return state.scrollSessionLogs(event)
 	}
 	session, ok := state.sessionByIDPointer(state.activeSessionID)
 	if hovered := state.terminalOrBarSession(event.Target); hovered != nil {

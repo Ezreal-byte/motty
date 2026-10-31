@@ -277,6 +277,10 @@ type Options struct {
 	// Now is a monotonic clock, for how long a connection has taken and how long
 	// a silent shell is waited for. Nil is the time since the workbench opened.
 	Now func() time.Duration
+	// SessionLogRunID names this process run for the connection journal. Empty
+	// uses one random value for the whole process, which tests may override to
+	// exercise startup recovery.
+	SessionLogRunID string
 }
 
 func (options Options) withDefaults() Options {
@@ -419,6 +423,9 @@ const maxBannerLines = 8
 // at once; everything after happens on the connection's goroutine.
 func (state *State) startConnection(session *Session, host Host) {
 	state.cancelReconnect(session)
+	// A user dial is a new logical session; automatic retries and the
+	// share-refusal re-dial go through startConnectionMode and keep the row.
+	state.startSessionLog(session, host)
 	state.startConnectionMode(session, host, false)
 }
 
@@ -644,6 +651,7 @@ func (state *State) Wake() {
 	}
 	state.pumpSFTPConnections()
 	state.pumpDashboard()
+	state.pumpSessionLogs()
 	state.showNextPrompt()
 	state.drainAI()
 	state.syncSFTPWindows()
@@ -711,6 +719,9 @@ func (state *State) apply(session *Session, status sshconn.Status) {
 	}
 	state.recordConnectionStatus(session, previousPhase, status)
 	state.updateReconnect(session, status)
+	// The retry policy has run: the journal can now tell a transient close that
+	// will be retried from a final one.
+	state.journalConnectionOutcome(session, status)
 
 	switch status.Phase {
 	case sshconn.PhaseConnecting, sshconn.PhaseHostKeyPrompt:

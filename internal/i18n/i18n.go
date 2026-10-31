@@ -47,6 +47,8 @@ type Messages struct {
 	Autofill AutofillMessages
 	// History holds the command history's texts; see history.go.
 	History HistoryMessages
+	// SessionLogs holds the local session-log page's texts; see session_logs.go.
+	SessionLogs SessionLogsMessages
 	// Completion holds the command completion's texts; see completion.go.
 	Completion CompletionMessages
 	// SSHSync holds the texts of the sync with the OpenSSH config; see ssh_sync.go.

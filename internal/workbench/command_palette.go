@@ -96,6 +96,7 @@ func (state *State) rebuildCommandPalette() {
 	palette.add(messages.NavKnownHosts, hitKnownHosts)
 	palette.add(messages.NavSettings, hitSettings)
 	palette.add(messages.NavSnippets, hitSnippets)
+	palette.add(messages.SessionLogs.Title, hitSessionLogs)
 	state.devAddPaletteCommands(palette)
 	if state.options.NewWindow != nil {
 		palette.add(messages.NewWindow, hitNewWindow)

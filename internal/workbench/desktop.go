@@ -13,6 +13,7 @@ import (
 	"github.com/vivaui/viva/flex"
 	"github.com/vivaui/viva/ui"
 	"motty/internal/desktop"
+	"motty/internal/sessionlog"
 	"motty/internal/sshconn"
 	layoutcore "motty/internal/workspace"
 )
@@ -149,6 +150,10 @@ func (state *State) openDesktop(session *Session) {
 		session.tone = toneFail
 		session.err, session.shellFailed = fmt.Errorf("%s", state.messages.Desktop.ErrNoDesktop), true
 		session.finished = state.now()
+		// The transport connected but there is no desktop to show: the journal
+		// records a failed session rather than a usable one.
+		state.submitSessionLogEvent(session, sessionlog.EventShellFailed, 0)
+		state.finishSessionLog(session, sessionlog.StatusFailed, sessionlog.ReasonShellFailed)
 		state.describe(session)
 		return
 	}

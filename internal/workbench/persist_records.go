@@ -58,7 +58,10 @@ import (
 // under its login: an older build would look for them where they no longer are.
 // Version 9 was also used by monitoring builds for device-local panel definitions.
 // Version 10 preserves both changes so neither older build can overwrite them.
-const configFormat = 10
+// Version 11 preserves the device-local session-log capture switch: the field
+// lives in the local state object, and an older build's first (full) save would
+// rewrite that object from its typed struct and silently turn capture back on.
+const configFormat = 11
 
 const (
 	kindSetting             = "setting"

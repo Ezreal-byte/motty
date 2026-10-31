@@ -6,6 +6,7 @@ var EnglishMessages = Messages{
 	ActionFeedback: englishActionFeedback,
 	Monitor:        englishMonitor,
 	Dashboard:      englishDashboard,
+	SessionLogs:    englishSessionLogs,
 	SFTPWindow: SFTPWindowMessages{
 		LocalPlaces: "Favorites and places", DirectoryFavorites: "Folder favorites", CommonFolders: "Quick access", LocalDrives: "Drives", FavoriteAdd: "Bookmark current folder", FavoriteRemove: "Remove current folder bookmark", FavoriteLimit: "The folder bookmark limit has been reached. Remove an unused bookmark first.",
 		LocalHome: "Home", LocalDesktop: "Desktop", LocalDownloads: "Downloads", LocalDocuments: "Documents", LocalPictures: "Pictures", LocalMusic: "Music", LocalVideos: "Videos", LocalMovies: "Movies", LocalApplications: "Applications",

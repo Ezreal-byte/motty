@@ -95,6 +95,11 @@ const (
 	iconSFTPTransfer
 	iconSFTPBrowseSync
 	iconSFTPProfiles
+	// iconFileClock is the session-log page's glyph; iconClock is the clock the
+	// time-range filter shows beside its value. Both are Lucide sources compiled
+	// by viva icons.
+	iconFileClock
+	iconClock
 	iconPaperclip
 	iconImage
 )
@@ -207,6 +212,8 @@ func (state *State) Paint(canvas *ui.Canvas, size ui.Size) {
 				state.paintKnownHostsWorkspace(canvas, workspace)
 			case sectionSnippets:
 				state.paintSnippetsWorkspace(canvas, workspace)
+			case sectionSessionLogs:
+				state.paintSessionLogsWorkspace(canvas, workspace)
 			default:
 				state.paintHostsWorkspace(canvas, workspace)
 			}
@@ -220,6 +227,7 @@ func (state *State) Paint(canvas *ui.Canvas, size ui.Size) {
 	state.paintLocalShellSelect(canvas)
 	state.paintMonitorIntervalMenu(canvas)
 	state.paintDashboardMenu(canvas)
+	state.paintSessionLogFilters(canvas)
 	state.paintTransferCenter(canvas)
 	// The gallery's select is painted here, outside the workspace's clip and
 	// inside the frame's menu pass, so its popup can leave the page and keeps the
@@ -689,6 +697,7 @@ func (state *State) declareNavigation(f *flex.Frame) {
 	}{
 		{hitHosts, iconHosts, m.NavHosts, state.activeSection == sectionHosts},
 		{hitDashboard, iconActivity, m.Dashboard.Title, state.activeSection == sectionDashboard},
+		{hitSessionLogs, iconFileClock, m.SessionLogs.Title, state.activeSection == sectionSessionLogs},
 		{hitKeychain, iconKey, m.NavKeychain, state.activeSection == sectionKeys},
 		{hitProxies, iconGlobe, m.NavProxies, state.activeSection == sectionProxies},
 		{hitPortForwarding, iconForward, m.NavPortForwarding, state.activeSection == sectionForwards},
@@ -1623,6 +1632,8 @@ var lucideIcons = [...]ui.Icon{
 	iconSFTPTransfer:   icons.SftpTransfer,
 	iconSFTPBrowseSync: icons.SftpSync,
 	iconSFTPProfiles:   icons.SftpProfiles,
+	iconFileClock:      icons.FileClock,
+	iconClock:          icons.Clock3,
 }
 
 func paintIcon(canvas *ui.Canvas, kind uint8, bounds ui.Rect, foreground ui.Color) {
