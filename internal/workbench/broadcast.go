@@ -147,6 +147,8 @@ func (state *State) clickTerminalTools(id ui.ID) bool {
 		state.askDeleteAutofillRule(item(id))
 	case id == hitSettingsHighlightAdd:
 		state.openHighlightDialog()
+	case id == hitSettingsHighlightImport:
+		state.importHighlightRules()
 	case id.Scope() == hitHighlightDeleteList:
 		state.askDeleteHighlightRule(item(id))
 	case id.Scope() == hitSnippetSendList:
