@@ -345,6 +345,17 @@ type Messages struct {
 	Cancel                      string
 	AddHost                     string
 	SaveHost                    string
+	HostTest                    string
+	HostTestRunning             string
+	HostTestNoAddress           string
+	HostTestBrokenRoute         string
+	HostTestConnectedFmt        string
+	HostTestHostKey             string
+	HostTestNoPassword          string
+	HostTestNeedsInput          string
+	HostTestKeyLocked           string
+	HostTestFailedFmt           string
+	HostTestTimeout             string
 	DeleteHostTitle             string
 	DeleteHostDescriptionFmt    string
 	DeleteHostConfirm           string

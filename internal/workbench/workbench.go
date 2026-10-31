@@ -487,6 +487,7 @@ type State struct {
 	tabsClose          tabsClose
 	hostDialogMode     hostDialogMode
 	hostDialogID       uint32
+	hostTest           hostTest
 	hostDialogText     string
 	identityCountText  string
 	forwardCountText   string
@@ -1640,6 +1641,7 @@ func (state *State) clickHostDialog(id ui.ID) {
 	}
 	switch id {
 	case hitDialogDismiss, hitDialogClose, hitDialogCancel:
+		state.cancelHostTest()
 		state.editor.password, state.editor.passphrase = text.Editor{}, text.Editor{}
 		state.modal = modalNone
 		state.dialogError = ""
@@ -1647,6 +1649,8 @@ func (state *State) clickHostDialog(id ui.ID) {
 		state.showNextPrompt()
 	case hitDialogSubmit:
 		state.submitHostDialog()
+	case hitDialogTest:
+		state.startHostTest()
 	case hitHostProxyConfigure:
 		if state.editor.protocol != protocolSerial {
 			state.openHostProxyDialog()
@@ -1658,6 +1662,7 @@ func (state *State) clickHostDialog(id ui.ID) {
 
 // openHostDialog resets the form and shows the modal.
 func (state *State) openHostDialog() {
+	state.cancelHostTest()
 	state.editor.reset()
 	state.hostDialogMode = hostDialogAdd
 	state.hostDialogID = 0

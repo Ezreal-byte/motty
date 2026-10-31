@@ -1750,6 +1750,10 @@ func (state *State) paintHostDialog(canvas *ui.Canvas, viewport ui.Rect) {
 		components.ButtonAction{ID: hitDialogCancel, Label: m.Cancel, Variant: components.ButtonSecondary},
 		components.ButtonAction{ID: hitDialogSubmit, Label: submit},
 	)
+	state.paintHostTest(canvas, theme, layout.Footer, m.Cancel, submit)
+	if state.hostTestAvailable() {
+		form.addStop(hitDialogTest, layout.Footer, false)
+	}
 	form.addStop(hitDialogCancel, layout.Footer, false)
 	form.addStop(hitDialogSubmit, layout.Footer, false)
 	dialog.End()

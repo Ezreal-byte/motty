@@ -614,6 +614,7 @@ func (state *State) Wake() {
 		state.connectRestoredSessions()
 	}
 	state.advanceReconnects()
+	state.pumpHostTest()
 	state.probeLatency()
 	findNow := state.now()
 	for index := range state.sessions {
