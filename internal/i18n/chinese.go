@@ -1086,6 +1086,7 @@ var chineseAISettings = AISettingsMessages{
 	MCPCodeBuddyHint:     "在私有终端执行，将 Motty 注册到 CodeBuddy Code CLI。命令含令牌，会进入 shell 历史。",
 	MCPDeepSeekHint:      "保存为仓库外的 motty.cordis.yml（文件含令牌），然后运行：dsh web --patch ./motty.cordis.yml",
 	MCPOpenCodeHint:      "合并到用户级的 opencode.json（或不会提交的项目文件）。Motty 使用令牌认证，此配置关闭 OAuth。",
+	MCPPiHint:            "合并到用户级的 ~/.pi/agent/mcp.json；只有不提交令牌时才用项目的 .pi/mcp.json，保留已有的其他服务器配置。",
 	MCPQoderHint:         "在 Qoder 设置 → MCP 中，使用此 JSON 配置添加服务器。",
 	MCPTraeHint:          "在 TRAE 设置 → MCP → 添加 → 手动添加中粘贴 JSON。",
 	MCPVSCodeHint:        "合并到用户级 MCP 配置；只有不提交令牌时才用项目的 .vscode/mcp.json。VS Code 使用 servers 字段。",

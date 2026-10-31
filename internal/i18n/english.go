@@ -1086,6 +1086,7 @@ var englishAISettings = AISettingsMessages{
 	MCPCodeBuddyHint:     "Run in a private terminal to register Motty with CodeBuddy Code CLI. The command contains the token, so it enters shell history.",
 	MCPDeepSeekHint:      "Save as motty.cordis.yml outside the repository (the file contains the token), then run: dsh web --patch ./motty.cordis.yml",
 	MCPOpenCodeHint:      "Merge into your user-level opencode.json (or a project file you do not commit). Motty uses a bearer token, so OAuth is disabled.",
+	MCPPiHint:            "Merge into your user-level ~/.pi/agent/mcp.json, or the project's .pi/mcp.json only if you do not commit the token, preserving existing servers.",
 	MCPQoderHint:         "In Qoder Settings > MCP, add a server using this JSON configuration.",
 	MCPTraeHint:          "In TRAE Settings > MCP, choose Add > Manual configuration and paste the JSON.",
 	MCPVSCodeHint:        "Merge into your user-level MCP configuration, or .vscode/mcp.json only if you do not commit the token. VS Code uses the servers key.",
