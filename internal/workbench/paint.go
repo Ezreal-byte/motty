@@ -733,7 +733,7 @@ func (state *State) navigationItem(f *flex.Frame, id ui.ID, icon uint8, label st
 	}
 	f.Row().Height(36).MarginSides(0, 9, below, 9).PadSides(0, 9, 0, 15).Gap(12).Items(flex.Center).Radius(radius.control).Background(fill).
 		HitWith(id, label, ui.HitOptions{Role: ui.RoleMenuItem, Selected: active}).Children(func() {
-		f.Icon(lucideIcons[icon]).Color(pal.text)
+		f.Icon(lucideIcons[icon]).IconTransform(state.iconMotion(f.Canvas(), id, icon)).Color(pal.text)
 		f.Text(label).FontSize(metrics.FontSizeM).Weight(ui.WeightMedium).Color(pal.text)
 	})
 }

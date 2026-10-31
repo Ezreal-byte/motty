@@ -501,6 +501,10 @@ type State struct {
 	forwardLayout, proxyLayout, forwardDialogLayout, proxyDialogLayout flex.View // the Port Forwarding and Proxies pages and their dialogs
 	chrome                                                             chromeLayout
 
+	// iconMotions are the rows whose icon is playing the motion of a click, by
+	// hit id; the painter drops each one when its motion is over (icon_motion.go).
+	iconMotions map[ui.ID]iconMotionRun
+
 	// area: AI panel
 	aiFlex aiFlexViews // the assistant panel's layouts, see ai_panel_paint.go
 
@@ -1136,8 +1140,16 @@ func (state *State) WindowControlsStyle() app.WindowControlsStyle {
 	}
 }
 
-// Click applies one stable hit action.
-func (state *State) Click(id ui.ID) {
+// Click applies one stable hit action and plays the motion of the row's icon.
+func (state *State) Click(id ui.ID) { state.click(id, true) }
+
+// click applies one stable hit action. feedback is false for a hit the user did
+// not make on the control itself, such as a command palette entry standing for a
+// sidebar row: that row's icon stays still, because the row was not chosen.
+func (state *State) click(id ui.ID, feedback bool) {
+	if feedback {
+		state.pressIconMotion(id)
+	}
 	if state.clickDashboard(id) {
 		return
 	}
