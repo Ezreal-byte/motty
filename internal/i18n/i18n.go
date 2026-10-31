@@ -396,6 +396,7 @@ type Messages struct {
 	MenuCloseTabsToRight string
 	MenuDuplicateTab     string
 	MenuRenameTab        string
+	MenuRenameTerminal   string
 	MenuLockTab          string
 	MenuUnlockTab        string
 	// TabLockedHint is the tab's accessible description while it is protected.
@@ -407,6 +408,8 @@ type Messages struct {
 	CloseTabsDescription          string
 	CloseTabsConfirm              string
 	RenameTabTitle                string
+	RenameTerminalTitle           string
+	RenameTerminalPlaceholder     string
 	RenameTabField                string
 	RenameTabPlaceholder          string
 	RenameTabSubmit               string

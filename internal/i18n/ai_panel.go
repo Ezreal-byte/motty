@@ -11,7 +11,11 @@ type AIPanelMessages struct {
 	TargetUnavailable  string
 	TargetLocked       string
 	TargetHint         string
-	Title              string
+	// TargetGroupFmt labels the row that ticks every terminal of a split tab;
+	// tab; TargetLimitFmt says why one more connection was not added.
+	TargetGroupFmt string
+	TargetLimitFmt string
+	Title          string
 	// ToggleTip names the window-bar button; Toggle is the shortcut and command
 	// palette entry.
 	ToggleTip string
