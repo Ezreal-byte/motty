@@ -327,6 +327,8 @@ var (
 	hitTerminalMenuStats       = tree.ID(terminalMenuHits, "terminal-menu-stats")
 	hitLocalTerminal           = tree.ID(terminalMenuHits, "local-terminal")
 	hitTerminalMenuReconnect   = tree.ID(terminalMenuHits, "terminal-menu-reconnect")
+	hitTerminalMenuRestart     = tree.ID(terminalMenuHits, "terminal-menu-restart")
+	hitTerminalMenuDisconnect  = tree.ID(terminalMenuHits, "terminal-menu-disconnect")
 	hitTerminalMenuTransfer    = tree.ID(terminalMenuHits, "terminal-menu-transfer")
 )
 
@@ -485,6 +487,7 @@ type State struct {
 	hostGroupEditor    text.Editor
 	tabRename          tabRename
 	tabsClose          tabsClose
+	sessionLink        sessionLink
 	hostDialogMode     hostDialogMode
 	hostDialogID       uint32
 	ruleDelete         ruleDelete
@@ -1213,6 +1216,9 @@ func (state *State) click(id ui.ID, feedback bool) {
 		return
 	case modalCloseTabs:
 		state.clickCloseTabsDialog(id)
+		return
+	case modalSessionLink:
+		state.clickSessionLinkDialog(id)
 		return
 	case modalHostImportResult:
 		state.clickHostImportResult(id)
@@ -2142,6 +2148,9 @@ func (state *State) key(event ui.KeyEvent) ui.EventResult {
 		return result
 	}
 	if result, handled := state.closeTabsKey(event); handled {
+		return result
+	}
+	if result, handled := state.sessionLinkKey(event); handled {
 		return result
 	}
 	if result, handled := state.terminalFindKey(event); handled {
