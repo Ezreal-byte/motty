@@ -12,8 +12,8 @@ import (
 	"motty/internal/sshconfig"
 )
 
-// Importing the saved sessions of PuTTY, Xshell, MobaXterm, WindTerm and
-// Electerm. The files are read by internal/sessionimport; this file picks them,
+// Importing the saved sessions of PuTTY, Xshell, MobaXterm, WindTerm, Electerm
+// and Netcatty. The files are read by internal/sessionimport; this file picks them,
 // turns their sessions into hosts and shows what came of it in the same result
 // dialog as an OpenSSH config.
 
@@ -30,6 +30,7 @@ var (
 	hitImportSessionsDismiss = tree.ID(sessionImportHits, "import-sessions-dismiss")
 	hitImportWindTerm        = tree.ID(sessionImportHits, "import-wind-term")
 	hitImportElecterm        = tree.ID(sessionImportHits, "import-electerm")
+	hitImportNetcatty        = tree.ID(sessionImportHits, "import-netcatty")
 )
 
 func importClientName(client sessionimport.Client) string {
@@ -42,6 +43,8 @@ func importClientName(client sessionimport.Client) string {
 		return "WindTerm"
 	case sessionimport.Electerm:
 		return "Electerm"
+	case sessionimport.Netcatty:
+		return "Netcatty"
 	}
 	return "MobaXterm"
 }
@@ -58,6 +61,8 @@ func (state *State) clickImportSessions(id ui.ID) {
 		state.importSessions(sessionimport.WindTerm)
 	case hitImportElecterm:
 		state.importSessions(sessionimport.Electerm)
+	case hitImportNetcatty:
+		state.importSessions(sessionimport.Netcatty)
 	case hitImportSessionsCancel, hitImportSessionsClose, hitImportSessionsDismiss:
 		state.modal = modalNone
 	}
@@ -147,6 +152,7 @@ func (state *State) paintImportSessionsDialog(canvas *ui.Canvas, viewport ui.Rec
 		{hitImportMobaXterm, "MobaXterm"},
 		{hitImportWindTerm, "WindTerm"},
 		{hitImportElecterm, "Electerm"},
+		{hitImportNetcatty, "Netcatty"},
 	}
 	const columns = 2
 	rowHeight := components.BeginButton(nil, theme, ui.ID{}, ui.Rect{}).Large().BoundsHeight()
