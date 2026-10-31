@@ -274,6 +274,8 @@ func (state *State) Paint(canvas *ui.Canvas, size ui.Size) {
 		state.paintAutofillDialog(canvas, viewport)
 	case modalAutofillConfirm:
 		state.paintAutofillConfirm(canvas, viewport)
+	case modalDeleteRule:
+		state.paintDeleteRuleDialog(canvas, viewport)
 	case modalSnippet:
 		state.paintSnippetDialog(canvas, viewport)
 	case modalImportSessions:

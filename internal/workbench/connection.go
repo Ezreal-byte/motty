@@ -404,6 +404,7 @@ const (
 	modalToolbarSettings
 	modalSFTPColumns
 	modalTerminalInput
+	modalDeleteRule
 )
 
 // tone colors a session's headline.
@@ -1032,6 +1033,9 @@ func (state *State) closeModal() {
 	}
 	if state.modal == modalAutofillConfirm {
 		state.autofillRules.ask = autofillAsk{}
+	}
+	if state.modal == modalDeleteRule {
+		state.ruleDelete = ruleDelete{}
 	}
 	state.modal = modalNone
 	state.modalSession = 0

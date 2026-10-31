@@ -487,6 +487,7 @@ type State struct {
 	tabsClose          tabsClose
 	hostDialogMode     hostDialogMode
 	hostDialogID       uint32
+	ruleDelete         ruleDelete
 	hostTest           hostTest
 	hostDialogText     string
 	identityCountText  string
@@ -1239,6 +1240,9 @@ func (state *State) click(id ui.ID, feedback bool) {
 		return
 	case modalAutofillConfirm:
 		state.clickAutofillConfirm(id)
+		return
+	case modalDeleteRule:
+		state.clickDeleteRuleDialog(id)
 		return
 	case modalSnippet:
 		state.clickSnippetDialog(id)
