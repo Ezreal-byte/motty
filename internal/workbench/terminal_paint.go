@@ -367,8 +367,9 @@ func (state *State) paintGridWithID(canvas *ui.Canvas, session *Session, geometr
 	t.cache.end(rows)
 	if predicting && cursor.Y < rows {
 		// Typed text the server has not echoed yet, drawn at once over the cursor
-		// cell and the cells after it, muted and underlined so it reads as
-		// provisional. It never enters the terminal's own buffer.
+		// cell and the cells after it, muted so it reads as provisional. It is not
+		// underlined: on a slow link a held key keeps that mark on screen. It never
+		// enters the terminal's own buffer.
 		x := geometry.left + float32(cursor.X)*cellWidth
 		y := geometry.top + float32(cursor.Y)*cellHeight
 		width := float32(predictionCells) * cellWidth
