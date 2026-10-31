@@ -418,6 +418,18 @@ func (panel *aiPanel) targetCaption(canvas *ui.Canvas, title string, size, width
 	return value
 }
 
+// aiTargetListWidth is the open list's width: as wide as its longest row needs
+// (item inset, icon, label and the tick), never beyond 320 or below the select's
+// own minimum.
+func aiTargetListWidth(canvas *ui.Canvas, options []components.SelectItem, size float32) float32 {
+	const chrome, minimum, maximum = 8 + 24 + 40 + 8, 176, 320 // inset, icon and gap, tick column, popup padding
+	widest := float32(0)
+	for _, option := range options {
+		widest = max(widest, canvas.TextWidthWeight(option.Label, size, ui.WeightRegular))
+	}
+	return min(max(widest+chrome, minimum), maximum)
+}
+
 func (state *State) paintAITargetSelect(canvas *ui.Canvas) {
 	panel, m := &state.ai.panel, state.messages.AIPanel
 	bounds := panel.targetBounds
@@ -468,7 +480,7 @@ func (state *State) paintAITargetSelect(canvas *ui.Canvas) {
 	below := max(state.viewport.Height-8-bounds.Y-bounds.Height-4, 0)
 	above := max(bounds.Y-windowBarHeight-8, 0)
 	height := min(float32(8+len(options)*32), max(above, below))
-	content := ui.Rect{X: bounds.X, Y: bounds.Y + bounds.Height + 4, Width: min(320, state.viewport.Width-16), Height: height}
+	content := ui.Rect{X: bounds.X, Y: bounds.Y + bounds.Height + 4, Width: min(aiTargetListWidth(canvas, options, state.Theme().Metrics.FontSizeM), state.viewport.Width-16), Height: height}
 	content.X = min(max(content.X, 8), state.viewport.Width-8-content.Width)
 	if below < height {
 		content.Y = bounds.Y - height - 4
